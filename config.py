@@ -69,6 +69,9 @@ class PlatformConfig:
     brain_event_rotation_bytes: int = 200 * 1024 * 1024
     brain_event_day_warning_bytes: int = int(1.5 * 1024 * 1024 * 1024)
     jsonl_ledger_rotation_bytes: int = 128 * 1024 * 1024
+    neurobrain_receiver_enabled: bool = False
+    neurobrain_inbox_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "inbox.jsonl"
+    neurobrain_status_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
     live_crypto: bool = False
     crypto_live_price_display: bool = False
     crypto_symbols: list[str] = field(default_factory=lambda: ["BTCUSDT", "ETHUSDT", "XRPUSDT"])
@@ -117,6 +120,12 @@ class PlatformConfig:
         default_signals = PROJECT_ROOT / "data" / "platform_signals.jsonl"
         if self.platform_signals_file == default_signals and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "platform_signals_file", self.data_dir / "platform_signals.jsonl")
+        default_neurobrain_inbox = PROJECT_ROOT / "data" / "neurobrain" / "inbox.jsonl"
+        if self.neurobrain_inbox_file == default_neurobrain_inbox and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "neurobrain_inbox_file", self.data_dir / "neurobrain" / "inbox.jsonl")
+        default_neurobrain_status = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
+        if self.neurobrain_status_file == default_neurobrain_status and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "neurobrain_status_file", self.data_dir / "neurobrain" / "status.json")
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -158,6 +167,15 @@ class PlatformConfig:
             jsonl_ledger_rotation_bytes=_env_int(
                 "PANDORICKKI_JSONL_LEDGER_ROTATION_BYTES",
                 128 * 1024 * 1024,
+            ),
+            neurobrain_receiver_enabled=_env_bool("PANDORICKKI_NEUROBRAIN_RECEIVER_ENABLED", False),
+            neurobrain_inbox_file=_env_path(
+                "PANDORICKKI_NEUROBRAIN_INBOX_FILE",
+                data_dir / "neurobrain" / "inbox.jsonl",
+            ),
+            neurobrain_status_file=_env_path(
+                "PANDORICKKI_NEUROBRAIN_STATUS_FILE",
+                data_dir / "neurobrain" / "status.json",
             ),
             live_crypto=_env_bool("PANDORICKKI_LIVE_CRYPTO", False),
             crypto_live_price_display=_env_bool("PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY", False),
@@ -239,6 +257,8 @@ class PlatformConfig:
             warnings.append("Brain event rotation size is below 1 MB; suitable only for tests.")
         if self.jsonl_ledger_rotation_bytes < 1024 * 1024:
             warnings.append("JSONL ledger rotation size is below 1 MB; suitable only for tests.")
+        if self.neurobrain_receiver_enabled:
+            warnings.append("NeuroBrain receiver is enabled in read-only event mirror mode.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -281,6 +301,9 @@ class PlatformConfig:
             brain_event_rotation_bytes=self.brain_event_rotation_bytes,
             brain_event_day_warning_bytes=self.brain_event_day_warning_bytes,
             jsonl_ledger_rotation_bytes=self.jsonl_ledger_rotation_bytes,
+            neurobrain_receiver_enabled=self.neurobrain_receiver_enabled,
+            neurobrain_inbox_file=self.neurobrain_inbox_file,
+            neurobrain_status_file=self.neurobrain_status_file,
             live_crypto=self.live_crypto,
             crypto_live_price_display=self.crypto_live_price_display,
             crypto_symbols=list(self.crypto_symbols),

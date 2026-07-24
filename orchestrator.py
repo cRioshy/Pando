@@ -13,6 +13,7 @@ from adapters.control_center_adapter import ControlCenterAdapter
 from adapters.crypto_adapter import CryptoAdapter
 from adapters.crypto_trade_tracker import CryptoTradeTracker
 from adapters.decision_signal_adapter import DecisionSignalAdapter
+from adapters.neurobrain_receiver_adapter import NeuroBrainReceiverAdapter
 from adapters.outcome_tracker import OutcomeTracker
 from adapters.stock_adapter import StockAdapter
 from adapters.telegram_adapter import TelegramAdapter
@@ -332,6 +333,18 @@ class Orchestrator:
                 outcomes_file=self.config.trade_outcomes_file,
                 evaluation_horizon_seconds=self.config.simulated_outcome_horizon_seconds,
                 ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+            ),
+            *(
+                [
+                    NeuroBrainReceiverAdapter(
+                        self.event_bus,
+                        inbox_file=self.config.neurobrain_inbox_file,
+                        status_file=self.config.neurobrain_status_file,
+                        ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+                    )
+                ]
+                if self.config.neurobrain_receiver_enabled
+                else []
             ),
             CryptoTradeTracker(
                 self.event_bus,
