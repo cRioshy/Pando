@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PandorickKi Control Center</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14;
+      --panel: #121922;
+      --panel-2: #17202b;
+      --line: #283342;
+      --text: #edf3f8;
+      --muted: #9aa9b8;
+      --green: #32d583;
+      --red: #ff5f6d;
+      --blue: #6bb7ff;
+      --shadow: rgba(0, 0, 0, 0.32);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, rgba(255,255,255,0.035), transparent 280px), var(--bg);
+      color: var(--text);
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 22px 0 28px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 760;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .clock {
+      min-width: 92px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .track {
+      width: 50px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255, 95, 109, 0.18);
+      position: relative;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .track::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #f4f7fb;
+      transition: transform 160ms ease;
+    }
+
+    .switch input:checked + .track {
+      background: rgba(50, 213, 131, 0.22);
+      border-color: rgba(50, 213, 131, 0.52);
+    }
+
+    .switch input:checked + .track::after {
+      transform: translateX(22px);
+    }
+
+    .switch-state {
+      min-width: 84px;
+      font-weight: 760;
+      color: var(--red);
+    }
+
+    .switch input:checked ~ .switch-state { color: var(--green); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), #0f151d);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 36px var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.025);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 720;
+      text-transform: uppercase;
+      color: #d8e4ef;
+    }
+
+    .panel-meta {
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bots {
+      grid-column: span 12;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .bot-card {
+      min-height: 152px;
+      padding: 16px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 36px var(--shadow);
+    }
+
+    .bot-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .bot-name {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 18px;
+      font-weight: 760;
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(50, 213, 131, 0.13);
+      flex: 0 0 auto;
+    }
+
+    .is-off .status-dot {
+      background: var(--red);
+      box-shadow: 0 0 0 4px rgba(255, 95, 109, 0.13);
+    }
+
+    .status-pill {
+      padding: 5px 9px;
+      border: 1px solid rgba(50, 213, 131, 0.38);
+      border-radius: 999px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(50, 213, 131, 0.08);
+    }
+
+    .is-off .status-pill {
+      border-color: rgba(255, 95, 109, 0.38);
+      color: var(--red);
+      background: rgba(255, 95, 109, 0.08);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 66px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.13);
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+
+    .value {
+      font-size: 20px;
+      font-weight: 760;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .brain { grid-column: span 5; }
+    .trades { grid-column: span 4; }
+    .market { grid-column: span 3; }
+    .log, .commands { grid-column: span 12; }
+
+    .rows {
+      padding: 10px 14px 14px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 34px;
+      border-bottom: 1px solid rgba(255,255,255,0.055);
+      font-size: 14px;
+    }
+
+    .row:last-child { border-bottom: 0; }
+    .row strong { font-weight: 700; }
+    .row span:last-child {
+      color: #dfe9f2;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .bar {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .bar > i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+    }
+
+    .market-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 14px;
+    }
+
+    .symbol {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.045);
+      font-size: 14px;
+    }
+
+    .signal {
+      justify-self: end;
+      font-weight: 760;
+    }
+
+    .long { color: var(--green); }
+    .hold { color: #e5e7eb; }
+    .short { color: var(--red); }
+
+    .log-list {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .log-item {
+      min-height: 62px;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.14);
+    }
+
+    .time {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 720;
+      margin-bottom: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .event {
+      font-size: 14px;
+      color: #eef5fb;
+    }
+
+    .command-box {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    code {
+      display: block;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.18);
+      color: #eaf6ff;
+      overflow-x: auto;
+    }
+
+    .footer-strip {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.025);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 860px) {
+      .bots, .metrics, .log-list { grid-template-columns: 1fr; }
+      .brain, .trades, .market, .commands { grid-column: span 12; }
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>Pandorick Control Center</h1>
+      <div class="header-actions">
+        <label class="switch" title="Schaltet die ControlCenter-Anzeige fuer den naechsten Start um.">
+          <input id="controlToggle" type="checkbox" checked>
+          <span class="track"></span>
+          <span class="switch-state" id="switchState">AN</span>
+        </label>
+        <div class="clock" id="clock">--:--:--</div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="bots">
+        <article class="bot-card" data-bot-card>
+          <div class="bot-top">
+            <div class="bot-name"><i class="status-dot"></i>Crypto Bot</div>
+            <div class="status-pill" data-status-pill>Online</div>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="label">Laufzeit</div><div class="value" data-uptime="crypto">00:00:00</div></div>
+            <div class="metric"><div class="label">Events</div><div class="value">3</div></div>
+            <div class="metric"><div class="label">Modus</div><div class="value">Test</div></div>
+          </div>
+        </article>
+
+        <article class="bot-card" data-bot-card>
+          <div class="bot-top">
+            <div class="bot-name"><i class="status-dot"></i>Stock Bot</div>
+            <div class="status-pill" data-status-pill>Online</div>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="label">Laufzeit</div><div class="value" data-uptime="stock">00:00:00</div></div>
+            <div class="metric"><div class="label">Symbole</div><div class="value">5</div></div>
+            <div class="metric"><div class="label">Modus</div><div class="value">Paper</div></div>
+          </div>
+        </article>
+      </div>
+
+      <section class="panel brain">
+        <div class="panel-header"><div class="panel-title">Brain</div><div class="panel-meta">Sync aktiv</div></div>
+        <div class="rows">
+          <div class="row"><strong>Crypto Brain</strong><span>bereit</span></div>
+          <div class="row"><strong>Stock Brain</strong><span>bereit</span></div>
+          <div class="row"><strong>Neue Decisions</strong><span>8</span></div>
+          <div class="row"><strong>Learning</strong><span>Dry-run</span></div>
+          <div class="bar"><i style="width: 72%"></i></div>
+        </div>
+      </section>
+
+      <section class="panel trades">
+        <div class="panel-header"><div class="panel-title">Services</div><div class="panel-meta">Parallel</div></div>
+        <div class="rows">
+          <div class="row"><strong>Crypto</strong><span>OK</span></div>
+          <div class="row"><strong>Stock</strong><span>OK</span></div>
+          <div class="row"><strong>Brain</strong><span>OK</span></div>
+          <div class="row"><strong>Telegram</strong><span>Dry-run</span></div>
+        </div>
+      </section>
+
+      <section class="panel market">
+        <div class="panel-header"><div class="panel-title">Markt</div><div class="panel-meta">Signale</div></div>
+        <div class="market-list">
+          <div class="symbol"><strong>BTC</strong><span class="signal hold">WAIT</span></div>
+          <div class="symbol"><strong>ETH</strong><span class="signal hold">WAIT</span></div>
+          <div class="symbol"><strong>XRP</strong><span class="signal hold">WAIT</span></div>
+          <div class="symbol"><strong>AAPL</strong><span class="signal hold">HOLD</span></div>
+          <div class="symbol"><strong>NVDA</strong><span class="signal long">LONG</span></div>
+          <div class="symbol"><strong>TSLA</strong><span class="signal hold">HOLD</span></div>
+        </div>
+      </section>
+
+      <section class="panel commands">
+        <div class="panel-header"><div class="panel-title">An / Aus Startbefehl</div><div class="panel-meta" id="commandMode">ControlCenter AN</div></div>
+        <div class="command-box">
+          <code id="commandText">python main.py --live --control-on</code>
+          <div class="label">Der Schalter speichert deine Auswahl lokal im Browser. Starte PandorickKi mit dem angezeigten Befehl.</div>
+        </div>
+      </section>
+
+      <section class="panel log">
+        <div class="panel-header"><div class="panel-title">Log</div><div class="panel-meta">Letzte Ereignisse</div></div>
+        <div class="log-list">
+          <div class="log-item"><div class="time">Live</div><div class="event">ControlCenter bereit</div></div>
+          <div class="log-item"><div class="time">Async</div><div class="event">Services parallel</div></div>
+          <div class="log-item"><div class="time">Brain</div><div class="event">Decisions gespeichert</div></div>
+          <div class="log-item"><div class="time">Telegram</div><div class="event">Dry-run aktiv</div></div>
+        </div>
+      </section>
+    </section>
+
+    <div class="footer-strip">
+      <span>Projekt: PandorickKi</span>
+      <span id="footerMode">Mode: ControlCenter AN</span>
+      <span>Refresh: 1s</span>
+    </div>
+  </main>
+
+  <script>
+    const startedAt = Date.now();
+    const toggle = document.getElementById("controlToggle");
+    const switchState = document.getElementById("switchState");
+    const commandText = document.getElementById("commandText");
+    const commandMode = document.getElementById("commandMode");
+    const footerMode = document.getElementById("footerMode");
+    const pad = (value) => String(value).padStart(2, "0");
+
+    function formatDuration(totalSeconds) {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+
+    function applySwitchState(enabled) {
+      toggle.checked = enabled;
+      switchState.textContent = enabled ? "AN" : "AUS";
+      commandMode.textContent = enabled ? "ControlCenter AN" : "ControlCenter AUS";
+      footerMode.textContent = enabled ? "Mode: ControlCenter AN" : "Mode: ControlCenter AUS";
+      commandText.textContent = enabled
+        ? "python main.py --live --control-on"
+        : "python main.py --live --control-off";
+      document.querySelectorAll("[data-bot-card]").forEach((card) => card.classList.toggle("is-off", !enabled));
+      document.querySelectorAll("[data-status-pill]").forEach((pill) => {
+        pill.textContent = enabled ? "Online" : "Anzeige aus";
+      });
+      localStorage.setItem("pandorick_control_center_enabled", enabled ? "1" : "0");
+    }
+
+    function tick() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString("de-DE");
+      const uptime = Math.floor((Date.now() - startedAt) / 1000);
+      document.querySelector('[data-uptime="crypto"]').textContent = formatDuration(uptime);
+      document.querySelector('[data-uptime="stock"]').textContent = formatDuration(uptime);
+    }
+
+    toggle.addEventListener("change", () => applySwitchState(toggle.checked));
+    applySwitchState(localStorage.getItem("pandorick_control_center_enabled") !== "0");
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

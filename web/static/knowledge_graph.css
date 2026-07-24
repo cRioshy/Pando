@@ -1,0 +1,418 @@
+.knowledge-panel {
+  --kg-bg: #090d11;
+  --kg-grid: rgba(255, 255, 255, 0.025);
+}
+
+.knowledge-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+
+.knowledge-toolbar input[type="search"] {
+  min-width: 210px;
+  flex: 1 1 240px;
+}
+
+.knowledge-toolbar select {
+  min-width: 130px;
+}
+
+.knowledge-toolbar input[type="range"] {
+  width: 120px;
+}
+
+.knowledge-toolbar label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkbox-line {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.checkbox-line input {
+  min-height: 0;
+}
+
+.knowledge-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.knowledge-diagnostics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.knowledge-stats div,
+.knowledge-diagnostics div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.knowledge-stats span,
+.knowledge-diagnostics span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.knowledge-stats strong,
+.knowledge-diagnostics strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.knowledge-stats strong {
+  font-size: 20px;
+}
+
+.knowledge-diagnostics strong {
+  font-size: 13px;
+}
+
+.knowledge-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+}
+
+.knowledge-graph-shell {
+  position: relative;
+  min-height: 680px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 22% 30%, rgba(57, 213, 255, 0.18), transparent 15%),
+    radial-gradient(circle at 78% 28%, rgba(255, 173, 66, 0.15), transparent 16%),
+    radial-gradient(circle at 50% 51%, rgba(61, 220, 132, 0.16), transparent 17%),
+    radial-gradient(circle at 38% 72%, rgba(181, 140, 255, 0.11), transparent 15%),
+    radial-gradient(circle at 68% 72%, rgba(255, 139, 179, 0.10), transparent 15%),
+    radial-gradient(circle at center, rgba(93, 182, 255, 0.07), transparent 42%),
+    linear-gradient(var(--kg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--kg-grid) 1px, transparent 1px),
+    var(--kg-bg);
+  background-size: auto, auto, auto, auto, auto, auto, 42px 42px, 42px 42px, auto;
+  overflow: hidden;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.42);
+}
+
+.knowledge-graph-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(238, 243, 246, 0.18) 0 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(93, 182, 255, 0.12) 0 1px, transparent 1.3px);
+  background-position: 13px 21px, 39px 7px;
+  background-size: 74px 74px, 121px 121px;
+  opacity: 0.34;
+}
+
+.knowledge-graph-svg,
+.knowledge-graph-canvas {
+  display: block;
+  width: 100%;
+  min-height: 680px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.knowledge-graph-svg:active,
+.knowledge-graph-canvas:active {
+  cursor: grabbing;
+}
+
+.knowledge-graph-canvas canvas {
+  outline: none;
+  filter: drop-shadow(0 0 22px rgba(61, 220, 132, 0.08));
+}
+
+.knowledge-graph-3d {
+  position: relative;
+  overflow: hidden;
+  perspective: 900px;
+  user-select: none;
+}
+
+.knowledge-3d-stage,
+.knowledge-3d-edges,
+.knowledge-3d-nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.knowledge-3d-stage {
+  transform-style: preserve-3d;
+  animation: knowledge3dFadeIn 520ms ease-out both;
+}
+
+.knowledge-3d-edges {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.knowledge-3d-edge {
+  stroke: rgba(167, 185, 202, 0.18);
+  stroke-linecap: round;
+  transition: opacity 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
+}
+
+.knowledge-3d-edge.cross {
+  stroke: rgba(167, 185, 202, 0.08);
+}
+
+.knowledge-3d-edge.focus {
+  stroke: rgba(93, 182, 255, 0.72);
+  opacity: 0.92;
+}
+
+.knowledge-3d-edge.dim {
+  opacity: 0.06;
+}
+
+.knowledge-3d-node {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(238, 243, 246, 0.42);
+  border-radius: 50%;
+  color: #eef3f6;
+  font: 700 10px/1.1 system-ui, sans-serif;
+  letter-spacing: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    inset -8px -10px 14px rgba(0, 0, 0, 0.38),
+    0 0 16px rgba(93, 182, 255, 0.12);
+  cursor: pointer;
+  overflow: visible;
+  transition: opacity 140ms ease, transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.knowledge-3d-node span {
+  min-width: 58px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(7, 11, 15, 0.72);
+  opacity: 0;
+  transform: translateY(-22px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.knowledge-3d-node:hover,
+.knowledge-3d-node.focus {
+  border-color: var(--accent);
+  box-shadow:
+    inset -8px -10px 14px rgba(0, 0, 0, 0.34),
+    0 0 26px rgba(93, 182, 255, 0.55);
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.knowledge-3d-node:hover span,
+.knowledge-3d-node.focus span,
+.knowledge-3d-node.neighbor span {
+  opacity: 1;
+}
+
+.knowledge-3d-node.dim {
+  opacity: 0.18 !important;
+}
+
+.knowledge-3d-axis {
+  position: absolute;
+  right: 14px;
+  top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: rgba(7, 11, 15, 0.72);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+@keyframes knowledge3dFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.knowledge-status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: rgba(9, 13, 17, 0.82);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.knowledge-side {
+  min-width: 0;
+}
+
+.knowledge-legend {
+  display: grid;
+  gap: 8px;
+}
+
+.knowledge-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.knowledge-legend-dot {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+}
+
+.kg-edge {
+  stroke: rgba(163, 177, 189, 0.12);
+  stroke-linecap: round;
+  transition: opacity 160ms ease, stroke 160ms ease, stroke-width 160ms ease;
+}
+
+.kg-edge.dim {
+  opacity: 0.08;
+}
+
+.kg-edge.focus {
+  stroke: rgba(93, 182, 255, 0.78);
+  opacity: 0.95;
+}
+
+.kg-node {
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+.kg-node circle {
+  stroke: rgba(238, 243, 246, 0.78);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 9px rgba(93, 182, 255, 0.10));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: filter 160ms ease, stroke 160ms ease, stroke-width 160ms ease, transform 160ms ease;
+}
+
+.kg-node:hover circle,
+.kg-node.focus circle {
+  stroke: var(--accent);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 15px rgba(93, 182, 255, 0.48));
+  transform: scale(1.08);
+}
+
+.kg-node.selected circle {
+  stroke: var(--warn);
+  stroke-width: 4;
+  filter: drop-shadow(0 0 18px rgba(245, 197, 66, 0.38));
+}
+
+.kg-node.dim {
+  opacity: 0.14;
+}
+
+.kg-label {
+  fill: var(--text);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.kg-label-bg {
+  fill: rgba(9, 13, 17, 0.78);
+  stroke: rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+
+.kg-cluster-label {
+  fill: rgba(222, 232, 238, 0.28);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.kg-node.entering {
+  animation: knowledgeNodeIn 420ms ease-out both;
+}
+
+@keyframes knowledgeNodeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.knowledge-panel.fullscreen {
+  position: fixed;
+  inset: 12px;
+  z-index: 50;
+  overflow: auto;
+  background: var(--panel);
+}
+
+.knowledge-panel.fullscreen .knowledge-graph-shell,
+.knowledge-panel.fullscreen .knowledge-graph-svg,
+.knowledge-panel.fullscreen .knowledge-graph-canvas {
+  min-height: calc(100vh - 250px);
+}
+
+@media (max-width: 980px) {
+  .knowledge-toolbar {
+    align-items: stretch;
+  }
+
+  .knowledge-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .knowledge-diagnostics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .knowledge-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledge-graph-shell,
+  .knowledge-graph-svg,
+  .knowledge-graph-canvas {
+    min-height: 520px;
+  }
+}

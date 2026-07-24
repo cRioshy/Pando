@@ -1,0 +1,7 @@
+{
+	"dependencies": {
+		"sigma": "^3.0.3",
+		"graphology": "^0.26.0",
+		"graphology-layout-forceatlas2": "^0.10.1"
+	}
+}

@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pandorick Control Center</title>
+  <link rel="stylesheet" href="/control_center.css">
+  <link rel="stylesheet" href="/knowledge_graph.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <p class="eyebrow">PANDORICK CONTROL CENTER</p>
+        <h1>Live-System</h1>
+      </div>
+      <div class="connection">
+        <span id="wsState" class="pill">Verbinde...</span>
+        <span id="lastUpdate">-</span>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button data-action="start">Start</button>
+      <button data-action="pause">Pause</button>
+      <button data-action="resume">Weiter</button>
+      <button data-action="restart">Restart</button>
+      <button data-action="stop" class="danger">Stop</button>
+    </section>
+
+    <section class="grid">
+      <article class="panel system">
+        <h2>System</h2>
+        <dl>
+          <dt>Health</dt><dd id="health">-</dd>
+          <dt>Runtime</dt><dd id="runtime">-</dd>
+          <dt>Events</dt><dd id="events">0</dd>
+          <dt>Errors</dt><dd id="errors">0</dd>
+          <dt>Queue</dt><dd id="queue">0</dd>
+        </dl>
+      </article>
+
+      <article class="panel">
+        <h2>Services</h2>
+        <div id="services" class="rows"></div>
+      </article>
+
+      <article class="panel wide">
+        <h2>Crypto</h2>
+        <table>
+          <thead><tr><th>Symbol</th><th>Richtung</th><th>Wahrscheinlichkeit</th><th>Einstieg</th><th>Stop-Loss</th><th>TP1</th><th>P/L %</th><th>Preis</th><th>Zeit</th></tr></thead>
+          <tbody id="cryptoRows"></tbody>
+        </table>
+      </article>
+
+      <article class="panel wide">
+        <h2>Stocks</h2>
+        <table>
+          <thead><tr><th>Symbol</th><th>Richtung</th><th>Wahrscheinlichkeit</th><th>Preis</th><th>Zeit</th></tr></thead>
+          <tbody id="stockRows"></tbody>
+        </table>
+      </article>
+
+      <article class="panel wide">
+        <h2>Commodities</h2>
+        <table>
+          <thead><tr><th>Symbol</th><th>Richtung</th><th>Wahrscheinlichkeit</th><th>Preis</th><th>Zeit</th></tr></thead>
+          <tbody id="commodityRows"></tbody>
+        </table>
+      </article>
+
+      <article class="panel">
+        <h2>Brain</h2>
+        <dl>
+          <dt>Letzte Entscheidung</dt><dd id="brainDecision">-</dd>
+          <dt>Confidence</dt><dd id="brainConfidence">-</dd>
+          <dt>Lernen</dt><dd id="brainLearning">-</dd>
+        </dl>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Learning Report</h2>
+          <button id="refreshLearningReport" class="small">Report aktualisieren</button>
+        </div>
+        <div class="stats-grid learning-report-stats">
+          <div title="Read-only Score aus Trefferquote, Datenmenge, Stabilitaet und nachgewiesenem Brain-Adjustment."><span>Learning Score</span><strong id="learningScore">-</strong></div>
+          <div title="Trefferquote aus eindeutig vorhandenen Ergebnisdaten."><span>Trefferquote</span><strong id="learningHitRate">-</strong></div>
+          <div title="Vergleich erste 1000 gegen letzte 1000 Entscheidungen."><span>Trend</span><strong id="learningTrend">-</strong></div>
+          <div title="Durchschnittliche Confidence aus gespeicherten Decisions."><span>Confidence</span><strong id="learningConfidence">-</strong></div>
+          <div title="Simulierter Durchschnitt aus vorhandenen Stock-Learning-Preisveraenderungen."><span>Profit Simulation</span><strong id="learningProfit">-</strong></div>
+          <div title="Anzahl eindeutiger Outcome-Eintraege."><span>Outcome-Daten</span><strong id="learningOutcomes">-</strong></div>
+          <div title="Gespeicherte Entscheidungen im Report."><span>Entscheidungen</span><strong id="learningDecisions">-</strong></div>
+          <div title="Letzte Berechnung."><span>Update</span><strong id="learningReportUpdated">-</strong></div>
+        </div>
+        <div class="report-grid">
+          <div>
+            <h3>Zeitraeume</h3>
+            <table>
+              <thead><tr><th>Fenster</th><th>Entsch.</th><th>Long</th><th>Hold</th><th>Hit</th><th>Conf.</th><th>Profit</th></tr></thead>
+              <tbody id="learningWindowRows"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3>Confidence-Qualitaet</h3>
+            <table>
+              <thead><tr><th>Confidence</th><th>Daten</th><th>Trefferquote</th></tr></thead>
+              <tbody id="learningConfidenceRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="report-grid">
+          <div>
+            <h3>Maerkte</h3>
+            <table>
+              <thead><tr><th>Markt</th><th>Entsch.</th><th>Hit</th><th>Conf.</th><th>Profit</th></tr></thead>
+              <tbody id="learningMarketRows"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3>Top Symbole</h3>
+            <table>
+              <thead><tr><th>Symbol</th><th>Entsch.</th><th>Hit</th><th>Conf.</th><th>Profit</th></tr></thead>
+              <tbody id="learningSymbolRows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="report-grid">
+          <div>
+            <h3>Indikatoren</h3>
+            <table>
+              <thead><tr><th>Indikator</th><th>Benutzt</th><th>Erfolgreich</th><th>Hit</th></tr></thead>
+              <tbody id="learningIndicatorRows"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3>Warnungen & Empfehlungen</h3>
+            <div id="learningReportNotes" class="rows"></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Learning Graph</h2>
+          <div class="panel-actions">
+            <button data-graph-view="list" class="small active">Liste</button>
+            <button data-graph-view="graph" class="small">Graph</button>
+            <button id="fitLearningGraph" class="small">Alles einpassen</button>
+            <button id="resetLearningGraph" class="small">Ansicht zuruecksetzen</button>
+            <button id="refreshLearningGraph" class="small">Graph aktualisieren</button>
+          </div>
+        </div>
+        <div class="stats-grid graph-stats">
+          <div><span>Knoten</span><strong id="graphNodeCount">0</strong></div>
+          <div><span>Verbindungen</span><strong id="graphEdgeCount">0</strong></div>
+          <div><span>Analysen</span><strong id="graphAnalyses">0</strong></div>
+          <div><span>Muster</span><strong id="graphPatterns">0</strong></div>
+          <div><span>Neue Learnings</span><strong id="graphLearningsToday">0</strong></div>
+          <div><span>Maerkte</span><strong id="graphMarkets">0</strong></div>
+          <div><span>Status</span><strong id="graphStatus">-</strong></div>
+          <div><span>Update</span><strong id="graphUpdated">-</strong></div>
+        </div>
+        <div class="graph-tools">
+          <label for="learningGraphSearch">Suche</label>
+          <input id="learningGraphSearch" type="search" placeholder="BTCUSDT, XRPUSDT, AAPL, EMA, RSI">
+          <button id="searchLearningGraph" class="small">Knoten finden</button>
+          <span id="learningGraphSearchStatus" class="empty">-</span>
+        </div>
+        <div id="learningGraphListView" class="graph-layout">
+          <div>
+            <h3>Knoten</h3>
+            <div id="learningGraphNodes" class="graph-list"></div>
+          </div>
+          <div>
+            <h3>Verbindungen</h3>
+            <div id="learningGraphEdges" class="graph-list"></div>
+          </div>
+        </div>
+        <div id="learningGraphGraphView" class="graph-network-layout hidden">
+          <div class="graph-canvas-shell">
+            <svg id="learningGraphSvg" class="graph-svg" role="img" aria-label="Pandorick Learning Graph Netzwerk"></svg>
+            <div id="learningGraphHint" class="graph-hint">Echte Pandorick-Knoten und Verbindungen</div>
+          </div>
+          <div class="graph-side">
+            <button id="toggleGraphLegend" class="small">Legende</button>
+            <div id="learningGraphLegend" class="graph-legend"></div>
+            <div id="learningGraphLimitNotice" class="empty"></div>
+          </div>
+        </div>
+        <div class="graph-detail-panel">
+          <h3>Details</h3>
+          <div id="learningGraphDetails" class="details empty">Noch kein Knoten ausgewaehlt</div>
+        </div>
+      </article>
+
+      <article class="panel wide knowledge-panel">
+        <div class="panel-head">
+          <h2>Knowledge Graph</h2>
+          <div class="panel-actions">
+            <button id="fitKnowledgeGraph" class="small">Alles einpassen</button>
+            <button id="resetKnowledgeGraph" class="small">Graph zuruecksetzen</button>
+            <button id="refreshKnowledgeGraph" class="small">Graph aktualisieren</button>
+            <button id="toggleKnowledgeFullscreen" class="small">Vollbild</button>
+          </div>
+        </div>
+          <div class="knowledge-toolbar">
+            <button id="knowledgeOverviewMode" class="small">Uebersicht</button>
+            <button id="knowledgeFullMode" class="small">Entwicklergraph</button>
+            <button id="knowledge2DMode" class="small active">2D</button>
+            <button id="knowledge3DMode" class="small">3D</button>
+            <label for="knowledgeGraphSearch">Suche</label>
+          <input id="knowledgeGraphSearch" type="search" placeholder="BTC, NVDA, Brain, RSI">
+          <button id="searchKnowledgeGraph" class="small">Zentrieren</button>
+          <label for="knowledgeGraphTypeFilter">Typ</label>
+          <select id="knowledgeGraphTypeFilter">
+            <option value="">Alle Typen</option>
+          </select>
+          <label for="knowledgeGraphGroupFilter">Cluster</label>
+          <select id="knowledgeGraphGroupFilter">
+            <option value="">Alle Cluster</option>
+          </select>
+          <label class="checkbox-line">
+            <input id="knowledgeGraphNeighborsOnly" type="checkbox">
+            Nur Nachbarn
+          </label>
+          <label for="knowledgeMinEdgeWeight">Kanten</label>
+          <input id="knowledgeMinEdgeWeight" type="range" min="0" max="8" step="0.25" value="0">
+          <span id="knowledgeMinEdgeWeightValue">0</span>
+        </div>
+        <div class="knowledge-stats">
+          <div><span>Knoten</span><strong id="knowledgeNodeCount">0</strong></div>
+          <div><span>Kanten</span><strong id="knowledgeEdgeCount">0</strong></div>
+          <div><span>Version</span><strong id="knowledgeVersion">-</strong></div>
+          <div><span>Update</span><strong id="knowledgeUpdated">-</strong></div>
+        </div>
+        <div class="knowledge-diagnostics">
+          <div><span>Renderer</span><strong id="knowledgeRenderer">-</strong></div>
+          <div><span>Projection</span><strong id="knowledgeProjection">-</strong></div>
+          <div><span>Communities</span><strong id="knowledgeCommunities">0</strong></div>
+          <div><span>FA2 Iterationen</span><strong id="knowledgeFa2Iterations">0</strong></div>
+          <div><span>Layout ms</span><strong id="knowledgeLayoutRuntime">0</strong></div>
+          <div><span>Bounds X</span><strong id="knowledgeBoundsX">-</strong></div>
+          <div><span>Bounds Y</span><strong id="knowledgeBoundsY">-</strong></div>
+          <div><span>Overlaps</span><strong id="knowledgeOverlaps">0</strong></div>
+          <div><span>Isoliert</span><strong id="knowledgeIsolated">0</strong></div>
+          <div><span>Doppelte Pos.</span><strong id="knowledgeDuplicatePositions">0</strong></div>
+        </div>
+        <div class="knowledge-layout">
+          <div id="knowledgeGraphShell" class="knowledge-graph-shell">
+            <svg id="knowledgeGraphSvg" class="knowledge-graph-svg" role="img" aria-label="Pandorick Knowledge Graph"></svg>
+            <div id="knowledgeGraphStatus" class="knowledge-status">Verbinde...</div>
+          </div>
+          <aside class="knowledge-side">
+            <h3>Details</h3>
+            <div id="knowledgeGraphDetails" class="details empty">Noch kein Knoten ausgewaehlt</div>
+            <h3>Legende</h3>
+            <div id="knowledgeGraphLegend" class="knowledge-legend"></div>
+          </aside>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Telegram</h2>
+        <dl>
+          <dt>Enabled</dt><dd id="telegramEnabled">-</dd>
+          <dt>Dry Run</dt><dd id="telegramDryRun">-</dd>
+          <dt>Fertige Nachrichten</dt><dd id="telegramReady">0</dd>
+        </dl>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Trading-Statistik</h2>
+          <span class="section-note">Nur finale Decisions</span>
+        </div>
+        <div class="stats-grid trading-stats">
+          <div title="Alle sicher erkannten Analyse-Events."><span>Analysen gesamt</span><strong id="tradeAnalysesTotal">0</strong></div>
+          <div title="Nur DECISION_CREATED mit LONG."><span>Finale LONG</span><strong id="tradeFinalLong" class="good">0</strong></div>
+          <div title="Nur DECISION_CREATED mit SHORT."><span>Finale SHORT</span><strong id="tradeFinalShort" class="bad">0</strong></div>
+          <div title="Nur finale HOLD- oder WAIT-Decisions."><span>Finale HOLD</span><strong id="tradeFinalHold" class="warn">0</strong></div>
+          <div title="Nur finale WATCHLIST-Decisions."><span>WATCHLIST</span><strong id="tradeWatchlist">0</strong></div>
+          <div title="Maerkte mit aktuellen Live-Daten."><span>Aktive Maerkte</span><strong id="tradeActiveMarkets">0</strong></div>
+          <div title="Gelernte Muster, soweit eindeutig im Statistiksystem vorhanden."><span>Gelernte Muster</span><strong id="tradeLearnedPatterns">-</strong></div>
+          <div title="Trefferquote aus abgeschlossenen simulierten Outcome-Trades."><span>Trefferquote</span><strong id="tradeHitRate">-</strong></div>
+          <div title="Aktuell offene simulierte LONG/SHORT-Trades."><span>Offene Simulationen</span><strong id="tradeSimOpen">0</strong></div>
+          <div title="Abgeschlossene simulierte Trades mit decision_id."><span>Geschlossene Outcomes</span><strong id="tradeSimClosed">0</strong></div>
+          <div title="Gewonnene abgeschlossene simulierte Trades."><span>Sim Wins</span><strong id="tradeSimWins" class="good">0</strong></div>
+          <div title="Verlorene abgeschlossene simulierte Trades."><span>Sim Losses</span><strong id="tradeSimLosses" class="bad">0</strong></div>
+          <div title="Durchschnittlicher P/L abgeschlossener Simulationen."><span>Outcome P/L</span><strong id="tradeAvgOutcomeProfit">-</strong></div>
+          <div title="Durchschnittliche Haltedauer abgeschlossener Simulationen."><span>Haltedauer</span><strong id="tradeAvgHolding">-</strong></div>
+          <div title="AI_LEARNING_UPDATED Events."><span>Erfolgreiche Learnings</span><strong id="tradeSuccessfulLearnings">0</strong></div>
+          <div title="Durchschnitt aus finalen Decision-Confidence-Werten."><span>Confidence-Schnitt</span><strong id="tradeAvgConfidence">-</strong></div>
+          <div title="Durchschnittliche gemeldete Analysezeit."><span>Analysezeit</span><strong id="tradeAvgAnalysisTime">-</strong></div>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Entwickler-Statistik</h2>
+          <span class="section-note">Technik, Events und Diagnose</span>
+        </div>
+        <div class="stats-grid developer-stats">
+          <div title="Technische Analyse-Events, nicht finale Trading-Entscheidungen."><span>Analyse-Events</span><strong id="devAnalysisEvents">0</strong></div>
+          <div title="AI_LEARNING_UPDATED Events."><span>Brain-Updates</span><strong id="devBrainUpdates">0</strong></div>
+          <div title="Gezahlte API-Aufruf-Events, falls ein Modul sie publiziert."><span>API-Aufrufe</span><strong id="devApiCalls">0</strong></div>
+          <div title="Gezahlte Schreib-Events, falls ein Modul sie publiziert."><span>DB-Schreibvorgaenge</span><strong id="devDatabaseWrites">0</strong></div>
+          <div title="Retry-Events werden getrennt erfasst und nicht automatisch als Fehler gezaehlt."><span>Retry-Vorgaenge</span><strong id="devRetries">0</strong></div>
+          <div title="Exception-, Service- oder Systemfehler."><span>Service-Fehler</span><strong id="devServiceErrors" class="bad">0</strong></div>
+          <div title="Datenprobleme wie fehlende Candle oder ungueltiger Preis."><span>Datenwarnungen</span><strong id="devDataWarnings" class="warn">0</strong></div>
+          <div title="Anzahl unterschiedlicher Fehlertypen."><span>Einzigartige Fehlertypen</span><strong id="devUniqueErrors">0</strong></div>
+          <div title="Wiederholungen bereits bekannter Fehlertypen."><span>Wiederholte Fehler</span><strong id="devRepeatedErrors">0</strong></div>
+          <div title="Laufzeit des Web-ControlCenters."><span>Systemlaufzeit</span><strong id="devRuntime">-</strong></div>
+          <div title="Ungefaehre Prozess-CPU seit der letzten Messung."><span>CPU</span><strong id="devCpu">-</strong></div>
+          <div title="Arbeitsspeicher des Pandorick-Prozesses."><span>RAM</span><strong id="devRam">-</strong></div>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Legacy-Statistik</h2>
+          <span class="section-note">Alte Event-Zaehlung zum Vergleich</span>
+        </div>
+        <div class="stats-grid legacy-stats">
+          <div><span>Analysen gesamt</span><strong id="statTotal">0</strong></div>
+          <div><span>Crypto-Analysen</span><strong id="statCrypto">0</strong></div>
+          <div><span>Stock-Analysen</span><strong id="statStocks">0</strong></div>
+          <div><span>Brain-Auswertungen</span><strong id="statBrain">0</strong></div>
+          <div><span>Entscheidungen</span><strong id="statDecisions">0</strong></div>
+          <div><span>Signale</span><strong id="statSignals">0</strong></div>
+          <div><span>LONG alt</span><strong id="statLong">0</strong></div>
+          <div><span>SHORT alt</span><strong id="statShort">0</strong></div>
+          <div><span>HOLD/WAIT alt</span><strong id="statHold">0</strong></div>
+          <div><span>Fehler alt</span><strong id="statErrors">0</strong></div>
+          <div><span>Lernupdates</span><strong id="statLearning">0</strong></div>
+          <div><span>Telegram</span><strong id="statTelegram">0</strong></div>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-head">
+          <h2>Datenspeicher</h2>
+          <button id="refreshStorage" class="small">Datenstatistik aktualisieren</button>
+        </div>
+        <table>
+          <thead><tr><th>Ordner</th><th>Dateien</th><th>Datensätze</th><th>Größe</th><th>Letzte Änderung</th><th>Status</th></tr></thead>
+          <tbody id="storageRows"></tbody>
+        </table>
+        <div id="storageDetails" class="details"></div>
+      </article>
+
+      <article class="panel wide">
+        <h2>Signals</h2>
+        <div id="signals" class="rows"></div>
+      </article>
+
+      <article class="panel wide">
+        <h2>Errors</h2>
+        <div id="errorRows" class="rows"></div>
+      </article>
+    </section>
+  </main>
+  <script src="/control_center.js?v=20260723-live-stability"></script>
+  <script src="/vendor/graphology.umd.min.js?v=sigma-engine-1"></script>
+  <script src="/vendor/sigma.min.js?v=sigma-engine-1"></script>
+    <script src="/knowledge_graph.js?v=sigma-engine-13"></script>
+  <script src="/knowledge_graph_bootstrap.js?v=sigma-engine-3"></script>
+</body>
+</html>

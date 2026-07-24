@@ -1,0 +1,465 @@
+"""Async adapter for the existing Pandorick stock bot."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import importlib.util
+import io
+import sys
+from dataclasses import dataclass, field
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import ModuleType
+from typing import Any
+from uuid import uuid4
+
+from adapters.stock_price_service import StockPriceService
+from event_bus import Event, EventBus
+
+
+STOCK_SERVICE_STARTED = "STOCK_SERVICE_STARTED"
+STOCK_MARKET_DATA_UPDATED = "STOCK_MARKET_DATA_UPDATED"
+STOCK_ANALYSIS_FINISHED = "STOCK_ANALYSIS_FINISHED"
+STOCK_SERVICE_ERROR = "STOCK_SERVICE_ERROR"
+STOCK_SERVICE_STOPPED = "STOCK_SERVICE_STOPPED"
+SERVICE_HEARTBEAT = "SERVICE_HEARTBEAT"
+
+LEGACY_STOCK_MODULE_NAMES = {
+    "brain",
+    "brain_learning",
+    "config",
+    "control_unit",
+    "decision_core",
+    "market",
+    "market_state",
+    "probability",
+    "risk_manager",
+    "sensor_engine",
+    "statistics",
+    "stock_analyse",
+    "stock_brain",
+    "stock_brain_knowledge",
+    "stock_data",
+    "stock_fundamentals",
+    "stock_market_context",
+    "stock_monitor",
+    "stock_patterns",
+    "stock_precedence",
+    "stock_probability",
+    "stock_risk",
+    "stock_storage",
+    "stock_strategy",
+    "telegram",
+    "trade_manager",
+}
+
+
+@dataclass
+class StockAdapterStatus:
+    """Runtime status of the stock adapter."""
+
+    name: str = "stock"
+    running: bool = False
+    healthy: bool = True
+    cycles: int = 0
+    last_error: str | None = None
+    last_event_at: str | None = None
+    published_results: int = 0
+    duplicate_results: int = 0
+    test_mode: bool = False
+    live_price_display: bool = False
+    missing_fields: list[str] = field(default_factory=list)
+
+
+class StockAdapter:
+    """Connect the existing stock bot to the PandorickKi event bus."""
+
+    name = "stock"
+
+    def __init__(
+        self,
+        event_bus: EventBus,
+        stock_project_path: Path,
+        *,
+        test_mode: bool = False,
+        live_price_display: bool = False,
+        suppress_output: bool = True,
+        cycle_timeout_seconds: float = 45.0,
+    ) -> None:
+        self.event_bus = event_bus
+        self.stock_project_path = stock_project_path
+        self.status = StockAdapterStatus()
+        self.status.test_mode = test_mode
+        self.status.live_price_display = live_price_display
+        self.test_mode = test_mode
+        self.live_price_display = live_price_display
+        self.suppress_output = suppress_output
+        self.cycle_timeout_seconds = max(cycle_timeout_seconds, 0.01)
+        self._stock_main: ModuleType | None = None
+        self._config: Any = None
+        self._provider: Any = None
+        self._sensor: Any = None
+        self._temp_dir: TemporaryDirectory[str] | None = None
+        self._seen_keys: set[tuple[str, str, str]] = set()
+        self._correlation_id: str | None = None
+        self._previous_modules: dict[str, ModuleType | None] = {}
+        self._cycle_task: asyncio.Task[list[Any]] | None = None
+        self._price_service = StockPriceService()
+        self._last_live_price_source: str | None = None
+        self._last_live_price_timestamp: str | None = None
+        self._last_price_diagnostics: dict[str, Any] = {}
+
+    async def start(self) -> None:
+        """Load stock bot functions without starting its endless loop."""
+
+        try:
+            self._load_stock_module()
+            self._config = self._build_config()
+            self._provider = self._stock_main.PlaceholderStockDataProvider()
+            self._sensor = self._stock_main.SensorEngine(self._provider)
+            self.status.running = True
+            self.status.healthy = True
+            self.status.last_error = None
+            self._publish(STOCK_SERVICE_STARTED, {"status": "started"})
+        except Exception as exc:
+            self.status.running = False
+            self.status.healthy = False
+            self.status.last_error = str(exc)
+            self._publish(STOCK_SERVICE_ERROR, {"error": str(exc)})
+            raise
+
+    async def stop(self) -> None:
+        """Stop the adapter without touching the existing stock bot files."""
+
+        self.status.running = False
+        self._publish(STOCK_SERVICE_STOPPED, {"status": "stopped"})
+        if self._temp_dir is not None:
+            self._temp_dir.cleanup()
+            self._temp_dir = None
+
+    async def run_once(self) -> list[dict[str, Any]]:
+        """Run one stock cycle and publish normalized analysis events."""
+
+        if not self.status.running:
+            await self.start()
+
+        assert self._stock_main is not None
+        assert self._config is not None
+        assert self._sensor is not None
+        self.status.cycles += 1
+        self._correlation_id = str(uuid4())
+
+        try:
+            decisions = await self._run_stock_with_timeout()
+            if decisions is None:
+                return []
+        except Exception as exc:
+            self.status.healthy = False
+            self.status.last_error = str(exc)
+            self._publish(STOCK_SERVICE_ERROR, {"error": str(exc)})
+            return []
+
+        normalized_results = [self._normalize_decision(decision) for decision in decisions]
+        self._publish(
+            STOCK_MARKET_DATA_UPDATED,
+            {
+                "count": len(normalized_results),
+                "symbols": [item["symbol"] for item in normalized_results],
+            },
+        )
+
+        for result in normalized_results:
+            self._publish_analysis_if_new(result)
+
+        self._publish(SERVICE_HEARTBEAT, {"status": "ok", "cycle": self.status.cycles})
+        self.status.healthy = True
+        self.status.last_error = None
+        return normalized_results
+
+    async def _run_stock_with_timeout(self) -> list[Any] | None:
+        """Run the stock bot without letting slow JSON writes freeze PandorickKi."""
+
+        if self._cycle_task is not None:
+            if not self._cycle_task.done():
+                message = (
+                    "Previous stock cycle is still running; skipping this platform cycle "
+                    "to avoid overlapping stock JSON writes."
+                )
+                self.status.healthy = False
+                self.status.last_error = message
+                self._publish(STOCK_SERVICE_ERROR, {"error": message})
+                return None
+            try:
+                decisions = self._cycle_task.result()
+            finally:
+                self._cycle_task = None
+            return decisions
+
+        self._cycle_task = asyncio.create_task(
+            asyncio.to_thread(self._run_stock_once_sync),
+            name="pandorickki:stock_legacy_run_once",
+        )
+        done, _pending = await asyncio.wait({self._cycle_task}, timeout=self.cycle_timeout_seconds)
+        if not done:
+            message = f"Stock cycle exceeded {self.cycle_timeout_seconds:.1f}s and continues in background."
+            self.status.healthy = False
+            self.status.last_error = message
+            self._publish(STOCK_SERVICE_ERROR, {"error": message})
+            return None
+        try:
+            decisions = self._cycle_task.result()
+        finally:
+            self._cycle_task = None
+        return decisions
+
+    async def health(self) -> dict[str, Any]:
+        """Return adapter health."""
+
+        return {
+            "name": self.status.name,
+            "running": self.status.running,
+            "healthy": self.status.healthy,
+            "cycles": self.status.cycles,
+            "last_error": self.status.last_error,
+            "published_results": self.status.published_results,
+            "duplicate_results": self.status.duplicate_results,
+            "test_mode": self.status.test_mode,
+            "live_price_display": self.status.live_price_display,
+        }
+
+    async def get_status(self) -> dict[str, Any]:
+        """Return current adapter status."""
+
+        data = await self.health()
+        data["last_event_at"] = self.status.last_event_at
+        data["missing_fields"] = list(self.status.missing_fields)
+        return data
+
+    def _load_stock_module(self) -> None:
+        """Load the existing stock main module with its own path priority."""
+
+        if self._stock_main is not None:
+            return
+        main_path = self.stock_project_path / "main.py"
+        if not main_path.exists():
+            raise FileNotFoundError(f"Stock main.py not found: {main_path}")
+
+        inserted = False
+        stock_path = str(self.stock_project_path)
+        self._previous_modules = {
+            name: sys.modules.get(name) for name in LEGACY_STOCK_MODULE_NAMES
+        }
+        for name in LEGACY_STOCK_MODULE_NAMES:
+            sys.modules.pop(name, None)
+
+        if stock_path not in sys.path:
+            sys.path.insert(0, stock_path)
+            inserted = True
+
+        try:
+            spec = importlib.util.spec_from_file_location(
+                "pandorick_stock_bot_main_adapter",
+                main_path,
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot load stock module from {main_path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._stock_main = module
+        finally:
+            if inserted:
+                try:
+                    sys.path.remove(stock_path)
+                except ValueError:
+                    pass
+            self._restore_previous_modules()
+
+    def _restore_previous_modules(self) -> None:
+        """Restore module names after stock imports are bound in the loaded module."""
+
+        for name in LEGACY_STOCK_MODULE_NAMES:
+            previous = self._previous_modules.get(name)
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
+
+    def _build_config(self) -> Any:
+        """Build the stock config for real or test-mode execution."""
+
+        assert self._stock_main is not None
+        if not self.test_mode:
+            return self._stock_main.CONFIG
+
+        self._temp_dir = TemporaryDirectory(prefix="pandorickki_stock_adapter_")
+        data_dir = Path(self._temp_dir.name) / "data_stock"
+        return replace(
+            self._stock_main.CONFIG,
+            history_file=data_dir / "stock_history.json",
+            brain_file=data_dir / "stock_brain.json",
+            decisions_file=data_dir / "stock_decisions.json",
+            logs_file=data_dir / "stock_logs.json",
+            precedence_file=data_dir / "stock_precedence.json",
+            knowledge_file=data_dir / "stock_knowledge.json",
+            patterns_file=data_dir / "stock_patterns.json",
+            weights_file=data_dir / "stock_weights.json",
+            sqlite_file=data_dir / "pandorick_stock.sqlite",
+            sqlite_migration_report_file=data_dir / "sqlite_migration_report.json",
+            use_sqlite_storage=True,
+            backups_dir=data_dir / "backups",
+        )
+
+    def _run_stock_once_sync(self) -> list[Any]:
+        """Run stock `run_once` synchronously with optional output suppression."""
+
+        assert self._stock_main is not None
+        assert self._config is not None
+        assert self._sensor is not None
+        if not self.suppress_output:
+            return self._stock_main.run_once(
+                self._config,
+                self._sensor,
+                self.status.cycles,
+                None,
+            )
+        with contextlib.redirect_stdout(io.StringIO()):
+            return self._stock_main.run_once(
+                self._config,
+                self._sensor,
+                self.status.cycles,
+                None,
+            )
+
+    def _normalize_decision(self, decision: Any) -> dict[str, Any]:
+        """Convert a stock Decision object into the shared market format."""
+
+        raw = decision.to_dict() if hasattr(decision, "to_dict") else {}
+        state = raw.get("state", {}) if isinstance(raw, dict) else {}
+        facts = state.get("facts", {}) if isinstance(state, dict) else {}
+        missing: list[str] = []
+
+        def required(name: str, value: Any) -> Any:
+            if value is None:
+                missing.append(name)
+            return value
+
+        direction = self._map_direction(raw.get("action"))
+        analysis_close = facts.get("close_price") if isinstance(facts, dict) else None
+        display_price = self._fetch_live_stock_price(raw.get("symbol"))
+        price_source = self._last_live_price_source if display_price is not None else "live_unavailable_placeholder_hidden"
+        price_status = "ok" if display_price is not None else ("unavailable" if self.live_price_display else "disabled")
+        price_diagnostics = dict(self._last_price_diagnostics)
+        source_timestamp = required("source_timestamp", raw.get("timestamp"))
+        result = {
+            "market_type": "stock",
+            "symbol": required("symbol", raw.get("symbol")),
+            "timeframe": None,
+            "direction": direction,
+            "strength": raw.get("final_probability"),
+            "probability": raw.get("final_probability"),
+            "facts": state.get("labels", []) if isinstance(state, dict) else [],
+            "indicators": facts if isinstance(facts, dict) else {},
+            "price": display_price,
+            "current_price": display_price,
+            "analysis_close": analysis_close,
+            "price_source": price_source,
+            "price_status": price_status,
+            "price_error": price_diagnostics.get("last_error"),
+            "price_attempts": price_diagnostics.get("attempts", []),
+            "price_timestamp": self._last_live_price_timestamp,
+            "source_timestamp": source_timestamp,
+            "received_at": datetime.now(UTC).isoformat(),
+            "raw_result": raw,
+        }
+        if missing:
+            self.status.missing_fields.extend(missing)
+        return result
+
+    def _fetch_live_stock_price(self, symbol: Any) -> float | None:
+        """Fetch a public stock quote for dashboard display."""
+
+        self._last_live_price_source = None
+        self._last_live_price_timestamp = None
+        self._last_price_diagnostics = {}
+        if not self.live_price_display or not symbol:
+            self._last_price_diagnostics = {
+                "attempts": [],
+                "last_error": "Live stock price display is disabled.",
+            }
+            return None
+        quote = self._price_service.fetch_price(str(symbol))
+        self._last_price_diagnostics = self._price_service.diagnostics()
+        if quote is None:
+            return None
+        self._last_live_price_source = quote.source
+        if quote.timestamp is not None:
+            self._last_live_price_timestamp = datetime.fromtimestamp(quote.timestamp, UTC).isoformat()
+        return quote.price
+
+    def _publish_analysis_finished(self, result: dict[str, Any]) -> None:
+        """Publish one normalized STOCK_ANALYSIS_FINISHED event."""
+
+        event = Event(
+            topic=STOCK_ANALYSIS_FINISHED,
+            source=self.name,
+            payload={
+                "event_type": STOCK_ANALYSIS_FINISHED,
+                "source": self.name,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "symbol": result["symbol"],
+                "timeframe": result["timeframe"],
+                "payload": result,
+                "correlation_id": self._correlation_id,
+            },
+        )
+        event.payload["event_id"] = event.event_id
+        self.event_bus.publish(event)
+
+    def _publish_analysis_if_new(self, result: dict[str, Any]) -> bool:
+        """Publish a normalized result unless its dedupe key was already seen."""
+
+        key = (
+            str(result["symbol"]),
+            str(result["timeframe"]),
+            str(result["source_timestamp"]),
+        )
+        if key in self._seen_keys:
+            self.status.duplicate_results += 1
+            return False
+        self._seen_keys.add(key)
+        self.status.published_results += 1
+        self.status.last_event_at = datetime.now(UTC).isoformat()
+        self._publish_analysis_finished(result)
+        return True
+
+    def _publish(self, event_type: str, payload: dict[str, Any]) -> None:
+        """Publish a stock service event."""
+
+        event = Event(
+            topic=event_type,
+            source=self.name,
+            payload={
+                "event_type": event_type,
+                "source": self.name,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "payload": payload,
+                "correlation_id": self._correlation_id,
+            },
+        )
+        event.payload["event_id"] = event.event_id
+        self.event_bus.publish(event)
+
+    def _map_direction(self, action: Any) -> str | None:
+        """Map stock bot actions to the shared direction vocabulary."""
+
+        normalized = str(action or "").upper()
+        if normalized in {"BUY", "WATCHLIST"}:
+            return "LONG"
+        if normalized in {"SELL", "SHORT"}:
+            return "SHORT"
+        if normalized in {"WAIT", "HOLD"}:
+            return "HOLD"
+        return None

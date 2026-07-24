@@ -1,0 +1,4 @@
+# PandorickKi currently uses Python standard-library services for the core
+# platform and vendors browser graph assets locally under web/static/vendor.
+#
+# Optional external market adapters can be enabled in connected source projects.
