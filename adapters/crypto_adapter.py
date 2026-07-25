@@ -16,6 +16,7 @@ from uuid import uuid4
 
 from adapters.crypto_price_service import CryptoPriceService
 from event_bus import Event, EventBus
+from features.feature_engine import FeatureEngine, FeatureEngineError
 
 
 CRYPTO_SERVICE_STARTED = "CRYPTO_SERVICE_STARTED"
@@ -92,6 +93,7 @@ class CryptoAdapter:
         self._correlation_id: str | None = None
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._price_service = CryptoPriceService()
+        self._feature_engine = FeatureEngine()
         self._last_live_price_source: str | None = None
         self._last_price_diagnostics: dict[str, Any] = {}
 
@@ -316,6 +318,17 @@ class CryptoAdapter:
             price_source = "analysis_close"
             price_status = "fallback_analysis_close"
         price_diagnostics = dict(self._last_price_diagnostics)
+        feature_payload = self._build_feature_payload(
+            market_data=market_data,
+            sensor_values=sensor_values,
+            symbol=market_data.get("symbol") or decision.get("symbol"),
+            optional_context={
+                "open_interest": market_data.get("open_interest"),
+                "funding_rate": market_data.get("funding_rate"),
+                "timeframe": market_data.get("timeframe"),
+                "price_source": price_source,
+            },
+        )
         missing: list[str] = []
 
         def required(name: str, value: Any) -> Any:
@@ -339,6 +352,8 @@ class CryptoAdapter:
             "price_status": price_status,
             "price_error": price_diagnostics.get("last_error"),
             "price_attempts": price_diagnostics.get("attempts", []),
+            "features": feature_payload.get("features"),
+            "feature_error": feature_payload.get("feature_error"),
             "risk": risk,
             "source_timestamp": required("source_timestamp", raw.get("timestamp")),
             "received_at": datetime.now(UTC).isoformat(),
@@ -347,6 +362,41 @@ class CryptoAdapter:
         if missing:
             self.status.missing_fields.extend(missing)
         return result
+
+    def _build_feature_payload(
+        self,
+        *,
+        market_data: dict[str, Any],
+        sensor_values: dict[str, Any],
+        symbol: Any,
+        optional_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Create additive feature data without affecting legacy decisions."""
+
+        candles = market_data.get("candles")
+        if not isinstance(candles, list) or not candles:
+            candles = [
+                {
+                    "open": sensor_values.get("open") or sensor_values.get("close"),
+                    "high": sensor_values.get("high") or sensor_values.get("close"),
+                    "low": sensor_values.get("low") or sensor_values.get("close"),
+                    "close": sensor_values.get("close"),
+                    "volume": sensor_values.get("volume", 0.0),
+                }
+            ]
+        try:
+            features = self._feature_engine.compute(
+                candles,
+                symbol=str(symbol) if symbol else None,
+                market_type="crypto",
+                optional_context=optional_context,
+                include_targets=False,
+            )
+        except FeatureEngineError as exc:
+            return {"features": None, "feature_error": str(exc)}
+        except Exception as exc:
+            return {"features": None, "feature_error": f"Feature engine failed: {exc}"}
+        return {"features": features.to_dict(), "feature_error": None}
 
     def _fetch_live_spot_price(self, symbol: Any) -> float | None:
         """Fetch current public spot ticker price for dashboard display."""

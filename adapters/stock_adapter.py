@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from adapters.stock_price_service import StockPriceService
 from event_bus import Event, EventBus
+from features.feature_engine import FeatureEngine, FeatureEngineError
 
 
 STOCK_SERVICE_STARTED = "STOCK_SERVICE_STARTED"
@@ -108,6 +109,7 @@ class StockAdapter:
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._cycle_task: asyncio.Task[list[Any]] | None = None
         self._price_service = StockPriceService()
+        self._feature_engine = FeatureEngine()
         self._last_live_price_source: str | None = None
         self._last_live_price_timestamp: str | None = None
         self._last_price_diagnostics: dict[str, Any] = {}
@@ -353,6 +355,18 @@ class StockAdapter:
         price_status = "ok" if display_price is not None else ("unavailable" if self.live_price_display else "disabled")
         price_diagnostics = dict(self._last_price_diagnostics)
         source_timestamp = required("source_timestamp", raw.get("timestamp"))
+        feature_payload = self._build_feature_payload(
+            raw=raw,
+            facts=facts if isinstance(facts, dict) else {},
+            symbol=raw.get("symbol"),
+            optional_context={
+                "price_source": price_source,
+                "earnings_flag": facts.get("earnings_flag") if isinstance(facts, dict) else None,
+                "news_impact": facts.get("news_impact") if isinstance(facts, dict) else None,
+                "sector_impact": facts.get("sector_impact") if isinstance(facts, dict) else None,
+                "market_impact": facts.get("market_impact") if isinstance(facts, dict) else None,
+            },
+        )
         result = {
             "market_type": "stock",
             "symbol": required("symbol", raw.get("symbol")),
@@ -370,6 +384,8 @@ class StockAdapter:
             "price_error": price_diagnostics.get("last_error"),
             "price_attempts": price_diagnostics.get("attempts", []),
             "price_timestamp": self._last_live_price_timestamp,
+            "features": feature_payload.get("features"),
+            "feature_error": feature_payload.get("feature_error"),
             "source_timestamp": source_timestamp,
             "received_at": datetime.now(UTC).isoformat(),
             "raw_result": raw,
@@ -377,6 +393,42 @@ class StockAdapter:
         if missing:
             self.status.missing_fields.extend(missing)
         return result
+
+    def _build_feature_payload(
+        self,
+        *,
+        raw: dict[str, Any],
+        facts: dict[str, Any],
+        symbol: Any,
+        optional_context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Create additive feature data from stock candles or latest facts."""
+
+        candles = raw.get("candles") or raw.get("history") or raw.get("price_history")
+        if not isinstance(candles, list) or not candles:
+            close = facts.get("close_price")
+            candles = [
+                {
+                    "open": facts.get("open_price") or close,
+                    "high": facts.get("high_price") or close,
+                    "low": facts.get("low_price") or close,
+                    "close": close,
+                    "volume": facts.get("volume", 0.0),
+                }
+            ]
+        try:
+            features = self._feature_engine.compute(
+                candles,
+                symbol=str(symbol) if symbol else None,
+                market_type="stock",
+                optional_context=optional_context,
+                include_targets=False,
+            )
+        except FeatureEngineError as exc:
+            return {"features": None, "feature_error": str(exc)}
+        except Exception as exc:
+            return {"features": None, "feature_error": f"Feature engine failed: {exc}"}
+        return {"features": features.to_dict(), "feature_error": None}
 
     def _fetch_live_stock_price(self, symbol: Any) -> float | None:
         """Fetch a public stock quote for dashboard display."""
