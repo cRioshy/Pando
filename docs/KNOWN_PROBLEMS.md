@@ -82,15 +82,14 @@ Stand: 26. Juli 2026
 - **Beobachtung:** Standard- und Batchpfade verweisen teilweise auf lokale externe Projekte.
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
 
-### KP-010 – Arbeitsbaum ist noch nicht versioniert
-
-- **Priorität:** hoch
-- **Status:** offen
-- **Beobachtung:** Storage-, UI-, Adapter- und Dokumentationsänderungen liegen lokal und noch nicht als überprüfter Commit im Repository-Verlauf.
-- **Auswirkung:** GitHub beziehungsweise ein frischer Checkout enthält diesen Stand noch nicht.
-- **Nächster Schritt:** Diff und Secret-/Runtime-Scope prüfen, anschließend nur nach ausdrücklicher Freigabe committen und pushen.
-
 ## Behoben oder entschärft
+
+### KP-R04 – Arbeitsstand war nicht auf GitHub veröffentlicht
+
+- **Status:** behoben
+- Commit `38e1ddf` wurde auf `origin/agent/add-market-feature-engine` veröffentlicht.
+- Draft-PR: `https://github.com/cRioshy/Pando/pull/2`
+- Der Stand liegt öffentlich auf dem Branch; die Übernahme nach `main` erfolgt erst durch Merge des PR.
 
 ### KP-R01 – Leere Speicheranzeige während langer Scans
 

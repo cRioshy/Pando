@@ -171,4 +171,4 @@ Früher in diesem Arbeitsstand waren 195/195 Tests erfolgreich. Der jüngste vol
 8. Absolute Windows-Pfade begrenzen die Portabilität.
 9. Feature-Eingangsdaten werden nicht streng genug validiert.
 10. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
-11. Der aktuelle Arbeitsbaum enthält noch nicht commitete Änderungen; Runtime-Daten und Secrets dürfen nicht versehentlich aufgenommen werden.
+11. Der aktuelle Stand ist auf `origin/agent/add-market-feature-engine` veröffentlicht, aber Draft-PR #2 ist noch nicht nach `main` gemergt.

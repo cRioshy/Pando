@@ -1,5 +1,78 @@
 # Session-Handover
 
+## Letzte Aufgabe: Öffentliche Pando-Repo aktualisieren
+
+### Datum und Uhrzeit
+
+26. Juli 2026, 16:32 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den geprüften lokalen Pandorick-Arbeitsstand im öffentlichen GitHub-Repository `cRioshy/Pando` veröffentlichen.
+
+### Durchgeführte Arbeiten
+
+- GitHub CLI unter `C:\Program Files\GitHub CLI\gh.exe` gefunden und Anmeldung als `cRioshy` bestätigt.
+- Vollständigen Scope geprüft: 17 bekannte Projektdateien, keine Runtime-/History-Dateien.
+- Secret-Mustersuche ausgeführt; markierte Treffer waren Konfigurationsfelder beziehungsweise Testwerte, keine veröffentlichten Zugangsdaten.
+- Diff auf Whitespace geprüft und eine Markdown-Trailing-Whitespace-Stelle bereinigt.
+- Commit `38e1ddf` erstellt und auf `origin/agent/add-market-feature-engine` gepusht.
+- Neuen Draft-Pull-Request #2 gegen `main` eröffnet.
+
+### Veränderte Dateien
+
+- `docs/KNOWN_PROBLEMS.md` – Veröffentlichung als erledigt markiert.
+- `docs/NEXT_STEPS.md` – GitHub-Veröffentlichung aus offenen Schritten entfernt.
+- `docs/SESSION_HANDOVER.md` – Veröffentlichung dokumentiert.
+
+### Neue Dateien
+
+- Keine dauerhaften neuen Dateien in diesem Abschlusscommit.
+
+### Ausgeführte Befehle
+
+- `gh --version`, `gh auth status`
+- `git status -sb`, `git diff --check`, `git diff --stat`, `git diff --name-only`
+- Secret-Mustersuche über die 17 Veröffentlichungsdateien
+- explizites `git add` der 17 Dateien
+- `git commit -m "Stabilize storage statistics and add project handover"`
+- `git push -u origin agent/add-market-feature-engine`
+- `gh pr view`, `git fetch origin --prune`, Vergleich zu `origin/main`
+- `gh pr create --draft --base main --head agent/add-market-feature-engine ...`
+
+### Ausgeführte Tests
+
+- In dieser Veröffentlichung keine neue vollständige Suite; verwendet wurden die unmittelbar zuvor dokumentierten Testergebnisse.
+- `git diff --cached --check`: bestanden nach Bereinigung der Markdown-Leerzeichen.
+
+### Tatsächliche Testergebnisse
+
+- Commit: `38e1ddf` (`17 files changed, 1528 insertions, 48 deletions`).
+- Push: erfolgreich, `d313794..38e1ddf` auf `origin/agent/add-market-feature-engine`.
+- Draft-PR: `https://github.com/cRioshy/Pando/pull/2`.
+- Bekannter Teststatus unverändert: jüngster vollständiger Lauf 195 Tests mit einem nicht-deterministischen Windows-Cleanup-Fehler; isolierte Wiederholung 1/1 bestanden.
+
+### Bekannte Fehler
+
+- Storage-Worker-Shutdown-Race, Storage-Timeout und WebSocket-Fallback bleiben offen laut `docs/KNOWN_PROBLEMS.md`.
+- Branch liegt öffentlich vor, ist aber noch nicht nach `main` gemergt.
+
+### Getroffene Architekturentscheidungen
+
+- Keine neue Produktarchitektur.
+- Veröffentlichung erfolgt über Feature-Branch und Draft-PR; `main` wird nicht direkt überschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #2 prüfen und anschließend bewusst mergen.
+- Storage-Worker-Shutdown-Race bleibt der nächste technische Fix.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #2 prüfen. Technisch anschließend einen deterministischen Regressionstest für `StorageStatisticsService.close()` ergänzen und garantieren, dass nach `close()` kein Worker mehr schreibt.
+
+---
+
 ## Letzte Aufgabe: GitHub-Aktualität prüfen
 
 ### Datum und Uhrzeit

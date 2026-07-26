@@ -20,23 +20,18 @@ Stand: 26. Juli 2026
    - Begrenzten Reconnect mit Backoff ergänzen.
    - JSON-Parsing und Rendern lokal absichern.
 
-4. **Aktuellen Arbeitsbaum versionierbar vorbereiten.**
-   - Diff auf Runtime-Daten, Secrets und lokale Pfade prüfen.
-   - Dokumentation und Tests nochmals verifizieren.
-   - Erst nach ausdrücklicher Freigabe committen und zu GitHub pushen.
-
 ## Danach
 
-5. Heartbeat-Stale-Schwelle und klare History-Bezeichnung statt irreführender Queue-Semantik ergänzen.
-6. Feature-Eingangsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup definieren.
-7. Aufbewahrungs- und Archivkonzept entwerfen, ohne bestehende History ungefragt zu löschen.
-8. Portabilität der Legacy-Pfade und Vollständigkeit von `.env.example` verbessern.
+4. Heartbeat-Stale-Schwelle und klare History-Bezeichnung statt irreführender Queue-Semantik ergänzen.
+5. Feature-Eingangsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup definieren.
+6. Aufbewahrungs- und Archivkonzept entwerfen, ohne bestehende History ungefragt zu löschen.
+7. Portabilität der Legacy-Pfade und Vollständigkeit von `.env.example` verbessern.
 
 ## Nur nach gesonderter Architekturfreigabe
 
-9. Fachlichen Decision-Gate-Vertrag mit Fakten-, Risiko-, Confidence- und Konfliktregeln entwerfen.
-10. Telegram ausschließlich an freigegebene finale Ereignisse anbinden.
-11. EventBus entkoppeln und Reihenfolge-, Backpressure- und Shutdown-Semantik festlegen.
+8. Fachlichen Decision-Gate-Vertrag mit Fakten-, Risiko-, Confidence- und Konfliktregeln entwerfen.
+9. Telegram ausschließlich an freigegebene finale Ereignisse anbinden.
+10. EventBus entkoppeln und Reihenfolge-, Backpressure- und Shutdown-Semantik festlegen.
 
 ## Zuletzt erledigt
 
@@ -50,3 +45,4 @@ Stand: 26. Juli 2026
 - Begrenzung der Crypto-/Stock-Feature-Berechnung auf 500 Kerzen.
 - Ergänzte Storage-, Timeout-, Parallelitäts- und UI-Tests.
 - Dauerhafte lokale Übergaberegeln und Ist-Dokumentation angelegt.
+- Öffentlichen Branch `agent/add-market-feature-engine` aktualisiert und Draft-PR #2 eröffnet.
