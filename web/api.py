@@ -120,6 +120,10 @@ class WebControlServer:
         self._event_count = 0
         self._started_at = time.monotonic()
         self._last_cpu_probe: tuple[float, float] | None = None
+        self._last_live_broadcast_at = 0.0
+        self._last_statistics_broadcast_at = 0.0
+        self._live_broadcast_interval_seconds = 0.5
+        self._statistics_broadcast_interval_seconds = 1.0
 
     def start(self) -> None:
         """Start the local web server on a background thread."""
@@ -163,6 +167,7 @@ class WebControlServer:
             self._server.server_close()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
+        self.storage_statistics.close()
         self._server = None
         self._thread = None
         if self._storage_scan_task is not None:
@@ -517,11 +522,10 @@ class WebControlServer:
         return {"learning_report": self.learning_report.report_cached()}
 
     def refresh_storage_statistics(self) -> dict[str, Any]:
-        """Refresh storage statistics and broadcast the new summary."""
+        """Queue a storage scan without blocking the HTTP request."""
 
-        storage = self.storage_statistics.refresh()
-        self._broadcast_statistics_update()
-        return {"ok": True, "storage": storage}
+        result = self.storage_statistics.start_scan(self._storage_scan_completed)
+        return {"ok": True, **result}
 
     def _handle_event(self, event: Event) -> None:
         """Broadcast live events to connected browsers."""
@@ -535,6 +539,11 @@ class WebControlServer:
                 self._broadcast_statistics_update()
             if event.topic not in LIVE_WEB_TOPICS and not event.topic.endswith(("HEARTBEAT", "ERROR")):
                 return
+            now = time.monotonic()
+            throttle_event = event.topic.endswith("HEARTBEAT") or event.topic.endswith("MARKET_DATA_UPDATED")
+            if throttle_event and now - self._last_live_broadcast_at < self._live_broadcast_interval_seconds:
+                return
+            self._last_live_broadcast_at = now
             self._event_count += 1
             self.websocket_manager.broadcast_json(
                 {
@@ -556,6 +565,10 @@ class WebControlServer:
     def _broadcast_statistics_update(self) -> None:
         """Publish and broadcast current statistics."""
 
+        now = time.monotonic()
+        if now - self._last_statistics_broadcast_at < self._statistics_broadcast_interval_seconds:
+            return
+        self._last_statistics_broadcast_at = now
         payload = self.api_statistics()
         self.websocket_manager.broadcast_json(
             {
@@ -658,6 +671,8 @@ class WebControlServer:
     def _start_storage_scan_task(self) -> None:
         """Start periodic async storage scanning when an event loop is running."""
 
+        if self.warm_learning_report:
+            self.storage_statistics.start_scan(self._storage_scan_completed)
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -674,7 +689,12 @@ class WebControlServer:
             await asyncio.sleep(self.storage_statistics.scan_interval_seconds)
             if not self._running:
                 break
-            await self.storage_statistics.refresh_async()
+            self.storage_statistics.start_scan(self._storage_scan_completed)
+
+    def _storage_scan_completed(self, _storage: dict[str, Any]) -> None:
+        """Broadcast a completed background scan while the web server is active."""
+
+        if self._running:
             self._broadcast_statistics_update()
 
     def _log_command(self, command: dict[str, Any]) -> None:
@@ -692,6 +712,8 @@ class WebControlServer:
             for key, item in value.items():
                 key_text = str(key).lower()
                 if any(secret in key_text for secret in ("token", "password", "secret", "api_key")):
+                    continue
+                if key_text in {"raw_result", "features", "training_only", "steps", "candles"}:
                     continue
                 clean[key] = self._sanitize(item)
             return clean

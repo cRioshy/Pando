@@ -10,9 +10,13 @@ import socket
 import sqlite3
 import struct
 import tempfile
+import time
 import unittest
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
+from threading import Event as ThreadEvent
+from unittest.mock import patch
 
 from adapters.control_center_adapter import ControlCenterAdapter
 from config import PlatformConfig
@@ -22,6 +26,7 @@ from shared_state import SharedState
 from web.api import WebControlServer
 from web.statistics_service import (
     AnalysisStatisticsService,
+    StorageScanInterrupted,
     StorageStatisticsService,
     count_csv_rows,
     count_json_records,
@@ -307,6 +312,22 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(folder["status"], "WARN")
             self.assertTrue(folder["errors"])
 
+    def test_large_sqlite_uses_metadata_without_count_query(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(self.make_config(root), storage_large_file_threshold_bytes=1)
+            config.data_dir.mkdir(parents=True)
+            database = config.data_dir / "large.sqlite"
+            database.write_bytes(b"not-a-real-database")
+
+            with patch("web.statistics_service.count_sqlite_rows") as counter:
+                snapshot = StorageStatisticsService(config).refresh()
+
+            counter.assert_not_called()
+            file_info = snapshot["folders"][0]["files"][0]
+            self.assertEqual(file_info["record_count_status"], "metadata_only_large_file")
+            self.assertEqual(file_info["status"], "OK")
+
     def test_backup_file_warning_does_not_mark_folder_warn(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -351,6 +372,209 @@ class StatisticsAndStorageTest(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_storage_cache_is_loaded_after_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            (config.data_dir / "records.jsonl").write_text('{"a":1}\n', encoding="utf-8")
+
+            first = StorageStatisticsService(config)
+            scanned = first.refresh()
+            second = StorageStatisticsService(config)
+            restored = second.snapshot()
+
+            self.assertEqual(scanned["total_records"], 1)
+            self.assertEqual(restored["total_records"], 1)
+            self.assertEqual(restored["scan_status"], "IDLE")
+            self.assertIsNotNone(restored["last_scan"])
+
+    def test_jsonl_append_is_read_from_persisted_offset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(
+                self.make_config(root),
+                storage_large_file_threshold_bytes=1,
+                storage_scan_byte_budget=1024,
+            )
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "records.jsonl"
+            ledger.write_text('{"a":1}\n{"a":2}\n', encoding="utf-8")
+            service = StorageStatisticsService(config)
+            service.refresh()
+            with ledger.open("a", encoding="utf-8") as handle:
+                handle.write('{"a":3}\n')
+
+            updated = service.refresh()
+            file_info = updated["folders"][0]["files"][0]
+
+            self.assertEqual(file_info["record_count"], 3)
+            self.assertEqual(updated["scan"]["records_added"], 1)
+            self.assertEqual(file_info["record_count_status"], "counted")
+
+    def test_incomplete_jsonl_tail_waits_for_newline(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(self.make_config(root), storage_large_file_threshold_bytes=1)
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "records.jsonl"
+            ledger.write_bytes(b'{"a":1}\n{"a":')
+            service = StorageStatisticsService(config)
+
+            partial = service.refresh()["folders"][0]["files"][0]
+            with ledger.open("ab") as handle:
+                handle.write(b'2}\n')
+            complete = service.refresh()["folders"][0]["files"][0]
+
+            self.assertEqual(partial["record_count"], 1)
+            self.assertEqual(partial["status"], "REBUILDING")
+            self.assertEqual(complete["record_count"], 2)
+            self.assertEqual(complete["status"], "OK")
+
+    def test_truncated_jsonl_invalidates_offset_and_rebuilds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(self.make_config(root), storage_large_file_threshold_bytes=1)
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "records.jsonl"
+            ledger.write_text('{"a":1}\n{"a":2}\n', encoding="utf-8")
+            service = StorageStatisticsService(config)
+            service.refresh()
+            ledger.write_text('{"b":9}\n', encoding="utf-8")
+
+            rebuilt = service.refresh()["folders"][0]["files"][0]
+
+            self.assertEqual(rebuilt["record_count"], 1)
+            self.assertTrue(rebuilt["index_invalidated"])
+
+    def test_invalid_jsonl_line_degrades_only_scanner(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            (config.data_dir / "records.jsonl").write_text('{"ok":true}\n{broken}\n', encoding="utf-8")
+
+            snapshot = StorageStatisticsService(config).refresh()
+            file_info = snapshot["folders"][0]["files"][0]
+
+            self.assertEqual(file_info["record_count"], 1)
+            self.assertEqual(file_info["status"], "DEGRADED")
+            self.assertEqual(snapshot["scan_status"], "DEGRADED")
+
+    def test_disappearing_temporary_file_degrades_without_aborting_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            stable = config.data_dir / "stable.jsonl"
+            transient = config.data_dir / "store.sqlite-shm"
+            stable.write_text('{"ok":true}\n', encoding="utf-8")
+            transient.write_bytes(b"temporary")
+            service = StorageStatisticsService(config)
+            original = service._scan_file
+
+            def disappearing(path, *args, **kwargs):
+                if path.name == transient.name:
+                    raise FileNotFoundError(path)
+                return original(path, *args, **kwargs)
+
+            with patch.object(service, "_scan_file", side_effect=disappearing):
+                snapshot = service.refresh()
+
+            self.assertEqual(snapshot["scan_status"], "DEGRADED")
+            self.assertEqual(snapshot["scan"]["files_completed"], 2)
+            self.assertEqual(snapshot["scan"]["files_failed"], 1)
+            self.assertEqual(snapshot["folders"][0]["record_count"], 1)
+
+    def test_scan_timeout_preserves_last_cached_folders(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            (config.data_dir / "records.jsonl").write_text('{"ok":true}\n', encoding="utf-8")
+            service = StorageStatisticsService(config)
+            previous = service.refresh()
+
+            with patch.object(
+                service,
+                "_scan",
+                side_effect=StorageScanInterrupted("TIMEOUT", "test timeout"),
+            ):
+                timed_out = service.refresh()
+
+            self.assertEqual(timed_out["scan_status"], "TIMEOUT")
+            self.assertEqual(timed_out["folders"], previous["folders"])
+            self.assertEqual(timed_out["scan"]["last_error"], "test timeout")
+
+    def test_parallel_background_scan_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            service = StorageStatisticsService(self.make_config(root))
+            entered = ThreadEvent()
+            release = ThreadEvent()
+            original = service._refresh_acquired
+
+            def blocked(scan_id: str) -> dict:
+                entered.set()
+                release.wait(timeout=2)
+                return original(scan_id)
+
+            with patch.object(service, "_refresh_acquired", side_effect=blocked):
+                first = service.start_scan()
+                self.assertTrue(entered.wait(timeout=1))
+                second = service.start_scan()
+                release.set()
+                if service._worker is not None:
+                    service._worker.join(timeout=3)
+                service.close()
+
+            self.assertTrue(first["accepted"])
+            self.assertFalse(second["accepted"])
+            self.assertEqual(second["status"], "RUNNING")
+
+    def test_large_jsonl_uses_bounded_incremental_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(
+                self.make_config(root),
+                storage_large_file_threshold_bytes=32,
+                storage_scan_byte_budget=48,
+            )
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "large.jsonl"
+            ledger.write_text("".join(json.dumps({"i": index}) + "\n" for index in range(50)), encoding="utf-8")
+            service = StorageStatisticsService(config)
+
+            first = service.refresh()
+            file_info = first["folders"][0]["files"][0]
+
+            self.assertLessEqual(first["scan"]["bytes_examined"], 48)
+            self.assertEqual(file_info["status"], "REBUILDING")
+            self.assertLess(file_info["last_offset"], ledger.stat().st_size)
+            self.assertTrue(service.cache_file.exists())
+            self.assertTrue(service.index_file.exists())
+            self.assertFalse(service.cache_file.with_suffix(".json.tmp").exists())
+
+    def test_multiple_small_jsonl_files_share_global_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(
+                self.make_config(root),
+                storage_large_file_threshold_bytes=10_000,
+                storage_scan_byte_budget=48,
+            )
+            config.data_dir.mkdir(parents=True)
+            for name in ("first.jsonl", "second.jsonl"):
+                (config.data_dir / name).write_text(
+                    "".join(json.dumps({"i": index}) + "\n" for index in range(20)),
+                    encoding="utf-8",
+                )
+
+            snapshot = StorageStatisticsService(config).refresh()
+
+            self.assertLessEqual(snapshot["scan"]["bytes_examined"], 48)
+            self.assertEqual(snapshot["scan_status"], "DEGRADED")
+
     def test_api_statistics_and_manual_refresh_are_safe(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:
@@ -378,7 +602,12 @@ class StatisticsAndStorageTest(unittest.TestCase):
                         )
                     )
                     stats = get_json(f"{server.url}/api/statistics")
-                    storage = post_json(f"{server.url}/api/statistics/storage/refresh")
+                    queued = post_json(f"{server.url}/api/statistics/storage/refresh")
+                    deadline = time.monotonic() + 2
+                    storage = queued["storage"]
+                    while storage["scan_status"] == "RUNNING" and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                        storage = get_json(f"{server.url}/api/statistics/storage")["storage"]
                     status_text = json.dumps(get_json(f"{server.url}/api/status"))
                 finally:
                     server.stop()
@@ -390,7 +619,8 @@ class StatisticsAndStorageTest(unittest.TestCase):
                 self.assertEqual(stats["trading"]["simulated_closed_trades"], 1)
                 self.assertEqual(stats["trading"]["simulated_wins"], 1)
                 self.assertEqual(stats["trading"]["hit_rate"], 100.0)
-                self.assertGreaterEqual(storage["storage"]["total_records"], 2)
+                self.assertIn("scan_id", queued)
+                self.assertGreaterEqual(storage["total_records"], 2)
                 self.assertNotIn(str(root), status_text)
                 self.assertNotIn("secret-token", status_text)
 
@@ -458,6 +688,9 @@ class StatisticsUiStateTest(unittest.TestCase):
         self.assertIn("state.statistics = snapshot.statistics", script)
         self.assertIn('data.event.topic === "STATISTICS_UPDATED"', script)
         self.assertIn("state.statistics = data.payload", script)
+        self.assertIn("async function loadStorageSnapshot()", script)
+        self.assertIn("if (state.storageLoading) return", script)
+        self.assertIn("await loadStorageSnapshot()", script)
 
 
 if __name__ == "__main__":

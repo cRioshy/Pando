@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import hashlib
 import json
+import os
 import sqlite3
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import RLock
+from threading import Event as ThreadEvent
+from threading import Lock, RLock, Thread
 from typing import Any
+from uuid import uuid4
 
 from brain_event_store import BrainEventReader
 from config import PlatformConfig
@@ -579,29 +585,96 @@ class StorageTarget:
 
 
 class StorageStatisticsService:
-    """Cached metadata scanner for data folders and files."""
+    """Persistent, single-worker metadata scanner for data folders and files."""
 
     def __init__(self, config: PlatformConfig, *, scan_interval_seconds: float = 60.0) -> None:
         self.config = config
         self.scan_interval_seconds = max(scan_interval_seconds, 5.0)
+        self.scan_timeout_seconds = max(float(config.storage_scan_timeout_seconds), 1.0)
+        self.large_file_threshold_bytes = max(int(config.storage_large_file_threshold_bytes), 1)
+        self.scan_byte_budget = max(int(config.storage_scan_byte_budget), 1)
+        statistics_dir = config.project_root / "storage" / "statistics"
+        self.cache_file = statistics_dir / "storage_statistics.json"
+        self.index_file = statistics_dir / "storage_file_index.json"
         self._lock = RLock()
-        self._snapshot: dict[str, Any] = self._empty_snapshot()
+        self._scan_lock = Lock()
+        self._cancel_event = ThreadEvent()
+        self._worker: Thread | None = None
+        self._index: dict[str, dict[str, Any]] = self._load_json_file(self.index_file, {}).get("files", {})
+        cached = self._load_json_file(self.cache_file, {})
+        self._snapshot = cached if self._valid_snapshot(cached) else self._empty_snapshot()
+        if cached:
+            self._snapshot["scan_status"] = "IDLE"
+            self._snapshot.setdefault("scan", self._empty_scan_status())["status"] = "IDLE"
 
     async def refresh_async(self) -> dict[str, Any]:
-        """Run a blocking scan in a worker thread."""
+        """Run a synchronous compatibility refresh outside the event loop."""
 
         return await asyncio.to_thread(self.refresh)
 
     def refresh(self) -> dict[str, Any]:
-        """Scan configured storage targets and cache the result."""
+        """Run one scan synchronously when no background scan is active."""
 
-        snapshot = self._scan()
-        with self._lock:
-            self._snapshot = snapshot
-        return snapshot
+        if not self._scan_lock.acquire(blocking=False):
+            return self.snapshot()
+        scan_id = str(uuid4())
+        try:
+            return self._refresh_acquired(scan_id)
+        finally:
+            self._scan_lock.release()
+
+    def start_scan(
+        self,
+        on_complete: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        """Start one background scan and return immediately with its identity."""
+
+        if not self._scan_lock.acquire(blocking=False):
+            current = self.snapshot()
+            return {
+                "accepted": False,
+                "scan_id": current.get("scan", {}).get("scan_id"),
+                "status": "RUNNING",
+                "storage": current,
+            }
+
+        scan_id = str(uuid4())
+        self._cancel_event.clear()
+        self._begin_scan(scan_id)
+        self._worker = Thread(
+            target=self._background_scan,
+            args=(scan_id, on_complete),
+            name="pandorickki-storage-scanner",
+            daemon=True,
+        )
+        self._worker.start()
+        return {
+            "accepted": True,
+            "scan_id": scan_id,
+            "status": "RUNNING",
+            "storage": self.snapshot(),
+        }
+
+    def cancel_scan(self) -> dict[str, Any]:
+        """Request cooperative cancellation of the active scan."""
+
+        self._cancel_event.set()
+        current = self.snapshot()
+        return {
+            "scan_id": current.get("scan", {}).get("scan_id"),
+            "status": current.get("scan_status", "IDLE"),
+        }
+
+    def close(self) -> None:
+        """Request scanner shutdown without delaying platform shutdown."""
+
+        self._cancel_event.set()
+        worker = self._worker
+        if worker is not None and worker.is_alive():
+            worker.join(timeout=1.0)
 
     def snapshot(self) -> dict[str, Any]:
-        """Return the last cached storage snapshot."""
+        """Return the last cached storage snapshot and current scan state."""
 
         with self._lock:
             return json.loads(json.dumps(self._snapshot, ensure_ascii=True))
@@ -643,10 +716,80 @@ class StorageStatisticsService:
                 seen.add(resolved)
         return targets
 
-    def _scan(self) -> dict[str, Any]:
-        """Scan all targets."""
+    def _background_scan(
+        self,
+        scan_id: str,
+        on_complete: Callable[[dict[str, Any]], None] | None,
+    ) -> None:
+        """Run a scan in the dedicated daemon worker."""
 
-        folders = [self._scan_target(target) for target in self.targets()]
+        try:
+            result = self._refresh_acquired(scan_id)
+        finally:
+            self._scan_lock.release()
+        if on_complete is not None:
+            try:
+                on_complete(result)
+            except Exception:
+                pass
+
+    def _refresh_acquired(self, scan_id: str) -> dict[str, Any]:
+        """Run one cooperatively bounded scan while the single-scan lock is held."""
+
+        self._begin_scan(scan_id)
+        started_at = datetime.now(UTC)
+        deadline = time.monotonic() + self.scan_timeout_seconds
+        progress = {
+            "files_total": 0,
+            "files_completed": 0,
+            "files_failed": 0,
+            "bytes_examined": 0,
+            "records_added": 0,
+        }
+        try:
+            snapshot = self._scan(deadline, progress)
+            status = "DEGRADED" if progress["files_failed"] or snapshot.pop("_partial", False) else "OK"
+            finished_at = datetime.now(UTC)
+            scan = {
+                "scan_id": scan_id,
+                "status": status,
+                "scan_started_at": started_at.isoformat(),
+                "scan_finished_at": finished_at.isoformat(),
+                "duration_seconds": round((finished_at - started_at).total_seconds(), 3),
+                **progress,
+                "last_error": None,
+            }
+            snapshot["scan_status"] = status
+            snapshot["scan"] = scan
+            with self._lock:
+                self._snapshot = snapshot
+            self._persist_index()
+            self._atomic_write_json(self.cache_file, snapshot)
+            return self.snapshot()
+        except StorageScanInterrupted as exc:
+            self._persist_index()
+            return self._finish_interrupted_scan(scan_id, started_at, progress, exc.status, str(exc))
+        except Exception as exc:  # noqa: BLE001 - scanner failure must not affect live services
+            self._persist_index()
+            return self._finish_interrupted_scan(scan_id, started_at, progress, "ERROR", str(exc))
+
+    def _scan(self, deadline: float, progress: dict[str, int]) -> dict[str, Any]:
+        """Scan all targets with one global byte budget."""
+
+        target_files: list[tuple[StorageTarget, list[Path]]] = []
+        for target in self.targets():
+            self._check_interrupted(deadline)
+            files = [target.path] if target.path.is_file() else [
+                item for item in target.path.rglob("*") if item.is_file()
+            ]
+            target_files.append((target, files))
+            progress["files_total"] += len(files)
+
+        remaining_budget = [self.scan_byte_budget]
+        folders = [
+            self._scan_target(target, files, deadline, progress, remaining_budget)
+            for target, files in target_files
+        ]
         total_files = sum(folder["file_count"] for folder in folders)
         total_records = sum(folder["record_count"] or 0 for folder in folders)
         total_size = sum(folder["total_size_bytes"] for folder in folders)
@@ -658,15 +801,43 @@ class StorageStatisticsService:
             "total_size_bytes": total_size,
             "total_size_human": human_size(total_size),
             "folders": folders,
+            "_partial": any(folder["status"] == "DEGRADED" for folder in folders),
         }
 
-    def _scan_target(self, target: StorageTarget) -> dict[str, Any]:
+    def _scan_target(
+        self,
+        target: StorageTarget,
+        files: list[Path],
+        deadline: float,
+        progress: dict[str, int],
+        remaining_budget: list[int],
+    ) -> dict[str, Any]:
         """Scan one folder or single file target."""
 
-        files = [target.path] if target.path.is_file() else [
-            item for item in target.path.rglob("*") if item.is_file()
-        ]
-        file_stats = [self._scan_file(path, target.root) for path in files]
+        file_stats = []
+        for path in files:
+            self._check_interrupted(deadline)
+            try:
+                item = self._scan_file(path, target.root, deadline, progress, remaining_budget)
+            except OSError as exc:
+                item = {
+                    "name": path.name,
+                    "relative_path": safe_relative(path, target.root),
+                    "is_backup": is_backup_path(path),
+                    "file_type": path.suffix.lower().lstrip(".") or "unknown",
+                    "size_bytes": 0,
+                    "size_human": "0 B",
+                    "modified_at": None,
+                    "record_count": None,
+                    "record_count_status": "unavailable",
+                    "log_lines": None,
+                    "status": "DEGRADED",
+                    "error": str(exc),
+                }
+            file_stats.append(item)
+            progress["files_completed"] += 1
+            if item.get("error"):
+                progress["files_failed"] += 1
         production_errors = [
             item["error"]
             for item in file_stats
@@ -680,6 +851,7 @@ class StorageStatisticsService:
         total_size = sum(item["size_bytes"] for item in file_stats)
         record_counts = [item["record_count"] for item in file_stats if item["record_count"] is not None]
         modified_values = [item["modified_at"] for item in file_stats if item["modified_at"]]
+        partial = any(item.get("status") in {"DEGRADED", "REBUILDING", "TIMEOUT", "ERROR"} for item in file_stats)
         type_counts: dict[str, int] = {}
         for item in file_stats:
             type_counts[item["file_type"]] = type_counts.get(item["file_type"], 0) + 1
@@ -692,15 +864,23 @@ class StorageStatisticsService:
             "total_size_human": human_size(total_size),
             "last_modified_at": max(modified_values) if modified_values else None,
             "file_types": type_counts,
-            "status": "OK" if not production_errors else "WARN",
+            "status": "WARN" if production_errors else ("DEGRADED" if partial else "OK"),
             "errors": production_errors[:10],
             "backup_warnings": backup_warnings[:10],
             "files": file_stats,
         }
 
-    def _scan_file(self, path: Path, root: Path) -> dict[str, Any]:
+    def _scan_file(
+        self,
+        path: Path,
+        root: Path,
+        deadline: float,
+        progress: dict[str, int],
+        remaining_budget: list[int],
+    ) -> dict[str, Any]:
         """Scan one file without exposing contents."""
 
+        self._check_interrupted(deadline)
         suffix = path.suffix.lower()
         stat = path.stat()
         result = {
@@ -719,27 +899,256 @@ class StorageStatisticsService:
         }
         try:
             if suffix == ".jsonl":
-                if should_skip_large_jsonl_record_scan(path, stat.st_size):
-                    result["record_count_status"] = "skipped_large_jsonl"
-                else:
-                    result["record_count"] = count_jsonl(path)
-                    result["record_count_status"] = "counted"
+                jsonl = self._scan_jsonl(path, stat, deadline, progress, remaining_budget)
+                result.update(jsonl)
             elif suffix == ".csv":
-                result["record_count"] = count_csv_rows(path)
-                result["record_count_status"] = "counted"
+                if stat.st_size > self.large_file_threshold_bytes:
+                    result["record_count_status"] = "metadata_only_large_file"
+                else:
+                    result["record_count"] = count_csv_rows(path)
+                    result["record_count_status"] = "counted"
+                    progress["bytes_examined"] += stat.st_size
             elif suffix == ".json":
                 result["record_count"] = count_json_records(path, stat.st_size)
                 result["record_count_status"] = "counted" if result["record_count"] is not None else "not_clear"
+                if result["record_count"] is not None:
+                    progress["bytes_examined"] += stat.st_size
             elif suffix in {".sqlite", ".sqlite3", ".db"}:
-                result["record_count"] = count_sqlite_rows(path)
-                result["record_count_status"] = "counted"
+                if stat.st_size > self.large_file_threshold_bytes:
+                    result["record_count_status"] = "metadata_only_large_file"
+                else:
+                    result["record_count"] = count_sqlite_rows(path)
+                    result["record_count_status"] = "counted"
             elif suffix in {".log", ".txt"} or "log" in path.name.lower():
-                result["log_lines"] = count_lines(path)
+                if stat.st_size > self.large_file_threshold_bytes:
+                    result["record_count_status"] = "metadata_only_large_file"
+                else:
+                    result["log_lines"] = count_lines(path)
+                    progress["bytes_examined"] += stat.st_size
+            self._check_interrupted(deadline)
         except Exception as exc:  # noqa: BLE001 - scanner must not stop on damaged files
+            if isinstance(exc, StorageScanInterrupted):
+                raise
             result["status"] = "WARN"
             result["error"] = str(exc)
             result["record_count"] = None
         return result
+
+    def _scan_jsonl(
+        self,
+        path: Path,
+        stat: os.stat_result,
+        deadline: float,
+        progress: dict[str, int],
+        remaining_budget: list[int],
+    ) -> dict[str, Any]:
+        """Incrementally count complete JSONL lines from the persisted byte offset."""
+
+        key = str(path.resolve())
+        previous_fingerprint_bytes = int(previous.get("fingerprint_bytes") or 0) if (previous := self._index.get(key, {})) else 0
+        fingerprint_bytes = previous_fingerprint_bytes if previous else min(stat.st_size, 4096)
+        head_hash = self._file_head_hash(path, fingerprint_bytes)
+        file_id = int(getattr(stat, "st_ino", 0) or 0)
+        same_identity = bool(previous) and previous.get("head_hash") == head_hash
+        previous_file_id = int(previous.get("file_id") or 0)
+        if file_id and previous_file_id and file_id != previous_file_id:
+            same_identity = False
+        previous_offset = int(previous.get("last_offset") or 0)
+        if stat.st_size < previous_offset:
+            same_identity = False
+
+        offset = previous_offset if same_identity else 0
+        record_count = int(previous.get("record_count") or 0) if same_identity else 0
+        invalidated = bool(previous) and not same_identity
+        unchanged = (
+            same_identity
+            and int(previous.get("size_bytes") or -1) == stat.st_size
+            and int(previous.get("mtime_ns") or -1) == stat.st_mtime_ns
+            and previous.get("status") in {"OK", "DEGRADED"}
+        )
+        if unchanged:
+            return {
+                "record_count": record_count,
+                "record_count_status": "indexed",
+                "status": "OK" if previous.get("status") == "OK" else "DEGRADED",
+                "error": previous.get("last_error"),
+            }
+
+        available = max(stat.st_size - offset, 0)
+        allowed = min(available, max(remaining_budget[0], 0))
+        if allowed <= 0 and available > 0:
+            self._index[key] = self._index_entry(
+                path, stat, head_hash, fingerprint_bytes, file_id, offset, record_count, "REBUILDING", None
+            )
+            return {
+                "record_count": record_count if previous else None,
+                "record_count_status": "rebuilding",
+                "status": "REBUILDING",
+                "error": None,
+            }
+
+        examined = 0
+        added = 0
+        invalid_lines = 0
+        committed_offset = offset
+        carry = b""
+        with path.open("rb") as handle:
+            handle.seek(offset)
+            while examined < allowed:
+                self._check_interrupted(deadline)
+                chunk = handle.read(min(1024 * 1024, allowed - examined))
+                if not chunk:
+                    break
+                examined += len(chunk)
+                data = carry + chunk
+                newline = data.rfind(b"\n")
+                if newline < 0:
+                    carry = data
+                    continue
+                complete = data[: newline + 1]
+                carry = data[newline + 1 :]
+                committed_offset = handle.tell() - len(carry)
+                for raw_line in complete.splitlines():
+                    if not raw_line.strip():
+                        continue
+                    try:
+                        json.loads(raw_line.decode("utf-8"))
+                        added += 1
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        invalid_lines += 1
+
+        record_count += added
+        progress["bytes_examined"] += examined
+        progress["records_added"] += added
+        remaining_budget[0] = max(remaining_budget[0] - examined, 0)
+        complete_file = committed_offset >= stat.st_size
+        status = "DEGRADED" if invalid_lines else ("OK" if complete_file else "REBUILDING")
+        error = f"{invalid_lines} invalid JSONL line(s) skipped" if invalid_lines else None
+        self._index[key] = self._index_entry(
+            path,
+            stat,
+            head_hash,
+            fingerprint_bytes,
+            file_id,
+            committed_offset,
+            record_count,
+            status,
+            error,
+        )
+        return {
+            "record_count": record_count,
+            "record_count_status": "counted" if complete_file else "rebuilding",
+            "status": status,
+            "error": error,
+            "index_invalidated": invalidated,
+            "last_offset": committed_offset,
+        }
+
+    def _index_entry(
+        self,
+        path: Path,
+        stat: os.stat_result,
+        head_hash: str,
+        fingerprint_bytes: int,
+        file_id: int,
+        offset: int,
+        record_count: int,
+        status: str,
+        error: str | None,
+    ) -> dict[str, Any]:
+        return {
+            "path": str(path),
+            "size_bytes": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+            "file_id": file_id,
+            "head_hash": head_hash,
+            "fingerprint_bytes": fingerprint_bytes,
+            "last_offset": offset,
+            "record_count": record_count,
+            "last_successful_scan": datetime.now(UTC).isoformat() if status in {"OK", "DEGRADED"} else None,
+            "status": status,
+            "last_error": error,
+        }
+
+    def _file_head_hash(self, path: Path, fingerprint_bytes: int) -> str:
+        with path.open("rb") as handle:
+            return hashlib.sha256(handle.read(max(fingerprint_bytes, 0))).hexdigest()
+
+    def _begin_scan(self, scan_id: str) -> None:
+        now = datetime.now(UTC).isoformat()
+        with self._lock:
+            self._snapshot["scan_status"] = "RUNNING"
+            self._snapshot["scan"] = {
+                "scan_id": scan_id,
+                "status": "RUNNING",
+                "scan_started_at": now,
+                "scan_finished_at": None,
+                "duration_seconds": None,
+                "files_total": 0,
+                "files_completed": 0,
+                "files_failed": 0,
+                "bytes_examined": 0,
+                "records_added": 0,
+                "last_error": None,
+            }
+
+    def _finish_interrupted_scan(
+        self,
+        scan_id: str,
+        started_at: datetime,
+        progress: dict[str, int],
+        status: str,
+        error: str,
+    ) -> dict[str, Any]:
+        finished_at = datetime.now(UTC)
+        with self._lock:
+            self._snapshot["scan_status"] = status
+            self._snapshot["scan"] = {
+                "scan_id": scan_id,
+                "status": status,
+                "scan_started_at": started_at.isoformat(),
+                "scan_finished_at": finished_at.isoformat(),
+                "duration_seconds": round((finished_at - started_at).total_seconds(), 3),
+                **progress,
+                "last_error": error,
+            }
+            snapshot = json.loads(json.dumps(self._snapshot, ensure_ascii=True))
+        if self._valid_snapshot(snapshot) and snapshot.get("folders"):
+            self._atomic_write_json(self.cache_file, snapshot)
+        return snapshot
+
+    def _check_interrupted(self, deadline: float) -> None:
+        if self._cancel_event.is_set():
+            raise StorageScanInterrupted("CANCELLED", "Storage scan cancelled")
+        if time.monotonic() >= deadline:
+            raise StorageScanInterrupted("TIMEOUT", "Storage scan timed out")
+
+    def _persist_index(self) -> None:
+        self._atomic_write_json(
+            self.index_file,
+            {"version": 1, "updated_at": datetime.now(UTC).isoformat(), "files": self._index},
+        )
+
+    def _atomic_write_json(self, path: Path, payload: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        text = json.dumps(payload, indent=2, ensure_ascii=True)
+        json.loads(text)
+        with temporary.open("w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+
+    def _load_json_file(self, path: Path, default: dict[str, Any]) -> dict[str, Any]:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return dict(default)
+        return data if isinstance(data, dict) else dict(default)
+
+    def _valid_snapshot(self, snapshot: dict[str, Any]) -> bool:
+        return isinstance(snapshot, dict) and isinstance(snapshot.get("folders"), list)
 
     def _empty_snapshot(self) -> dict[str, Any]:
         """Return an empty storage snapshot."""
@@ -752,7 +1161,32 @@ class StorageStatisticsService:
             "total_size_bytes": 0,
             "total_size_human": "0 B",
             "folders": [],
+            "scan_status": "IDLE",
+            "scan": self._empty_scan_status(),
         }
+
+    def _empty_scan_status(self) -> dict[str, Any]:
+        return {
+            "scan_id": None,
+            "status": "IDLE",
+            "scan_started_at": None,
+            "scan_finished_at": None,
+            "duration_seconds": None,
+            "files_total": 0,
+            "files_completed": 0,
+            "files_failed": 0,
+            "bytes_examined": 0,
+            "records_added": 0,
+            "last_error": None,
+        }
+
+
+class StorageScanInterrupted(RuntimeError):
+    """Cooperative storage scan cancellation or timeout."""
+
+    def __init__(self, status: str, message: str) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 def count_jsonl(path: Path) -> int:

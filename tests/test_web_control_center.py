@@ -283,9 +283,12 @@ class WebControlCenterTest(unittest.TestCase):
             cwd=PROJECT_ROOT,
             text=True,
             capture_output=True,
-            timeout=30,
+            timeout=60,
             env={
                 **os.environ,
+                # One symbol is sufficient for this CLI smoke test and keeps it
+                # independent of variable legacy-market analysis duration.
+                "PANDORICKKI_CRYPTO_SYMBOLS": "BTCUSDT",
                 "PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY": "0",
                 "PANDORICKKI_STOCK_TEST_MODE": "1",
                 "PANDORICKKI_STOCK_LIVE_PRICE_DISPLAY": "0",

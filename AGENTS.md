@@ -1,0 +1,55 @@
+# Arbeitsregeln für Codex
+
+Diese Datei gilt für das gesamte Repository `PandorickKi`.
+
+## Verbindlicher Start jeder Aufgabe
+
+Vor jeder Analyse, Planung, Änderung oder Ausführung muss Codex in dieser Reihenfolge vollständig lesen:
+
+1. `docs/CURRENT_SYSTEM_STATE.md`
+2. `docs/SESSION_HANDOVER.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/KNOWN_PROBLEMS.md`
+5. `docs/NEXT_STEPS.md`
+
+Danach muss Codex die tatsächliche Repository-Struktur und die für die Aufgabe relevanten Codepfade prüfen. Frühere Chats und Übergabedokumente sind Orientierung, aber niemals alleinige Wahrheitsquelle. Bei Widersprüchen haben der aktuelle Code, die aktuelle Konfiguration und reproduzierbare Testergebnisse Vorrang.
+
+## Verbindlicher Abschluss jeder Aufgabe
+
+- Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.
+- Bei Architekturänderungen zusätzlich `docs/CURRENT_SYSTEM_STATE.md` und `docs/ARCHITECTURE.md` aktualisieren.
+- Neue sowie weiterhin bestehende Fehler in `docs/KNOWN_PROBLEMS.md` eintragen oder aktualisieren.
+- Erledigte, verworfene und neue Aufgaben in `docs/NEXT_STEPS.md` nachführen.
+- Testergebnisse nur als bestanden dokumentieren, wenn die genannten Befehle tatsächlich ausgeführt wurden.
+- Nicht abgeschlossene oder nicht verifizierte Arbeiten ausdrücklich kennzeichnen.
+
+`docs/SESSION_HANDOVER.md` muss mindestens enthalten:
+
+- Datum und Uhrzeit
+- Ziel der Aufgabe
+- durchgeführte Arbeiten
+- veränderte Dateien
+- neue Dateien
+- ausgeführte Befehle
+- ausgeführte Tests
+- tatsächliche Testergebnisse
+- bekannte Fehler
+- getroffene Architekturentscheidungen
+- nicht abgeschlossene Punkte
+- exakter nächster sinnvoller Arbeitsschritt
+
+## Sicherheits- und Änderungsregeln
+
+- Keine bestehenden Projektdaten, History-Dateien, Lerndaten, Tokens, Secrets oder lokalen Konfigurationen löschen, leeren oder überschreiben.
+- Keine echten Trades und keine automatische Orderausführung aktivieren oder ergänzen.
+- Telegram bleibt ohne ausdrückliche Freigabe deaktiviert beziehungsweise im Dry-Run.
+- Runtime-Verzeichnisse wie `data/`, `storage/`, `runtime_logs/` und `backups/` nur lesen, wenn dies für die konkrete Aufgabe erforderlich ist; niemals ungefragt bereinigen.
+- Keine Zugangsdaten in Dokumentation, Tests, Logs, Commits oder Browser-Payloads übernehmen.
+- Änderungen klein, nachvollziehbar und mit passenden Tests durchführen.
+- Bestehende fremde Änderungen im Arbeitsbaum erhalten und nicht zurücksetzen.
+- Externe Legacy-Projekte nur über Adapter anbinden; nicht ungefragt verändern.
+- Vor destruktiven Aktionen Ziel und Umfang eindeutig verifizieren und erforderliche Freigaben einholen.
+
+## Projektgrenzen
+
+PandorickKi ist eine lokale Analyse-, Integrations-, Simulations- und Beobachtungsplattform. Der Kern führt keine Börsenorders aus. Modulnamen wie `Brain`, `Decision Core` oder `Learning` dürfen nicht als Beleg für nicht implementierte KI-, Freigabe- oder Trainingslogik interpretiert werden. Dokumentation muss die tatsächliche Implementierung beschreiben.
