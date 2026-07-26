@@ -1,0 +1,155 @@
+# PandorickKi – Ist-Architektur
+
+Stand: 26. Juli 2026
+
+Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
+
+## Systemkontext
+
+```mermaid
+flowchart LR
+    CE["Externes Crypto-Projekt"] --> CA["CryptoAdapter"]
+    SE["Externes Stock-Projekt"] --> SA["StockAdapter"]
+    CP["Optionale Commodity-Quelle"] --> CO["CommodityAdapter"]
+    FE["FeatureEngine"] --> CA
+    FE --> SA
+    CA --> EB["Synchroner In-Process EventBus"]
+    SA --> EB
+    CO --> EB
+    EB --> BA["BrainAdapter: persistieren und weiterleiten"]
+    BA --> EB
+    EB --> DC["DecisionSignalAdapter: normalisieren und persistieren"]
+    DC --> EB
+    EB --> OT["OutcomeTracker: Simulation"]
+    EB --> CT["CryptoTradeTracker: Simulation"]
+    EB --> TG["Telegram: Dry-Run oder optionaler Versand"]
+    EB --> NB["NeuroBrainReceiver: lokale read-only Inbox"]
+    EB --> CC["ControlCenterAdapter"]
+    OR["Orchestrator"] --> SS["SharedState"]
+    OR --> HM["HealthMonitor"]
+    SS --> CC
+    HM --> CC
+    CC --> WEB["ThreadingHTTPServer + WebSocket + Browser UI"]
+    LEDGER["JSON/JSONL/SQLite-Historie"] --> ST["Statistik, Reports und Graphprojektion"]
+    ST --> CACHE["Persistenter Storage-/Report-Cache"]
+    CACHE --> WEB
+```
+
+## Prozess- und Lebenszyklusmodell
+
+`main.py` erzeugt den `Orchestrator` und startet abhängig von den CLI-Argumenten einen einzelnen oder kontinuierlichen Lauf. `Orchestrator.start()` startet Adapter sequentiell. Pro Zyklus werden deren `run_once()`-Methoden als AsyncIO-Tasks erstellt und mit `asyncio.gather()` gemeinsam abgewartet. Ein allgemeiner Timeout um alle Adaptertasks existiert nicht.
+
+Im Webmodus erzeugt `main.py` zusätzlich `WebControlServer`. Der HTTP-Server läuft als `ThreadingHTTPServer` in einem Hintergrundthread. Periodische Webaufgaben laufen im vorhandenen AsyncIO-Loop; der Storage-Scanner verwendet zusätzlich genau einen eigenen Workerthread.
+
+## Adapter- und Ereignisfluss
+
+```mermaid
+sequenceDiagram
+    participant Source as Externe Marktquelle
+    participant Market as Marktadapter
+    participant Feature as FeatureEngine
+    participant Bus as EventBus
+    participant Brain as BrainAdapter
+    participant Decision as DecisionSignalAdapter
+    participant Tracker as Outcome/Trade Tracker
+    participant View as Control Center/Statistik
+    participant Telegram as TelegramAdapter
+
+    Source->>Market: Analyse und OHLCV
+    Market->>Feature: optionale Feature-Berechnung
+    Feature-->>Market: live_features ohne Targets
+    Market->>Bus: MARKET_DATA_UPDATED
+    Market->>Bus: ANALYSIS_FINISHED
+    Bus->>Brain: abgeschlossene Analyse
+    Brain->>Brain: rotierende JSONL-Persistenz
+    Brain->>Bus: BRAIN_DECISION_RECEIVED
+    Brain->>Bus: AI_LEARNING_UPDATED
+    Bus->>Decision: Brain-Payload
+    Decision->>Decision: normalisieren, IDs und Ledger
+    Decision->>Bus: DECISION_CREATED
+    Decision->>Bus: SIGNAL_CREATED
+    Bus->>Tracker: simulierten Trade öffnen/aktualisieren
+    Bus->>View: Status, Märkte, Statistik und Graph
+    Bus->>Telegram: Analyse/Trade direkt
+```
+
+Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron im veröffentlichenden Thread aus. Seine `queue_size()` ist die Größe der begrenzten History-Deque und keine Arbeitsqueue.
+
+## Komponentenverantwortung
+
+| Komponente | Tatsächliche Verantwortung | Nicht implementiert |
+|---|---|---|
+| `CryptoAdapter` | Externe Crypto-Analyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
+| `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
+| `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
+| `FeatureEngine` | Technische Features und optionale historische Targets | ML-Training, strikte Datenqualitätsverträge |
+| `BrainAdapter` | Rotierende Analysepersistenz und Folgeereignisse | Eigene KI-Inferenz oder Faktenprüfung |
+| `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
+| `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |
+| `CryptoTradeTracker` | Simulierte Crypto-Trades | Reale Orders |
+| `NeuroBrainReceiverAdapter` | Read-only Datei-Inbox und Duplikatschutz | Rückkanal in Decision Core |
+| `TelegramAdapter` | Dry-Run oder optionaler Nachrichtenversand | Zwingende finale Decision-Freigabe |
+| `ControlCenterAdapter` | Kompakte Event-/Statussicht | Stale-Heartbeat-Klassifikation |
+
+## Persistenzarchitektur
+
+```mermaid
+flowchart TD
+    EVENTS["Plattformereignisse"] --> BRAIN["Brain JSONL, datums-/größenrotiert"]
+    EVENTS --> DEC["Decision JSONL, größenrotiert"]
+    EVENTS --> SIG["Signal JSONL, größenrotiert"]
+    EVENTS --> OUT["Outcome JSONL, größenrotiert"]
+    EVENTS --> NEURO["NeuroBrain Inbox JSONL"]
+    OPEN["Offene simulierte Trades"] --> JSON["Atomar ersetztes JSON"]
+    BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
+    SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
+    SCAN --> INDEX["storage_file_index.json"]
+    SCAN --> SNAP["storage_statistics.json"]
+    INDEX -->|"Offsets und Dateiidentität"| SCAN
+    SNAP --> API["Storage API und Control Center"]
+```
+
+Der Scanner lädt beim Start den letzten Cache. `start_scan()` akzeptiert nur einen laufenden Scan, arbeitet im Hintergrund und liefert unmittelbar Scan-ID und Status zurück. JSONL-Dateien werden binär ab dem persistierten Offset gelesen; unvollständige letzte Zeilen werden erst nach einem Zeilenabschluss übernommen. Schrumpfung oder Austausch einer Datei setzt den Index zurück. Große SQLite-, JSON-, CSV- und Logdateien werden nur per Metadaten erfasst. Cache und Index werden über temporäre Dateien und `os.replace()` atomar ersetzt.
+
+Timeout, Abbruch und einzelne verschwundene Dateien beenden nicht die Verfügbarkeit des letzten Caches. Der reale Datenbestand verursacht derzeit trotzdem noch `TIMEOUT`; die Ursache ist noch zu untersuchen.
+
+`close()` setzt aktuell das Abbruchsignal und wartet höchstens eine Sekunde auf den Worker. Ein Testlauf zeigte, dass der Thread danach noch Cache-/Indexdateien schreiben kann. Shutdown und Besitz der Zielverzeichnisse sind deshalb noch nicht zuverlässig synchronisiert.
+
+## Webarchitektur
+
+```mermaid
+flowchart LR
+    API["HTTP JSON API"] --> UI["Control Center"]
+    WS["/ws/live"] --> UI
+    STATIC["Lokale HTML/CSS/JS/Vendor-Dateien"] --> UI
+    STATE["SharedState + ControlCenterAdapter"] --> API
+    STATS["Analyse-/Storage-Statistik"] --> API
+    GRAPH["Learning/Knowledge Graph"] --> API
+    RICK["Read-only Rick API + Audit"] --> API
+```
+
+Die Web-API sanitiziert öffentliche Payloads und entfernt Secrets sowie große interne Felder. Markt-/Heartbeat-Broadcasts und Statistikupdates werden gedrosselt. Der Storage-Refresh antwortet asynchron mit HTTP `202`.
+
+Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage-Snapshots werden single-flight geladen. Lokale Skripte verwenden `defer` und Cache-Buster. Ein belastbarer WebSocket-Reconnect sowie idempotente Polling-Timer fehlen noch.
+
+## Sicherheitsgrenzen
+
+- Keine reale Orderausführung im Kern.
+- Webserver standardmäßig nur lokal binden.
+- Telegram standardmäßig deaktiviert und im Dry-Run.
+- Rick- und Steuerendpunkte bei externer Freigabe zusätzlich absichern.
+- Secrets ausschließlich über lokale Umgebungskonfiguration bereitstellen.
+- Runtime-Historien, Lerndaten und Tokens nicht löschen oder veröffentlichen.
+- Externe Legacy-Projekte bleiben außerhalb dieses Repositories und werden nur adaptiert.
+
+## Bekannte Architekturgrenzen
+
+- Synchroner EventBus ohne Backpressure.
+- Kein allgemeiner Timeout um jeden Adapterzyklus.
+- Kein fachlich unabhängiges Decision-Gate.
+- Telegram liegt nicht strikt hinter finalen Decisions.
+- Keine zentrale Retention-Policy für den gesamten Runtime-Bestand.
+- Absolute Windows-Pfade begrenzen Portabilität.
+- Storage-Scans können trotz inkrementellem Index das Zeitlimit überschreiten.
+- Der Storage-Worker kann den derzeit einsekündigen Shutdown-Join überleben.
+- Health zeigt Heartbeats, klassifiziert aber keine veralteten Services.

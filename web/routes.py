@@ -61,7 +61,7 @@ class RouteMixin:
             self._send_json({"error": "read-only api"}, HTTPStatus.METHOD_NOT_ALLOWED)
             return
         if path == "/api/statistics/storage/refresh":
-            self._send_json(self.server.app.refresh_storage_statistics())
+            self._send_json(self.server.app.refresh_storage_statistics(), HTTPStatus.ACCEPTED)
             return
         prefix = "/api/control/"
         if not path.startswith(prefix):

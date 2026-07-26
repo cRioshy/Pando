@@ -13,6 +13,7 @@ const state = {
   pollTimer: null,
   socket: null,
   statistics: null,
+  storageLoading: false,
   dragNodeId: null,
   svgPan: { x: 0, y: 0 },
   svgZoom: 1,
@@ -298,6 +299,14 @@ function renderLearningReport(report) {
 function renderStorage(storage) {
   const body = $("storageRows");
   body.innerHTML = "";
+  const scan = (storage && storage.scan) || {};
+  const scanStatus = scan.status || (storage && storage.scan_status) || "IDLE";
+  const completed = scan.files_total ? ` ${scan.files_completed || 0}/${scan.files_total} Dateien` : "";
+  const duration = scan.duration_seconds != null ? ` | ${scan.duration_seconds}s` : "";
+  const scanElement = $("storageScanStatus");
+  if (scanElement) {
+    scanElement.textContent = `Scan: ${scanStatus}${completed}${duration}`;
+  }
   const folders = (storage && storage.folders) || [];
   if (!folders.length) {
     const tr = document.createElement("tr");
@@ -319,6 +328,19 @@ function renderStorage(storage) {
     tr.addEventListener("click", () => loadStorageFolder(folder.name));
     body.appendChild(tr);
   });
+}
+
+async function loadStorageSnapshot() {
+  if (state.storageLoading) return;
+  state.storageLoading = true;
+  try {
+    const response = await fetch("/api/statistics/storage", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Storage load failed");
+    renderStorage(data.storage);
+  } finally {
+    state.storageLoading = false;
+  }
 }
 
 function renderStorageDetails(folder) {
@@ -1121,10 +1143,7 @@ function render(snapshot) {
 
   renderStatistics(statistics);
   if (statistics && statistics.storage) {
-    fetch("/api/statistics/storage", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => renderStorage(data.storage))
-      .catch(() => {});
+    loadStorageSnapshot().catch(() => {});
   }
   if (state.learningGraph) {
     renderLearningGraph(state.learningGraph);
@@ -1169,7 +1188,7 @@ async function loadStatistics() {
   state.statistics = data;
   renderStatistics(data);
   if (data.storage) {
-    renderStorage(data.storage);
+    await loadStorageSnapshot();
   }
 }
 

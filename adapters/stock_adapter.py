@@ -416,6 +416,8 @@ class StockAdapter:
                     "volume": facts.get("volume", 0.0),
                 }
             ]
+        else:
+            candles = candles[-500:]
         try:
             features = self._feature_engine.compute(
                 candles,

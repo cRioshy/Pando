@@ -342,6 +342,7 @@
           <h2>Datenspeicher</h2>
           <button id="refreshStorage" class="small">Datenstatistik aktualisieren</button>
         </div>
+        <div id="storageScanStatus" class="muted">Scan: IDLE</div>
         <table>
           <thead><tr><th>Ordner</th><th>Dateien</th><th>Datensätze</th><th>Größe</th><th>Letzte Änderung</th><th>Status</th></tr></thead>
           <tbody id="storageRows"></tbody>
@@ -360,10 +361,10 @@
       </article>
     </section>
   </main>
-  <script src="/control_center.js?v=20260723-live-stability"></script>
-  <script src="/vendor/graphology.umd.min.js?v=sigma-engine-1"></script>
-  <script src="/vendor/sigma.min.js?v=sigma-engine-1"></script>
-    <script src="/knowledge_graph.js?v=sigma-engine-13"></script>
-  <script src="/knowledge_graph_bootstrap.js?v=sigma-engine-3"></script>
+  <script defer src="/vendor/graphology.umd.min.js?v=20260725-page-load-v1"></script>
+  <script defer src="/vendor/sigma.min.js?v=20260725-page-load-v1"></script>
+  <script defer src="/knowledge_graph.js?v=20260725-page-load-v1"></script>
+  <script defer src="/knowledge_graph_bootstrap.js?v=20260725-page-load-v1"></script>
+  <script defer src="/control_center.js?v=20260725-storage-scan-v4"></script>
 </body>
 </html>

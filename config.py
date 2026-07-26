@@ -86,6 +86,9 @@ class PlatformConfig:
     control_refresh_seconds: float = 1.0
     event_bus_max_history: int = 2000
     storage_scan_interval_seconds: float = 60.0
+    storage_scan_timeout_seconds: float = 30.0
+    storage_large_file_threshold_bytes: int = 50 * 1024 * 1024
+    storage_scan_byte_budget: int = 256 * 1024
     adapter_error_backoff_seconds: float = 5.0
     adapter_cycle_timeout_seconds: float = 45.0
     stop_timeout_seconds: float = 2.0
@@ -197,6 +200,15 @@ class PlatformConfig:
             control_refresh_seconds=_env_float("PANDORICKKI_CONTROL_REFRESH", 1.0),
             event_bus_max_history=_env_int("PANDORICKKI_EVENT_BUS_MAX_HISTORY", 2000),
             storage_scan_interval_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_INTERVAL", 60.0),
+            storage_scan_timeout_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_TIMEOUT", 30.0),
+            storage_large_file_threshold_bytes=_env_int(
+                "PANDORICKKI_STORAGE_LARGE_FILE_THRESHOLD_BYTES",
+                50 * 1024 * 1024,
+            ),
+            storage_scan_byte_budget=_env_int(
+                "PANDORICKKI_STORAGE_SCAN_BYTE_BUDGET",
+                256 * 1024,
+            ),
             adapter_error_backoff_seconds=_env_float("PANDORICKKI_ERROR_BACKOFF", 5.0),
             adapter_cycle_timeout_seconds=_env_float("PANDORICKKI_ADAPTER_CYCLE_TIMEOUT", 45.0),
             stop_timeout_seconds=_env_float("PANDORICKKI_STOP_TIMEOUT", 2.0),
@@ -251,6 +263,12 @@ class PlatformConfig:
             warnings.append("EventBus max history below 100; suitable only for tests.")
         if self.storage_scan_interval_seconds < 5.0:
             warnings.append("Storage scan interval below 5 seconds; minimum runtime value is 5.")
+        if self.storage_scan_timeout_seconds < 1.0:
+            warnings.append("Storage scan timeout below 1 second; minimum practical value is 1.")
+        if self.storage_large_file_threshold_bytes < 1024 * 1024:
+            warnings.append("Storage large-file threshold below 1 MB; suitable only for tests.")
+        if self.storage_scan_byte_budget < 64 * 1024:
+            warnings.append("Storage scan byte budget below 64 KB; suitable only for tests.")
         if self.adapter_cycle_timeout_seconds < 1.0:
             warnings.append("Adapter cycle timeout below 1 second; minimum practical value is 1.")
         if self.brain_event_rotation_bytes < 1024 * 1024:
@@ -318,6 +336,9 @@ class PlatformConfig:
             control_refresh_seconds=self.control_refresh_seconds,
             event_bus_max_history=self.event_bus_max_history,
             storage_scan_interval_seconds=self.storage_scan_interval_seconds,
+            storage_scan_timeout_seconds=self.storage_scan_timeout_seconds,
+            storage_large_file_threshold_bytes=self.storage_large_file_threshold_bytes,
+            storage_scan_byte_budget=self.storage_scan_byte_budget,
             adapter_error_backoff_seconds=self.adapter_error_backoff_seconds,
             adapter_cycle_timeout_seconds=self.adapter_cycle_timeout_seconds,
             stop_timeout_seconds=self.stop_timeout_seconds,
