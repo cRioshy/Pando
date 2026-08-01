@@ -60,9 +60,10 @@ Stand: 1. August 2026
    - Neue Decision-/Signal-Events und beide Ledger verwenden Version 1 ohne `raw_result`; alle IDs bleiben erhalten.
    - 32/32 gezielte und 223/223 vollständige Tests bestanden.
    - Commit `ed89a01` veröffentlicht; gestapelter Draft-PR #12 gegen `agent/compact-brain-payloads` erstellt und nicht gemergt.
-   - **NeuroBrain-Persistenz am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - **NeuroBrain-Persistenz am 1. August 2026 implementiert und veröffentlicht.**
    - Neue Inboxzeilen behalten ihre Kopfsicht und enthalten als Detailpayload nur Version 1; alte Inboxzeilen bleiben unverändert.
    - 18/18 gezielte und 224/224 vollständige Tests bestanden.
+   - Commit `5d32bc7` veröffentlicht; gestapelter Draft-PR #13 gegen `agent/compact-decision-signal-payloads` erstellt und nicht gemergt.
    - Nach Veröffentlichung vollständigen gestapelten Stand kontrolliert neu starten und neue Persistenzzeilen read-only verifizieren.
    - Bestehende History unverändert lesbar lassen.
 
@@ -88,6 +89,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Neue NeuroBrain-Inboxzeilen auf Version 1 umgestellt; Kopfsicht, ID-Kette, Duplikatschutz und alte Inboxzeilen erhalten.
+- 18/18 gezielte und 224/224 vollständige Tests bestanden; Commit `5d32bc7` und gestapelter Draft-PR #13 veröffentlicht.
 - Neue Decision-/Signal-Events und beide Ledger auf Version 1 umgestellt; IDs und Legacy-Eingangskompatibilität erhalten.
 - 32/32 gezielte und 223/223 vollständige Tests bestanden; Commit `ed89a01` und gestapelter Draft-PR #12 veröffentlicht.
 - Neue Brain-History und `BRAIN_DECISION_RECEIVED` auf die kompakte Version-1-Projektion umgestellt; bestehende History unangetastet gelassen.

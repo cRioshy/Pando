@@ -1,5 +1,98 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: NeuroBrain-Inbox kompakt migrieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 22:43 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Als letzte Payload-Persistenzgrenze ausschließlich neue NeuroBrain-Inboxzeilen auf `pandorickki.compact-market-event` Version 1 umstellen. Kopfsicht, tatsächlich gespiegelte Event-ID, vorgelagerte Quellreferenzen, Topicfilter und Duplikatschutz erhalten. Bestehende Inboxdateien nicht verändern; Queue-/Batch-Entkopplung noch nicht beginnen.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation, Payload-Vertrag, tatsächlichen NeuroBrainReceiverAdapter und seine Lifecycle-/Duplikatlogik erneut geprüft.
+- Gestapelten Branch `agent/compact-neurobrain-payloads` von `agent/compact-decision-signal-payloads` erstellt.
+- Zwei neue Regressionstests zunächst vor dem Fix ausgeführt und die vollständige Payloadkopie durch fehlendes `schema_name` reproduziert.
+- `_to_record()` projiziert die Event-Payload nun einmalig über `compact_market_payload()`.
+- NeuroBrain-Kopfsicht wird aus der kompakten Projektion befüllt und behält die ID des tatsächlich gespiegelten Events separat als oberes `source_event_id`.
+- Die Detailpayload bewahrt ihre vorgelagerte Quellreferenz sowie Decision-/Signal-IDs, Markt-, Symbol-, Richtungs- und Zeitfelder.
+- Raw Results, Features, Kerzen, Diagnostik und interne Raw-Felder werden nicht in neue Inboxzeilen übernommen.
+- Quell-Event bleibt beim Spiegeln unverändert; Größenregression verlangt weniger als ein Viertel des umfangreichen Testinputs.
+- Vorhandene Legacy-Inboxzeile im Test bytegenau erhalten und kompakte neue Zeile dahinter angefügt.
+- Duplikat-, unerwünschte Topic-, Lifecycle- und Orchestrator-Tests weiter bestanden.
+- Architektur-, Systemzustands-, Vertrags-, Problem- und Planungsdokumentation aktualisiert.
+- Commit `5d32bc7` auf `origin/agent/compact-neurobrain-payloads` veröffentlicht und gestapelten Draft-PR #13 gegen `agent/compact-decision-signal-payloads` erstellt.
+- Keine bestehende Runtime-, NeuroBrain-Inbox-, Lern-, Token- oder Konfigurationsdatei verändert oder gelöscht.
+
+### Veränderte Dateien
+
+- `adapters/neurobrain_receiver_adapter.py`
+- `tests/test_neurobrain_receiver_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code-, Konfigurations- und Testinventur mit `rg` und `Get-Content`.
+- `git switch -c agent/compact-neurobrain-payloads`.
+- Zwei isolierte Regressionstests vor dem Fix, gezielte NeuroBrain-/Vertrags-/Decision-/Brain-Tests, vollständige Testsuite und `py_compile`.
+- `git diff --check`, Scope- und Secret-Mustersuche.
+- Explizites Staging, Commit, Push und Draft-PR-Erstellung über `gh`.
+
+### Ausgeführte Tests
+
+- Zwei neue isolierte NeuroBrain-Regressionstests vor dem Fix.
+- `.\.venv\Scripts\python.exe -m unittest tests.test_neurobrain_receiver_adapter tests.test_event_payload_contract tests.test_decision_signal_adapter tests.test_brain_adapter -v`
+- `.\.venv\Scripts\python.exe -m py_compile adapters\neurobrain_receiver_adapter.py tests\test_neurobrain_receiver_adapter.py`
+- `.\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Tatsächliche Testergebnisse
+
+- Vor dem Fix: beide Regressionstests erwartungsgemäß mit fehlendem `schema_name` gescheitert.
+- Nach dem Fix: 18/18 gezielte NeuroBrain-/Vertrags-/Decision-/Brain-Tests bestanden in 0,464 Sekunden.
+- Vollständige Suite: 224/224 bestanden in 50,007 Sekunden.
+- `py_compile`, `git diff --check` und Secret-Prüfung: bestanden; keine Secret-Treffer.
+- Größenprüfung: kompakte NeuroBrain-Detailpayload kleiner als 25 % der umfangreichen Eingangspayload.
+- Legacy-Test: vorhandene erste Inboxzeile blieb bytegenau identisch; neue kompakte Zeile wurde angefügt.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt.
+
+### Bekannte Fehler
+
+- `KP-015` ist implementiert und vollständig testgrün, aber der gesamte gestapelte Payloadstand wurde noch nicht kontrolliert live neu gestartet.
+- NeuroBrain bleibt synchroner EventBus-Consumer ohne Queue oder Backpressure; dies ist der nächste Architekturpunkt, nicht Teil dieser Payload-Migration.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- NeuroBrain behält zwei Referenzebenen: oberer Inbox-Kopf für das gespiegelte Event, kompakte Detailpayload für dessen vorgelagerte fachliche Referenzen.
+- Das Quell-Event wird nicht mutiert; nur die persistierte Kopie wird projiziert.
+- Bestehende Inboxzeilen werden nicht migriert, umgeschrieben oder gelöscht.
+- Payload-Migration und asynchrone Queue-/Batch-Entkopplung bleiben getrennte Änderungen.
+- Keine reale Orderausführung und keine Änderung der Telegram-Sicherheitsgrenze.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #13: `https://github.com/cRioshy/Pando/pull/13`, Basis `agent/compact-decision-signal-payloads`; Draft und ungemergt.
+- Der aktuell laufende lokale Dienst wurde in diesem Schritt nicht neu gestartet; alle Payloadänderungen sind per Unit-/Integrationssuite verifiziert und werden erst nach kontrolliertem Neustart aktiv.
+- Queue, Überlaufregel, Batch-Schreiben und sicherer Shutdown für NeuroBrain sind noch nicht implementiert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den vollständigen gestapelten Payloadstand kontrolliert neu starten. Vorher die aktuellen Zeilen-/Dateigrößen und letzten IDs der Brain-, Decision-, Signal- und NeuroBrain-Ledger read-only erfassen; danach mindestens zwei vollständige Produktionszyklen abwarten und ausschließlich neu angehängte Zeilen auf Schema Version 1, erhaltene ID-Ketten, fehlende Bulk-Felder, Service-Health, Journalfehler und Telegram-Sicherheitszustand prüfen. Erst nach erfolgreicher Liveverifikation mit der begrenzten NeuroBrain-Queue beginnen.
+
+---
+
 ## Aktuelle Aufgabe: Decision-/Signal-Events und Ledger kompakt migrieren
 
 ### Datum und Uhrzeit
