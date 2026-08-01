@@ -185,3 +185,4 @@ Der vollständige Lauf am 1. August 2026 bestand nach der Scanner-Instrumentieru
 11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
 13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
+14. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.

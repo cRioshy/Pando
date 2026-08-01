@@ -90,14 +90,20 @@ Den realen Storage-Scanner ohne Löschung oder Veränderung vorhandener History 
 
 ### Nicht abgeschlossene Punkte
 
-- Code- und Dokuänderungen sind zum Zeitpunkt dieses Eintrags noch nicht committed oder gepusht.
-- Ein gestapelter Draft-PR gegen `agent/fix-storage-physical-totals` muss noch erstellt werden; kein vorhandener PR darf gemergt werden.
 - Der laufende Webprozess muss nach Veröffentlichung kontrolliert neu gestartet werden, bevor die neuen Metriken in dessen UI erscheinen; dieser Neustart gehört nicht zur aktuellen Codeaufgabe.
 - Das dauerhafte, begrenzte Service-Fehlerjournal ist der nächste Implementierungsschritt.
 
+### Veröffentlichung
+
+- Implementierungs-/Dokumentationscommit: `cc6e92d` (`Instrument storage scanner progress`).
+- Remote-Branch: `origin/agent/instrument-storage-scanner`.
+- Gestapelter Draft-PR: #6, `https://github.com/cRioshy/Pando/pull/6`.
+- PR-Basis: `agent/fix-storage-physical-totals`.
+- Draft-PR #6 wurde nicht gemergt; die vorherigen Draft-PRs #3, #4 und #5 bleiben ebenfalls ungemergt.
+
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Diff und Secret-/Runtime-Scope abschließend prüfen, ausschließlich die oben genannten elf Dateien committen, Branch `agent/instrument-storage-scanner` pushen und einen gestapelten Draft-PR gegen `agent/fix-storage-physical-totals` erstellen. Danach Handover mit Commit-ID und PR-URL ergänzen. Nicht mergen. Anschließend als neue Aufgabe das rotierende, größenbegrenzte und secret-gefilterte Service-Fehlerjournal spezifizieren und implementieren.
+Vor jeder neuen Änderung Branch-, PR- und Übergabestand erneut prüfen. Danach als eigene Aufgabe das rotierende, größenbegrenzte und secret-gefilterte Service-Fehlerjournal spezifizieren und implementieren. Keine vollständigen Provider-Antworten, Tokens oder unbegrenzten Logs persistieren; Telegram deaktiviert beziehungsweise im Dry-Run lassen.
 
 ## Aktuelle Aufgabe: Storage-Ziele und physische Gesamtwerte deduplizieren
 

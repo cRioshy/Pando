@@ -30,6 +30,7 @@ Stand: 1. August 2026
    - Zwei schreibgeschützte Realmessungen ergaben 1,084 Sekunden mit altem Budget und 2,135 Sekunden bei 64 MiB; das Standardbudget wurde deshalb von 256 KiB auf 64 MiB erhöht.
    - Der reale JSONL-Index lag bei 5,69 %; mit dem neuen Budget waren bei der Messung ungefähr 82 weitere Minutenläufe erforderlich.
    - 39/39 gezielte und 204/204 vollständige Tests bestanden; keine History-Datei wurde gelöscht oder verändert.
+   - Commit `cc6e92d` veröffentlicht; gestapelter Draft-PR #6 gegen `agent/fix-storage-physical-totals` erstellt und nicht gemergt.
 
 5. **Dauerhaftes begrenztes Service-Fehlerjournal ergänzen.**
    - Erste und letzte konkrete Exception auch nach längerer Laufzeit rekonstruierbar machen.
