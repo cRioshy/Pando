@@ -1,5 +1,101 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Gestapelten Payloadstand kontrolliert live verifizieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 23:19 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den vollständigen gestapelten Brain-/Decision-/Signal-/NeuroBrain-Payloadstand kontrolliert neu starten und mindestens zwei vollständige Produktionszyklen read-only auf Schema Version 1, ID-Kette, Bulk-Ausschluss, Servicezustand, Fehlerjournal und Telegram-Sicherheitszustand prüfen. Noch keine Queue-/Batch-Entkopplung implementieren.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation, Payload-Vertrag, Startkonfiguration, Runtime-Preflight und tatsächliche Ledgerpfade geprüft.
+- Vor dem Stop stabile Byte-Endstände der vier aktiven Persistenzgrenzen erfasst.
+- Den alten Prozess über `POST /api/control/stop` geordnet beendet; keinen zweiten Prozess parallel gestartet und keinen Prozess hart abgebrochen.
+- Runtime-Preflight mit der projektlokalen `.venv` ausgeführt und bestanden.
+- Einen ersten Prüflauf innerhalb der eingeschränkten Ausführungsumgebung gestartet. Dessen fehlende Socket-Berechtigung verursachte reproduzierbar `WinError 10013` für Binance und Bitget; der Lauf wurde als nicht aussagekräftig für Crypto erkannt und geordnet beendet.
+- PandorickKi anschließend mit freigegebenem Netzwerkzugriff, Live-Crypto, Live-Stock, NeuroBrain aktiv sowie Telegram deaktiviert/Dry-Run neu gestartet.
+- Drei vollständige saubere Produktionszyklen beobachtet; ausschließlich neu angehängte Ledgerbereiche ab den gesicherten Byte-Offsets analysiert.
+- Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Payloads mit `contract_errors()` sowie rekursiv auf verbotene Bulk-Felder geprüft.
+- Brain→Decision→Signal-ID-Kette und die Spiegelung der Decision-/Signal-Event-IDs in NeuroBrain vollständig abgeglichen.
+- Eine bisher ungetestete Vertragslücke für nicht marktbezogene NeuroBrain-Topics als `KP-016` dokumentiert.
+- Keine Quell-, Runtime-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht, geleert oder umgeschrieben; die Anwendung hat während der Liveprüfung ausschließlich ihre normalen Laufzeitdaten angehängt.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code-/Konfigurationsinventur mit `rg` und `Get-Content`; Git-Status- und Branchprüfung.
+- Read-only HTTP-Abfragen von `/api/health`, `/api/status`, `/api/crypto` und `/api/statistics/storage`.
+- Read-only Erfassung von Ledger-Dateigrößen, Byte-Offsets, Endständen und Fehlerjournal-Zusammenfassung.
+- Geordneter Stop über `POST /api/control/stop` mit wiederholter Erreichbarkeitsprüfung.
+- `.\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Verdeckter Start über `cmd.exe`, `setup_local_env.bat` und `.venv\Scripts\python.exe main.py --headless --web`; finaler Lauf mit freigegebenem Netzwerkzugriff.
+- Read-only Python-/PowerShell-Prüfungen der ab Baseline angehängten JSONL-Bereiche mit `contract_errors()`, rekursivem Bulk-Feld-Scan und ID-Mengenvergleich.
+
+### Ausgeführte Tests
+
+- Runtime-Preflight.
+- Kontrollierter Stop-/Start-Lifecycle ohne erzwungenen Prozessabbruch.
+- Drei vollständige Live-Produktionszyklen des finalen Laufs.
+- Vertragsprüfung neu angehängter Brain-, Decision-, Signal- und NeuroBrain-Datensätze.
+- Rekursiver Ausschlusscheck für `raw_result`, `features`, `market_data_diagnostics` und `candles`.
+- Ende-zu-Ende-Abgleich der ID-Kette und NeuroBrain-Spiegelung.
+- Live-Health-, Preis-, Journal-, Storage- und Telegram-Prüfung.
+
+### Tatsächliche Testergebnisse
+
+- Preflight: bestanden mit Python 3.12.13.
+- Finaler Lauf seit 23:15:40 Uhr: drei vollständige Zyklen; Plattform, Web und alle zehn Services `OK`.
+- Crypto: 3/3 Ergebnisse je Zyklus, neun publizierte Ergebnisse, aktuelle Preise BTCUSDT `62772.0`, ETHUSDT `1841.07`, XRPUSDT `1.0588` beim Abschlussabruf.
+- Stock: 5/5 Ergebnisse je Zyklus, 15 publizierte Ergebnisse.
+- Ab neuer finaler Baseline zunächst 20 Brain-, 20 Decision-, 20 Signal- und 154 NeuroBrain-Zeilen geprüft; alle enthielten keine verbotenen Bulk-Felder.
+- Brain, Decision und Signal: 0 Vertragsfehler. Sämtliche geprüften marktbezogenen NeuroBrain-Zeilen: 0 Vertragsfehler.
+- ID-Abgleich: 0 Kettenfehler; keine geprüfte Decision- oder Signal-Event-ID fehlte in NeuroBrain.
+- Offener Befund: In einem früheren Zwei-Zyklen-Ausschnitt waren 18 von 94 NeuroBrain-Zeilen für Lifecycle-/Learning- und reine Market-Data-Topics nach dem Marktvertrag ungültig, weil `market_type` oder `symbol` fehlten. Dieser Befund ist `KP-016`.
+- Fehlerjournal im finalen Lauf: gesund, `failed_writes=0`, seit dem Start um 23:15:40 Uhr keine neuen Einträge. Die drei während des eingeschränkten Prüflaufs erzeugten Crypto-Fingerprints endeten spätestens um 21:12:20 UTC und wurden nicht gelöscht.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Storage beim Abschlussabruf: `VERIFIED`, 115 physische Dateien, 7,95 GB; normaler Runtime-Zuwachs, keine Bereinigung.
+
+### Bekannte Fehler
+
+- `KP-016`: NeuroBrain kennzeichnet nicht marktbezogene Topics mit dem Markt-Schema Version 1, obwohl Pflichtfelder fehlen können.
+- `KP-013`: Der Stop ist kooperativ, kann wegen laufendem Adapterzyklus plus nicht unterbrechbarem Intervallsleep mehrere Minuten benötigen; der erste Stop dieser Aufgabe dauerte rund acht Minuten, zeigte dabei aber fortlaufenden Fortschritt.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Die Liveverifikation ändert keine Architektur und startet die NeuroBrain-Queue noch nicht.
+- Markt-Payload-Migration und nicht marktbezogener Lifecycle-Vertrag werden als getrennte Belange behandelt.
+- Der Schemakonflikt muss vor der Queue-/Batch-Entkopplung behoben werden, damit asynchrones Persistieren keine formal uneindeutigen Zeilen vervielfacht.
+- Telegram bleibt deaktiviert/Dry-Run; reale Orderausführung bleibt ausgeschlossen.
+
+### Nicht abgeschlossene Punkte
+
+- `KP-016` ist dokumentiert, aber noch nicht implementiert oder getestet behoben.
+- NeuroBrain bleibt synchroner EventBus-Consumer; Queue, Überlaufregel, Batch-Schreiben und sicherer Shutdown sind noch nicht implementiert.
+- Draft-PR #13 bleibt gegen `agent/compact-decision-signal-payloads` geöffnet, Draft und ungemergt.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Zuerst `KP-016` klein und testgetrieben beheben: tatsächliche NeuroBrain-Topicgruppen inventarisieren, Markt-Payloads nur bei vollständigen Pflichtfeldern als `pandorickki.compact-market-event` Version 1 kennzeichnen und für Lifecycle-/Learning-Ereignisse eine eindeutige kompakte Projektion beziehungsweise ein eigenes Schema festlegen. Bestehende Inboxzeilen nicht verändern. Danach gezielte Tests und vollständige Suite ausführen und erst nach erfolgreicher Liveprüfung mit der begrenzten NeuroBrain-Queue beginnen.
+
+---
+
 ## Aktuelle Aufgabe: NeuroBrain-Inbox kompakt migrieren
 
 ### Datum und Uhrzeit

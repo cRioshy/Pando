@@ -10,6 +10,8 @@ Version: `1`
 
 Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain, Decision-/Signal-Events und Ledger sowie neue NeuroBrain-Inboxzeilen verwenden Version 1 inzwischen aktiv. Bestehende Events und History-Dateien bleiben unverändert.
 
+Die kontrollierte Liveprüfung am 1. August 2026 bestätigte Schema, IDs und Bulk-Ausschluss für alle neu geprüften Markt-Payloads. Sie zeigte zugleich eine offene Abgrenzung: NeuroBrain verwendet die Projektion auch für Lifecycle-/Learning-Themen und reine Market-Data-Updates. Solche Ereignisse besitzen fachlich nicht immer `market_type` oder `symbol` und erfüllen deshalb trotz Schemaname Version 1 nicht immer die unten genannten Pflichtfelder. Bis zur Korrektur gelten diese Zeilen nicht als vertragskonforme Markt-Payloads.
+
 Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_payload()` akzeptiert sowohl den heutigen EventBus-Umschlag als auch eine flache Payload, erzeugt Schema-Metadaten und kopiert nur ausdrücklich zugelassene Felder.
 
 ## Tatsächliche Produzenten
@@ -33,7 +35,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | Control Center | kompakte Anzeige-, Preis-, Status- und Tradefelder | projiziert bereits auf eine kleine Sicht |
 | Telegram | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis und optionale Tradefelder | bleibt deaktiviert beziehungsweise Dry-Run |
 | Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
-| NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | behält seine kleine Kopfsicht und speichert daneben nur noch die kompakte Version-1-Projektion |
+| NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | behält seine kleine Kopfsicht und speichert daneben nur noch die kompakte Version-1-Projektion; nicht marktbezogene Topics müssen noch von diesem Marktvertrag getrennt werden |
 
 ## Version 1
 

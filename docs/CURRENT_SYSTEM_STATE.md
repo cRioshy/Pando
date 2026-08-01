@@ -3,6 +3,10 @@
 Stand: 1. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Der vollständige gestapelte Payloadstand wurde am 1. August 2026 kontrolliert live gestartet. Nach dem aussagekräftigen Neustart mit freigegebenem Netzwerkzugriff liefen drei vollständige Produktionszyklen: Plattform, Web und alle zehn Services meldeten `OK`; Crypto lieferte je Zyklus drei und Stock fünf Ergebnisse. BTCUSDT, ETHUSDT und XRPUSDT hatten aktuelle Preise. Seit diesem Neustart entstand kein neuer Journaleintrag; Telegram blieb `enabled=false`, `dry_run=true` und bei null versendeten Nachrichten.
+
+Read-only geprüft wurden ausschließlich neu angehängte Bereiche der Brain-, Decision-, Signal- und NeuroBrain-Ledger. Die Markt-Payloads verwenden `pandorickki.compact-market-event` Version 1, enthalten keine Felder `raw_result`, `features`, `market_data_diagnostics` oder `candles`, und die ID-Kette Brain → Decision → Signal → NeuroBrain blieb vollständig. Eine verbleibende Vertragslücke ist dokumentiert: NeuroBrain projiziert auch Lifecycle-/Learning-Themen wie `AI_LEARNING_UPDATED` und reine Market-Data-Updates auf das Markt-Schema. Diese Zeilen tragen Schema Version 1, erfüllen aber mangels fachlicher Marktdaten nicht immer die Pflichtfelder `market_type` und `symbol`.
+
 Der Outcome-Zeitstempel-Fix wurde am 1. August 2026 kontrolliert live gestartet. Nach vier vollständigen Crypto-Heartbeats meldeten Plattform und alle zehn Services `OK`. Der dauerhafte Fingerprint des früheren Zeitstempelfehlers blieb unverändert bei 158 Vorkommen und seinem letzten Auftreten um 17:13:29 UTC; es entstand kein neues `OUTCOME_TRACKER_ERROR`. Das Journal meldete null Schreibfehler. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Storage verarbeitete 114/114 Dateien in 2,275 Sekunden ohne Scannerfehler.
 
 Der neue Journalstand wurde am 1. August 2026 kontrolliert live gestartet. Nach mindestens zwei vollständigen Zyklen meldeten Plattform und alle zehn sichtbaren Services `OK`; `service_error_journal` war gesund, hatte null Schreibfehler und drei Vorkommen eines Fehlerfingerprints erfasst. Crypto zeigte drei und Stock fünf Analysen. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Der Storage-Scan schloss 110/110 Dateien in 2,865 Sekunden ab; `DEGRADED` stammt weiterhin aus den bekannten Datenwarnungen, nicht aus einem Scannerfehler.
@@ -124,7 +128,7 @@ Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorh
 
 Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
-Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben.
+Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Marktbezogene neue Zeilen erfüllen den Vertrag live vollständig; Lifecycle-/Learning-Zeilen werden derzeit ebenfalls mit dem Markt-Schemanamen versehen, obwohl `market_type` oder `symbol` fehlen können.
 
 Der Storage-Statistikdienst besitzt inzwischen:
 
@@ -203,7 +207,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach der kompakten NeuroBrain-M
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain, Decision Core und NeuroBrain persistieren neue Stufen kompakt. Die vollständige gestapelte Änderung ist noch nicht kontrolliert live neu gestartet; vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen.
+11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain kennzeichnet jedoch auch nicht marktbezogene Lifecycle-/Learning-Zeilen als Markt-Schema Version 1, obwohl dort Pflichtfelder fehlen können. Vor Queue-/Batch-Arbeiten muss deren Schema- beziehungsweise Topic-Vertrag geklärt und getestet werden. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

@@ -64,10 +64,12 @@ Stand: 1. August 2026
    - Neue Inboxzeilen behalten ihre Kopfsicht und enthalten als Detailpayload nur Version 1; alte Inboxzeilen bleiben unverändert.
    - 18/18 gezielte und 224/224 vollständige Tests bestanden.
    - Commit `5d32bc7` veröffentlicht; gestapelter Draft-PR #13 gegen `agent/compact-decision-signal-payloads` erstellt und nicht gemergt.
-   - Nach Veröffentlichung vollständigen gestapelten Stand kontrolliert neu starten und neue Persistenzzeilen read-only verifizieren.
+   - **Liveverifikation am 1. August 2026 abgeschlossen:** drei saubere Produktionszyklen, alle zehn Services `OK`, echte Crypto-Preise, vollständige ID-Kette und keine Bulk-Felder in den geprüften neuen Zeilen.
+   - Offene Vertragslücke `KP-016`: Nicht marktbezogene NeuroBrain-Topics tragen derzeit ebenfalls das Markt-Schema, obwohl Pflichtfelder fehlen können.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
+   - Vorher `KP-016` beheben: Markt- und Lifecycle-/Learning-Topics schematisch eindeutig trennen und Regressionstests ergänzen.
    - Begrenzte Queue, Überlaufregel, Batch-Schreiben, atomaren Status und sicheren Shutdown umsetzen.
    - Zunächst nur NeuroBrain entkoppeln, nicht ungeprüft den vollständigen EventBus ersetzen.
 
@@ -89,6 +91,9 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Vollständigen gestapelten Payloadstand kontrolliert live gestartet und drei saubere Produktionszyklen verifiziert.
+- Neue Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen verwenden Version 1, enthalten keine Bulk-Felder und behalten die vollständige ID-Kette.
+- Live-Vertragslücke für nicht marktbezogene NeuroBrain-Topics als `KP-016` dokumentiert; noch keine Queue-/Batch-Änderung begonnen.
 - Neue NeuroBrain-Inboxzeilen auf Version 1 umgestellt; Kopfsicht, ID-Kette, Duplikatschutz und alte Inboxzeilen erhalten.
 - 18/18 gezielte und 224/224 vollständige Tests bestanden; Commit `5d32bc7` und gestapelter Draft-PR #13 veröffentlicht.
 - Neue Decision-/Signal-Events und beide Ledger auf Version 1 umgestellt; IDs und Legacy-Eingangskompatibilität erhalten.

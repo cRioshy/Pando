@@ -86,12 +86,21 @@ Stand: 1. August 2026
 ### KP-015 – Vollständige Raw Results vergrößern Event-Ledger
 
 - **Priorität:** hoch
-- **Status:** implementiert und getestet; kontrollierte Liveverifikation ausstehend
+- **Status:** für Markt-Payloads implementiert, getestet und am 1. August 2026 live verifiziert
 - **Beobachtung:** Brain und Decision Core persistieren und publizieren neue Stufen kompakt. NeuroBrain speichert neben seiner Kopfsicht nur noch die Version-1-Projektion.
 - **Auswirkung:** Wiederholte Rohdaten und Kerzen vergrößern Brain-/Decision-/Signal-/NeuroBrain-Ledger und verlängern Storage-Scans.
 - **Verifizierte Altpfade:** `CryptoTradeTracker` kann Swing-Werte weiterhin aus `raw_result.market_data.candles` lesen; `LearningGraphBuilder` kann das Ergebnis weiterhin aus `raw_result.result` lesen. Beide Pfade sind jetzt ausschließlich Fallback hinter den kompakten Feldern.
 - **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1. Tracker und Graph bevorzugen die kompakten Ersatzfelder; vier Regressionstests sichern Priorität und Legacy-Kompatibilität.
-- **Nächster Schritt:** Den vollständigen gestapelten Stand kontrolliert neu starten und neue Brain-, Decision-, Signal- und NeuroBrain-Zeilen read-only auf Schema, IDs und fehlende Bulk-Felder prüfen. Bestehende History nicht verändern.
+- **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
+
+### KP-016 – NeuroBrain verwendet das Markt-Schema für nicht marktbezogene Topics
+
+- **Priorität:** hoch
+- **Status:** offen; live reproduziert am 1. August 2026
+- **Beobachtung:** Neue NeuroBrain-Inboxzeilen für `AI_LEARNING_UPDATED` sowie einzelne reine Market-Data-Topics tragen `pandorickki.compact-market-event` Version 1, obwohl `market_type` oder `symbol` fehlen. Im geprüften neuen Bereich waren 18 von 94 Zeilen nach `contract_errors()` formal ungültig; alle geprüften eigentlichen Markt-, Brain-, Decision- und Signalzeilen waren gültig.
+- **Auswirkung:** Downstream-Leser dürfen sich bei jeder NeuroBrain-Zeile derzeit nicht allein aufgrund des Schemanamens auf die Pflichtfelder verlassen.
+- **Abgrenzung:** Die Zeilen enthalten keine verbotenen Bulk-Felder, die zweistufige Event-/Quell-ID bleibt erhalten und der laufende Dienst bleibt gesund. Bestehende Inboxzeilen wurden nicht verändert.
+- **Nächster Fix:** Vor der Queue-/Batch-Entkopplung Topicgruppen und Schemazuständigkeit festlegen. Nicht marktbezogene Ereignisse entweder mit einem eigenen kompakten Lifecycle-Schema persistieren oder nur dann als Markt-Schema kennzeichnen, wenn alle Pflichtfelder vorhanden sind; Regressionstests für beide Gruppen ergänzen.
 
 ## Behoben oder entschärft
 
