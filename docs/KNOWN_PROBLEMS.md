@@ -4,14 +4,6 @@ Stand: 1. August 2026
 
 ## Offen
 
-### KP-014 – Outcome Tracker mischt naive und UTC-Zeitstempel
-
-- **Priorität:** hoch
-- **Status:** offen; durch das neue Fehlerjournal erstmals dauerhaft sichtbar
-- **Beobachtung:** In den ersten drei Livezyklen nach dem Neustart erzeugte der Outcome Tracker jeweils `can't subtract offset-naive and offset-aware datetimes`. Ursache ist die direkte Subtraktion in `_duration_seconds()`; ältere `entry_time`-Werte können ohne UTC-Offset vorliegen, während neue Endzeiten offset-bewusst sind.
-- **Auswirkung:** Einzelne simulierte Outcomes beziehungsweise deren Haltedauer können nicht korrekt abgeschlossen werden. Der normale Zyklus-Health meldet `outcome_tracker=OK`, obwohl das Fehlerereignis journalisiert wurde.
-- **Nächster Fix:** Historische naive Zeitstempel beim Parsen ausdrücklich als UTC interpretieren, gemischte und reine Zeitstempelvarianten testen und die Health-Projektion mit dem Journalfehler abstimmen. Bestehende History nicht umschreiben oder löschen.
-
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
 - **Priorität:** niedrig
@@ -92,6 +84,15 @@ Stand: 1. August 2026
 - **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
 ## Behoben oder entschärft
+
+### KP-R10 – Outcome Tracker mischte naive und UTC-Zeitstempel
+
+- **Status:** behoben und getestet am 1. August 2026; Liveprüfung nach kontrolliertem Neustart steht noch aus
+- `_duration_seconds()` versieht ausschließlich geparste Zeitstempel ohne `tzinfo` mit UTC. Bereits offset-bewusste Werte behalten ihren tatsächlichen Offset.
+- Bestehende offene Trades, Outcomes und andere Historydateien werden weder umgeschrieben noch gelöscht.
+- Der öffentliche Regressionstest reproduzierte vor dem Fix das reale `OUTCOME_TRACKER_ERROR`; nach dem Fix wird der Legacy-Trade geschlossen, es entsteht kein Fehlerereignis und Tracker-Health bleibt gesund.
+- Reine naive, reine offset-bewusste, gemischte und unterschiedlich offset-bewusste Zeitpaare sind abgedeckt.
+- 12/12 Outcome-Tracker-Tests und 212/212 Gesamttests bestanden.
 
 ### KP-R09 – Historische Service-Exceptions verschwanden aus der In-Memory-Historie
 

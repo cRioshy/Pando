@@ -40,7 +40,7 @@ Stand: 1. August 2026
    - Commit `8a0a78d` veröffentlicht; gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` erstellt und nicht gemergt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
-   - Vor Beginn dieses Schritts den neu aufgedeckten Zeitstempelfehler `KP-014` klein und rückwärtskompatibel beheben; keine bestehende History umschreiben.
+   - Voraussetzung `KP-014` lokal behoben und mit 212/212 Tests verifiziert; Liveprüfung und Veröffentlichung des Fixes stehen noch aus.
    - Benötigte Felder für Decision Core, Tracker, Learning und UI vollständig ermitteln.
    - Versionierte Projektion und Kompatibilitätstests festlegen; `raw_result` nicht ungeprüft entfernen.
 
@@ -70,6 +70,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Outcome-Tracker-Zeitnormalisierung rückwärtskompatibel umgesetzt: naive historische Werte gelten beim Lesen als UTC, vorhandene History bleibt unverändert.
+- Regressionstest reproduzierte den Livefehler vor dem Fix; danach 12/12 Outcome-Tracker-Tests und 212/212 Gesamttests bestanden.
 - Neuen Journalstand kontrolliert live gestartet: alle zehn Services `OK`, Journal gesund, Telegram aus/Dry-Run und 110/110 Storage-Dateien ohne Scannerfehler verarbeitet.
 - Das Journal machte drei Wiederholungen eines zuvor flüchtigen Outcome-Tracker-Zeitstempelfehlers dauerhaft sichtbar; als `KP-014` dokumentiert, noch nicht behoben.
 - Begrenztes, secret-gefiltertes Service-Fehlerjournal mit atomarer Erst-/Letzt-Zusammenfassung ergänzt.

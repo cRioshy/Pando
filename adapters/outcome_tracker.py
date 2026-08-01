@@ -509,6 +509,10 @@ def _duration_seconds(start: str | None, end: str | None) -> float | None:
         end_time = datetime.fromisoformat(end.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=UTC)
+    if end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=UTC)
     return max((end_time - start_time).total_seconds(), 0.0)
 
 

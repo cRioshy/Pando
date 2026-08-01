@@ -110,7 +110,7 @@ Live-Adapter verwenden `include_targets=False`; historische Trainingsziele werde
 
 ## Outcome Tracker
 
-`OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert.
+`OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert. Beim Berechnen von Laufzeiten werden historische ISO-Zeitstempel ohne Offset rückwärtskompatibel als UTC interpretiert; die gespeicherten Originalwerte werden nicht umgeschrieben.
 
 ## Learning und History
 
@@ -179,7 +179,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach Einführung des Service-Fehlerjournals mit 210/210 Tests in 43,191 Sekunden. Der gezielte Journal-/Config-/Orchestratorlauf bestand mit 17/17 Tests in 5,567 Sekunden. Darin sind Secret-Filter, kompakte Projektion, persistente Erst-/Letztbeobachtung, begrenzte Rotation, ausfallsicherer Publisher und Lifecycle-Integration abgedeckt; die vorhandenen Storage- und Webtests bleiben Teil der Gesamtsuite.
+Der vollständige Lauf am 1. August 2026 bestand nach der Outcome-Zeitnormalisierung mit 212/212 Tests in 48,735 Sekunden. Die 12 Outcome-Tracker-Tests bestanden in 0,449 Sekunden. Darin sind reine naive, reine offset-bewusste und gemischte Zeitstempel sowie der reale Legacy-Trade-Fehlerpfad ohne neues `OUTCOME_TRACKER_ERROR` abgedeckt.
 
 ## Bekannte Risiken
 
@@ -194,7 +194,6 @@ Der vollständige Lauf am 1. August 2026 bestand nach Einführung des Service-Fe
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
 11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
-12. Das Livejournal deckte einen wiederkehrenden Outcome-Tracker-Fehler bei der Subtraktion offset-naiver und offset-bewusster Zeitstempel auf (`KP-014`). Der Tracker meldet im Zyklus-Health trotzdem `OK`; Fehlerjournal und Service-Health sind deshalb derzeit nicht vollständig konsistent.
 11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
 13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.

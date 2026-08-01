@@ -1,5 +1,83 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: KP-014 – Outcome-Zeitstempel normalisieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 20:53 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den vom Service-Fehlerjournal live aufgedeckten Outcome-Tracker-Fehler klein und rückwärtskompatibel beheben. Historische ISO-Zeitstempel ohne Offset sollen beim Berechnen als UTC gelten, ohne bestehende offene Trades oder Historydateien umzuschreiben. Keine realen Trades, keine Orderausführung und kein Telegram-Liveversand.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation sowie tatsächlichen Outcome-Tracker und seine Tests vollständig geprüft.
+- Gestapelten Branch `agent/fix-outcome-timestamp-normalization` von `agent/add-service-error-journal` erstellt.
+- Öffentlichen Regressionstest mit einem Legacy-Trade ohne UTC-Offset und einem neuen offset-bewussten Marktupdate ergänzt.
+- Test vor dem Fix ausgeführt und exakt den Livefehler `can't subtract offset-naive and offset-aware datetimes` reproduziert.
+- `_duration_seconds()` so geändert, dass nur geparste Zeitstempel ohne `tzinfo` als UTC interpretiert werden; vorhandene Offsetwerte bleiben unverändert.
+- Tabellentest für naive, offset-bewusste, gemischte, unterschiedliche Offset-, ungültige und rückwärts laufende Zeitpaare ergänzt.
+- Tracker-Health im öffentlichen Fehlerpfad geprüft: Nach dem Fix kein `OUTCOME_TRACKER_ERROR`, `healthy=true`, `last_error=null`.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei verändert oder gelöscht.
+
+### Veränderte Dateien
+
+- `adapters/outcome_tracker.py`
+- `tests/test_outcome_tracker.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md` und den fünf vorgeschriebenen Übergabedokumenten.
+- Git-, Branch-, Code- und Testinventur mit `git`, `rg` und `Get-Content`.
+- `git switch -c agent/fix-outcome-timestamp-normalization`.
+- Gezielte `unittest`-Läufe, `py_compile`, `git diff --check` und vollständige Testsuite.
+
+### Ausgeführte Tests
+
+- Neuer isolierter Legacy-Zeitstempel-Regressionstest vor dem Fix.
+- `python -m unittest tests.test_outcome_tracker`
+- `python -m py_compile adapters/outcome_tracker.py tests/test_outcome_tracker.py`
+- `python -m unittest discover -s tests`
+
+### Tatsächliche Testergebnisse
+
+- Regressionstest vor dem Fix: erwartungsgemäß fehlgeschlagen; ein `OUTCOME_TRACKER_ERROR` mit dem live beobachteten TypeError wurde erzeugt.
+- Outcome-Tracker-Modul nach dem Fix: 12/12 bestanden in 0,449 Sekunden.
+- Vollständige Suite: 212/212 bestanden in 48,735 Sekunden.
+- `py_compile` und `git diff --check`: bestanden; lediglich erwartete LF-/CRLF-Hinweise von Git.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt und sind nicht Teil dieses Fixes.
+
+### Bekannte Fehler
+
+- Die Liveprüfung auf dem laufenden Dienst steht noch aus; er verwendet bis zum Neustart weiterhin den vorigen geladenen Code.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung: ausschließlich Lesesemantik der Zeitdifferenzberechnung.
+- Fehlender Offset bedeutet für historische PandorickKi-Werte UTC; bewusst vorhandene Offsets werden nicht vereinheitlicht oder verworfen.
+- Persistierte Originalwerte bleiben unverändert. Es gibt keine Datenmigration.
+
+### Nicht abgeschlossene Punkte
+
+- Scope-/Secret-Prüfung, Commit, Push, gestapelter Draft-PR und kontrollierte Liveprüfung stehen noch aus.
+- Kein Draft-PR darf gemergt werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Geprüften Umfang explizit stagen, committen und auf den neuen Branch pushen; gestapelten Draft-PR gegen `agent/add-service-error-journal` erstellen. Danach PandorickKi kontrolliert neu starten und über mindestens zwei Zyklen verifizieren, dass der Journalzähler für den Outcome-Zeitfehler nicht weiter steigt. Erst anschließend mit dem Feld-/Kompatibilitätsvertrag für kompakte Event-Payloads beginnen.
+
+---
+
 ## Aktuelle Aufgabe: Begrenztes Service-Fehlerjournal implementieren
 
 ### Datum und Uhrzeit
