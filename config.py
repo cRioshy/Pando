@@ -88,7 +88,7 @@ class PlatformConfig:
     storage_scan_interval_seconds: float = 60.0
     storage_scan_timeout_seconds: float = 30.0
     storage_large_file_threshold_bytes: int = 50 * 1024 * 1024
-    storage_scan_byte_budget: int = 256 * 1024
+    storage_scan_byte_budget: int = 64 * 1024 * 1024
     adapter_error_backoff_seconds: float = 5.0
     adapter_cycle_timeout_seconds: float = 45.0
     stop_timeout_seconds: float = 2.0
@@ -207,7 +207,7 @@ class PlatformConfig:
             ),
             storage_scan_byte_budget=_env_int(
                 "PANDORICKKI_STORAGE_SCAN_BYTE_BUDGET",
-                256 * 1024,
+                64 * 1024 * 1024,
             ),
             adapter_error_backoff_seconds=_env_float("PANDORICKKI_ERROR_BACKOFF", 5.0),
             adapter_cycle_timeout_seconds=_env_float("PANDORICKKI_ADAPTER_CYCLE_TIMEOUT", 45.0),

@@ -1,5 +1,104 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Storage-Scanner instrumentieren und reparieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 13:20 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den realen Storage-Scanner ohne Löschung oder Veränderung vorhandener History instrumentieren, seinen tatsächlichen Engpass messen, das inkrementelle Budget belastbar einstellen und den kumulativen Fortschritt im Control Center sichtbar machen. Keine Trading- oder Telegram-Kette verändern.
+
+### Durchgeführte Arbeiten
+
+- Die vorgeschriebene Übergabedokumentation, den tatsächlichen Scanner, seine Konfiguration, vorhandene Tests und UI-Verbraucher geprüft.
+- Branch `agent/instrument-storage-scanner` auf Basis von `agent/fix-storage-physical-totals` erstellt.
+- Zielermittlung, Pfadauflösung, Metadaten, Fingerprint, Dateiverarbeitung, Index- und Cachepersistenz einzeln instrumentiert.
+- Rekursive Dateiermittlung mit kooperativen Abbruch-/Timeoutprüfungen versehen.
+- Kumulativen JSONL-Fortschritt aus persistentem Index und aktuellem Dateibestand ergänzt: Dateien, Bytes, Prozent, Restbytes, geschätzte Restläufe und Restzeit.
+- Control Center um JSONL-Fortschritt, Restschätzung und langsamste Scanphase erweitert.
+- Zwei Realmessungen ausschließlich schreibgeschützt ausgeführt, indem Index- und Cachepersistenz im Diagnoseprozess deaktiviert wurden.
+- Erst nach den Messungen das Standardbudget von 256 KiB auf 64 MiB pro Scan erhöht.
+- Zwei vorhandene fehlerhafte Stock-JSON-Dateien identifiziert, aber weder repariert noch gelöscht.
+- Übergabedokumentation an die tatsächliche Umsetzung und Messwerte angepasst.
+
+### Veränderte Dateien
+
+- `config.py`
+- `web/statistics_service.py`
+- `web/static/control_center.js`
+- `web/static/control_center.html`
+- `tests/test_statistics_and_storage.py`
+- `tests/test_web_control_center.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `git status --short`
+- `git diff --stat`
+- `git branch --show-current`
+- `rg`- und `Get-Content`-Prüfungen für Scanner, Konfiguration, Tests und Dokumentation.
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage tests.test_web_control_center`
+- Schreibgeschützter Ist-Scan mit `StorageStatisticsService(PlatformConfig.from_env())`, wobei `_persist_index` und `_atomic_write_json` im Diagnoseprozess als No-op ersetzt waren.
+- Derselbe schreibgeschützte Benchmark mit temporär im Prozess gesetztem 8-MiB-Budget.
+- Derselbe schreibgeschützte Benchmark mit temporär im Prozess gesetztem 64-MiB-Budget.
+- `git diff --check`
+- `\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Ausgeführte Tests
+
+- Neuer Regressionstest für Phasenmetriken und über zwei Läufe ansteigenden kumulativen JSONL-Fortschritt.
+- Gezielte Storage-/Webtests.
+- Vollständige Unittest-Suite.
+- Drei schreibgeschützte Scanner-Messungen am realen Bestand: aktuelles Budget, 8 MiB und 64 MiB.
+
+### Tatsächliche Testergebnisse
+
+- Neuer isolierter Scanner-Test: 1/1 bestanden in 0,090 Sekunden.
+- Gezielte Storage-/Webtests nach Abschluss: 39/39 bestanden in 10,349 Sekunden.
+- Gesamtsuite: 204/204 bestanden in 51,063 Sekunden.
+- Ist-Messung mit altem Budget: 105 physische Dateien, 58 JSONL-Dateien, rund 5,80 GB JSONL, 5,69 % indexiert, 1,084 Sekunden Gesamtdauer.
+- 8-MiB-Benchmark: rund 9,25 MB untersucht, 0,667 Sekunden Gesamtdauer.
+- 64-MiB-Benchmark: rund 67,97 MB untersucht, 2,135 Sekunden Gesamtdauer; Dateiverarbeitung war mit 1,878105 Sekunden die langsamste Phase.
+- Aus rund 5,46 GB Restbestand ergaben sich beim neuen Budget ungefähr 82 weitere Scanläufe beziehungsweise 82 Minuten bei unverändertem Bestand und 60-Sekunden-Intervall.
+- Keine Diagnose hat Index, Cache, History, Lern- oder Tradingdaten geschrieben.
+
+### Bekannte Fehler
+
+- `stock_patterns.json` enthält einen vorhandenen JSON-Syntaxfehler bei Zeile 249448; die Datei wurde nicht verändert.
+- `stock_patterns.before_json_repair_20260710_224237.json` enthält einen vorhandenen JSON-Syntaxfehler bei Zeile 146372; die Datei wurde nicht verändert.
+- Diese beiden Dateien halten den Storage-Gesamtstatus auf `DEGRADED`, obwohl der Scannerlauf technisch abgeschlossen wird.
+- Der neue 64-MiB-Standard muss nach Neustart im Dauerbetrieb weiter beobachtet werden; der Realbenchmark blieb deutlich unter dem Timeout.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md`, insbesondere das fehlende Service-Fehlerjournal, bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Das bestehende persistente Offsetmodell bleibt erhalten; vorhandene History wird weder umgeschrieben noch neu formatiert.
+- Fortschritt wird aus aktuellem physischem JSONL-Bestand und persistentem Index berechnet, nicht aus flüchtigen Dateizählern eines einzelnen Laufs.
+- Restzeit ist ausdrücklich eine Schätzung aus Restbytes, konfiguriertem Bytebudget und Scanintervall; wachsende Dateien können sie verändern.
+- Das globale Budget bleibt konfigurierbar über `PANDORICKKI_STORAGE_SCAN_BYTE_BUDGET`; nur der sichere Standard wurde auf Grundlage des Realbenchmarks erhöht.
+- Scannerphasen werden beobachtbar gemacht, ohne neue Datenbank, neues Ledger oder zusätzliche Runtime-History einzuführen.
+
+### Nicht abgeschlossene Punkte
+
+- Code- und Dokuänderungen sind zum Zeitpunkt dieses Eintrags noch nicht committed oder gepusht.
+- Ein gestapelter Draft-PR gegen `agent/fix-storage-physical-totals` muss noch erstellt werden; kein vorhandener PR darf gemergt werden.
+- Der laufende Webprozess muss nach Veröffentlichung kontrolliert neu gestartet werden, bevor die neuen Metriken in dessen UI erscheinen; dieser Neustart gehört nicht zur aktuellen Codeaufgabe.
+- Das dauerhafte, begrenzte Service-Fehlerjournal ist der nächste Implementierungsschritt.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Diff und Secret-/Runtime-Scope abschließend prüfen, ausschließlich die oben genannten elf Dateien committen, Branch `agent/instrument-storage-scanner` pushen und einen gestapelten Draft-PR gegen `agent/fix-storage-physical-totals` erstellen. Danach Handover mit Commit-ID und PR-URL ergänzen. Nicht mergen. Anschließend als neue Aufgabe das rotierende, größenbegrenzte und secret-gefilterte Service-Fehlerjournal spezifizieren und implementieren.
+
 ## Aktuelle Aufgabe: Storage-Ziele und physische Gesamtwerte deduplizieren
 
 ### Datum und Uhrzeit

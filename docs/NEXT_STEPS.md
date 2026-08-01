@@ -25,9 +25,11 @@ Stand: 1. August 2026
    - Commit `a15770b` veröffentlicht; gestapelter Draft-PR #5 gegen `agent/fix-storage-worker-shutdown` erstellt und nicht gemergt.
 
 4. **Storage-Scanner instrumentieren und reparieren.**
-   - Zeitmessungen für Dateiermittlung, Metadaten/Fingerprint, Dateityp-Auswertung und Cache-Schreiben ergänzen.
-   - Inkrementelles Budget anhand realer Messwerte einstellen und Fortschritt über mehrere Läufe erhalten.
-   - Keine History-Dateien löschen.
+   - **Erledigt am 1. August 2026.**
+   - Phasenlaufzeiten, kumulativer JSONL-Fortschritt, Restbytes sowie geschätzte Restläufe/-zeit werden pro Scan erfasst und im Control Center angezeigt.
+   - Zwei schreibgeschützte Realmessungen ergaben 1,084 Sekunden mit altem Budget und 2,135 Sekunden bei 64 MiB; das Standardbudget wurde deshalb von 256 KiB auf 64 MiB erhöht.
+   - Der reale JSONL-Index lag bei 5,69 %; mit dem neuen Budget waren bei der Messung ungefähr 82 weitere Minutenläufe erforderlich.
+   - 39/39 gezielte und 204/204 vollständige Tests bestanden; keine History-Datei wurde gelöscht oder verändert.
 
 5. **Dauerhaftes begrenztes Service-Fehlerjournal ergänzen.**
    - Erste und letzte konkrete Exception auch nach längerer Laufzeit rekonstruierbar machen.
@@ -63,6 +65,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Storage-Scanner phasenweise instrumentiert und kumulativen JSONL-Indexfortschritt samt Restschätzung sichtbar gemacht.
+- Standardbudget anhand schreibgeschützter Realmessungen auf 64 MiB pro Lauf eingestellt; 204/204 Gesamttests bestanden.
 - Storage-Ziele pro physischem Pfad dedupliziert und Scanbudget nur einmal je Datei verbraucht.
 - Physische und logische Summen samt Überlappungsanzahl in API und Control Center getrennt ausgewiesen.
 - 44/44 gezielte und 203/203 vollständige Tests nach der Storage-Summenkorrektur bestanden.

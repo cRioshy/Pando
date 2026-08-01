@@ -210,7 +210,7 @@ class WebControlCenterTest(unittest.TestCase):
         self.assertIn("live_event_snapshot()", routes)
         self.assertNotIn('"snapshot": self.server.app.snapshot()', routes)
         self.assertIn('id="storageTotals"', page)
-        self.assertIn("storage-physical-totals-v1", page)
+        self.assertIn("storage-scanner-metrics-v1", page)
 
     def test_bad_event_does_not_stop_webserver(self) -> None:
         async def run() -> None:

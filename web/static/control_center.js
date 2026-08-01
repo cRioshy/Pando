@@ -303,9 +303,19 @@ function renderStorage(storage) {
   const scanStatus = scan.status || (storage && storage.scan_status) || "IDLE";
   const completed = scan.files_total ? ` ${scan.files_completed || 0}/${scan.files_total} Dateien` : "";
   const duration = scan.duration_seconds != null ? ` | ${scan.duration_seconds}s` : "";
+  const jsonlProgress = scan.jsonl_files_total
+    ? ` | JSONL-Index: ${Number(scan.jsonl_progress_percent || 0).toFixed(2)} % (${scan.jsonl_files_complete || 0}/${scan.jsonl_files_total} Dateien)`
+    : "";
+  const remainingCycles = Number(scan.estimated_cycles_remaining || 0);
+  const remainingProgress = remainingCycles
+    ? ` | Rest: ca. ${remainingCycles} Läufe / ${Number(scan.estimated_minutes_remaining || 0).toFixed(1)} Min.`
+    : "";
+  const phases = Object.entries(scan.phase_seconds || {});
+  const slowestPhase = phases.reduce((slowest, current) => current[1] > slowest[1] ? current : slowest, ["", 0]);
+  const phaseText = slowestPhase[0] ? ` | Langsamste Phase: ${slowestPhase[0]} ${Number(slowestPhase[1]).toFixed(3)}s` : "";
   const scanElement = $("storageScanStatus");
   if (scanElement) {
-    scanElement.textContent = `Scan: ${scanStatus}${completed}${duration}`;
+    scanElement.textContent = `Scan: ${scanStatus}${completed}${duration}${jsonlProgress}${remainingProgress}${phaseText}`;
   }
   const totalsElement = $("storageTotals");
   if (totalsElement) {

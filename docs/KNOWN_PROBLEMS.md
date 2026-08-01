@@ -15,12 +15,13 @@ Stand: 1. August 2026
 
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
-- **Priorität:** hoch
-- **Status:** offen
-- **Beobachtung:** Der reale Scan endete zuletzt nach 35,236 Sekunden als `TIMEOUT`; 27 von 94 erkannten Dateien waren abgeschlossen.
-- **Auswirkung:** Der Cache verhindert eine leere Speicheranzeige, aber Scanfortschritt und Indexaufbau können über mehrere Intervalle unvollständig bleiben.
-- **Bereits vorhanden:** Hintergrund-Worker, Einzelscan-Sperre, 30-Sekunden-Timeout, 256-KiB-JSONL-Budget, persistente Offsets und Metadatenmodus für große Dateien.
-- **Nächste Diagnose:** Dauer getrennt für Dateiermittlung, `stat`/Fingerprint, Indexladen, Dateiartbehandlung und Cache-Schreiben instrumentieren; keine Retention oder Löschung als Schnelllösung verwenden.
+- **Priorität:** niedrig
+- **Status:** technisch behoben; nach Neustart im Dauerbetrieb beobachten
+- **Frühere Beobachtung:** Ein realer Scan endete nach 35,236 Sekunden als `TIMEOUT`; 27 von 94 Dateiverweisen waren abgeschlossen.
+- **Messung vom 1. August 2026:** Der schreibgeschützte Ist-Scan erfasste 105 physische Dateien und dauerte mit altem Budget 1,084 Sekunden. Ein Benchmark mit 64 MiB JSONL-Budget verarbeitete rund 68 MB in 2,135 Sekunden, deutlich unter dem 30-Sekunden-Limit.
+- **Umsetzung:** Alle relevanten Phasen werden getrennt gemessen; der JSONL-Index meldet Bytes, Prozent, vollständige Dateien und geschätzte Restläufe. Das Standardbudget beträgt jetzt 64 MiB statt 256 KiB.
+- **Restbeobachtung:** Bei weiter stark wachsendem Bestand Laufzeiten und Timeoutstatus kontrollieren. Keine Retention oder Löschung als Schnelllösung verwenden.
+- **Unabhängige Datenwarnung:** `stock_patterns.json` und dessen Backup `stock_patterns.before_json_repair_20260710_224237.json` enthalten vorhandene JSON-Syntaxfehler und halten den Gesamtstatus auf `DEGRADED`; sie wurden nicht verändert.
 
 ### KP-002 – WebSocket-Fallback und Reconnect sind unvollständig
 
@@ -83,6 +84,14 @@ Stand: 1. August 2026
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
 
 ## Behoben oder entschärft
+
+### KP-R08 – Scannerfortschritt war nicht messbar und praktisch zu langsam
+
+- **Status:** behoben und am realen Bestand schreibgeschützt vermessen am 1. August 2026
+- Phasenlaufzeiten für Zielermittlung, Pfadauflösung, Metadaten, Fingerprint, Dateiverarbeitung, Index- und Cachepersistenz sind im Scanstatus enthalten.
+- Der kumulative JSONL-Fortschritt bleibt über Läufe erhalten und zeigt Bytes, Prozent, vollständige Dateien, Restläufe und Restzeit.
+- Das 64-MiB-Standardbudget blieb im Realbenchmark mit 2,135 Sekunden weit unter dem 30-Sekunden-Limit.
+- 39/39 gezielte und 204/204 vollständige Tests bestanden.
 
 ### KP-R07 – Storage-Gesamtsummen zählten überlappende Ziele mehrfach
 

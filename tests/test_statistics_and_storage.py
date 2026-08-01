@@ -664,6 +664,51 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertTrue(service.index_file.exists())
             self.assertFalse(service.cache_file.with_suffix(".json.tmp").exists())
 
+    def test_scan_reports_phase_timings_and_cumulative_jsonl_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(
+                self.make_config(root),
+                storage_large_file_threshold_bytes=32,
+                storage_scan_byte_budget=48,
+            )
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "large.jsonl"
+            ledger.write_text(
+                "".join(json.dumps({"index": index}) + "\n" for index in range(100)),
+                encoding="utf-8",
+            )
+            service = StorageStatisticsService(config)
+
+            first = service.refresh()["scan"]
+            second = service.refresh()["scan"]
+
+            expected_phases = {
+                "target_discovery",
+                "path_resolution",
+                "metadata",
+                "fingerprint",
+                "file_processing",
+                "index_persist",
+                "cache_persist",
+            }
+            self.assertEqual(set(first["phase_seconds"]), expected_phases)
+            self.assertTrue(all(value >= 0 for value in first["phase_seconds"].values()))
+            self.assertEqual(first["jsonl_files_total"], 1)
+            self.assertEqual(first["jsonl_bytes_total"], ledger.stat().st_size)
+            self.assertGreater(first["jsonl_bytes_indexed"], 0)
+            self.assertLess(first["jsonl_bytes_indexed"], first["jsonl_bytes_total"])
+            self.assertGreater(second["jsonl_bytes_indexed"], first["jsonl_bytes_indexed"])
+            self.assertGreater(second["jsonl_progress_percent"], first["jsonl_progress_percent"])
+            self.assertEqual(second["jsonl_files_complete"], 0)
+            self.assertEqual(first["scan_byte_budget"], 48)
+            self.assertGreater(first["estimated_cycles_remaining"], 0)
+            self.assertGreater(first["estimated_minutes_remaining"], 0)
+            self.assertLessEqual(
+                second["estimated_cycles_remaining"],
+                first["estimated_cycles_remaining"],
+            )
+
     def test_multiple_small_jsonl_files_share_global_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -807,6 +852,10 @@ class StatisticsUiStateTest(unittest.TestCase):
         self.assertIn("storage.physical_total_files", script)
         self.assertIn("storage.logical_total_files", script)
         self.assertIn("storage.overlapping_file_references", script)
+        self.assertIn("scan.jsonl_progress_percent", script)
+        self.assertIn("scan.estimated_cycles_remaining", script)
+        self.assertIn("scan.phase_seconds", script)
+        self.assertIn("Langsamste Phase", script)
 
 
 if __name__ == "__main__":

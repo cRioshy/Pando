@@ -115,17 +115,20 @@ Der Storage-Statistikdienst besitzt inzwischen:
 - atomare Cache-/Index-Schreibvorgänge,
 - Metadatenmodus für große SQLite-, JSON-, CSV- und Logdateien,
 - ein globales JSONL-Bytebudget pro Scan,
+- ein anhand des realen Bestands vermessenes Standardbudget von 64 MiB pro Lauf,
+- getrennte Phasenlaufzeiten für Zielermittlung, Pfadauflösung, Metadaten, Fingerprint, Dateiverarbeitung, Index- und Cachepersistenz,
+- kumulativen JSONL-Fortschritt mit Gesamt-/indexierten/restlichen Bytes, vollständigen Dateien sowie geschätzten Restläufen und Restzeit,
 - einen geschützten Lebenszyklus: Nach `close()` werden keine neuen Scans akzeptiert und laufende Hintergrund- oder synchrone Scans sind vollständig beendet, bevor `close()` zurückkehrt.
 - physische Pfad-Deduplizierung innerhalb eines Scans: Überlappende logische Ziele verwenden dasselbe Dateiergebnis und verbrauchen Scanbudget nur einmal,
 - getrennte verifizierte Summen für physische Dateien und logische Kategorieverweise einschließlich ausgewiesener Überlappungsanzahl.
 
-Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Ein alter Cache ohne getrennte Summen wird als `LEGACY_CACHE` markiert; seine bisherigen Gesamtwerte werden nicht als physisch verifiziert ausgegeben. Erst ein neuer vollständiger Scan erzeugt `VERIFIED`-Werte. Der laufende Bestand lag beim früheren Abruf bei 7 logischen Ordnern, 93 gecachten Dateiverweisen und 4,26 GB logischer Summe. Ein Scan endete dennoch nach 35,236 Sekunden als `TIMEOUT` und bearbeitete 27 von 94 Dateiverweisen; das ist ein offener Performancefehler, kein Datenverlustsignal.
+Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Ein alter Cache ohne getrennte Summen wird als `LEGACY_CACHE` markiert; seine bisherigen Gesamtwerte werden nicht als physisch verifiziert ausgegeben. Erst ein neuer vollständiger Scan erzeugt `VERIFIED`-Werte. Eine schreibgeschützte Realmessung am 1. August 2026 fand 105 physische Dateien und 58 JSONL-Dateien mit rund 5,80 GB. Der vorhandene Index deckte 5,69 % ab. Mit dem alten Budget dauerte der Lauf 1,084 Sekunden; 64 MiB wurden in einem zweiten Benchmark in 2,135 Sekunden verarbeitet. Daraus ergaben sich ungefähr 82 weitere Minutenläufe bis zur Nachindexierung. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und erklären den Status `DEGRADED`; sie wurden nicht verändert.
 
 ## Control Center
 
 Das lokale Control Center wird standardmäßig unter `http://127.0.0.1:8000/` bereitgestellt. Es zeigt Health, Services, Märkte, Brain, Signals, Statistiken, Speicher, Learning Report und Graphen. HTTP-Endpunkte liefern read-only Sichten; `/api/statistics/storage/refresh` startet einen Hintergrundscan und antwortet mit HTTP `202 Accepted`.
 
-Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
+Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus, kumulativen JSONL-Indexfortschritt, geschätzte Restläufe/-zeit, die langsamste Phase sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
 
 Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust. Servicezustände berücksichtigen inzwischen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert.
 
@@ -165,11 +168,11 @@ python -m unittest tests.test_statistics_and_storage tests.test_web_control_cent
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der Storage-Deduplizierung mit 203/203 Tests in 36,854 Sekunden. Der gezielte Storage-/Web-/Rick-API-Lauf bestand mit 44/44 Tests. Darin sind die physische Deduplizierung überlappender Ziele, einmalige Dateiverarbeitung, getrennte Summen und die sichere Behandlung alter Caches abgedeckt.
+Der vollständige Lauf am 1. August 2026 bestand nach der Scanner-Instrumentierung mit 204/204 Tests in 51,063 Sekunden. Der gezielte Storage-/Web-Lauf bestand mit 39/39 Tests in 10,349 Sekunden. Darin sind Phasenmessung, kumulativer JSONL-Fortschritt, Restschätzung, Budgetgrenzen, physische Deduplizierung und UI-Anzeige abgedeckt.
 
 ## Bekannte Risiken
 
-1. Storage-Scans überschreiten im realen Datenbestand weiterhin teilweise das konfigurierte Timeout.
+1. Storage-Laufzeiten müssen nach dem Neustart weiter beobachtet werden; der 64-MiB-Realbenchmark blieb mit 2,135 Sekunden deutlich unter dem 30-Sekunden-Limit.
 2. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
 3. WebSocket-Reconnect und Polling-Fallback sind nicht vollständig robust.
 4. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
@@ -181,3 +184,4 @@ Der vollständige Lauf am 1. August 2026 bestand nach der Storage-Deduplizierung
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
 11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
+13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
