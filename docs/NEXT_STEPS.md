@@ -52,9 +52,10 @@ Stand: 1. August 2026
    - Crypto Trade Tracker bevorzugt `market_context.recent_swing_low/high`, Learning Graph bevorzugt `public_result`; alte Raw-Payloads bleiben lesbar.
    - Vier neue Regressionstests und 221/221 Gesamttests bestanden.
    - Commit `1550d07` veröffentlicht; gestapelter Draft-PR #10 gegen `agent/define-compact-event-payload-contract` erstellt und nicht gemergt.
-   - **Brain-Migration am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - **Brain-Migration am 1. August 2026 implementiert und veröffentlicht.**
    - Neue Brain-History und `BRAIN_DECISION_RECEIVED` verwenden ausschließlich Version 1 mit erhaltener Quell-ID.
    - 28/28 gezielte und 222/222 vollständige Tests bestanden.
+   - Commit `5b59fa2` veröffentlicht; gestapelter Draft-PR #11 gegen `agent/prepare-compact-payload-consumers` erstellt und nicht gemergt.
    - Als Nächstes Decision-/Signal-Payloads, danach NeuroBrain-Persistenz isoliert migrieren.
    - Bestehende History unverändert lesbar lassen.
 
@@ -80,6 +81,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Neue Brain-History und `BRAIN_DECISION_RECEIVED` auf die kompakte Version-1-Projektion umgestellt; bestehende History unangetastet gelassen.
+- 28/28 gezielte und 222/222 vollständige Tests bestanden; Commit `5b59fa2` und gestapelter Draft-PR #11 veröffentlicht.
 - Crypto Trade Tracker und Learning Graph auf kompakte Ersatzfelder vorbereitet; Legacy-Raw-Payloads bleiben lesbar.
 - 20/20 gezielte und 221/221 vollständige Tests bestanden; Commit `1550d07` und gestapelter Draft-PR #10 veröffentlicht.
 - Kompakten Event-Payload-Vertrag Version 1 mit tatsächlicher Consumer-Matrix, Validator und fünf Kompatibilitätstests definiert; Produktionspayloads noch unverändert gelassen.

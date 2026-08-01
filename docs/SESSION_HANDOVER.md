@@ -1,5 +1,95 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Brain-History und Brain-Event kompakt migrieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 22:02 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Als erste Producer-/Persistenzgrenze ausschließlich den `BrainAdapter` auf `pandorickki.compact-market-event` Version 1 umstellen. Neue Brain-History und `BRAIN_DECISION_RECEIVED` sollen dieselbe kompakte Projektion mit erhaltener Quell-ID verwenden. Bestehende History, Decision-/Signal-Persistenz und NeuroBrain bleiben in diesem Schritt unverändert.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation, Payload-Vertrag, tatsächlichen BrainAdapter und alle relevanten Tests erneut geprüft.
+- Gestapelten Branch `agent/compact-brain-payloads` von `agent/prepare-compact-payload-consumers` erstellt.
+- Neuen Regressionstest mit 500 Kerzen, Trainingsfeatures, Diagnostik und internem Raw-Feld zunächst vor dem Fix ausgeführt; fehlende Vertragsversion reproduziert.
+- Brain erzeugt nun direkt an der Eingangsgrenze einmalig `compact_market_payload()` und verwendet dieselbe Projektion für rotierte History sowie `BRAIN_DECISION_RECEIVED`.
+- Eventtyp, kanonische Quell-Event-ID, Confidence und Brain-Empfangszeit explizit erhalten beziehungsweise ergänzt.
+- Raw Results, Features, Marktdiagnostik, Kerzen und interne Raw-Felder werden nicht in neue Brain-Datensätze oder Folgeevents übernommen.
+- Größenregression ergänzt: Die gespeicherte Projektion muss beim umfangreichen Testinput kleiner als ein Viertel der Eingangspayload sein.
+- Bestehenden vollständigen Integrationsfluss bis Decision Core und Tracker erfolgreich geprüft.
+- Architektur-, Systemzustands-, Vertrags-, Problem- und Planungsdokumentation auf die aktive Brain-Grenze aktualisiert.
+- Commit `5b59fa2` auf `origin/agent/compact-brain-payloads` veröffentlicht und gestapelten Draft-PR #11 gegen `agent/prepare-compact-payload-consumers` erstellt.
+- Keine bestehende Runtime-, Brain-History-, Lern-, Token- oder Konfigurationsdatei verändert oder gelöscht.
+
+### Veränderte Dateien
+
+- `adapters/brain_adapter.py`
+- `tests/test_brain_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code- und Testinventur mit `rg` und `Get-Content`.
+- `git switch -c agent/compact-brain-payloads`.
+- Isolierter Regressionstest vor dem Fix, gezielte Modul-/Integrationstests, vollständige Testsuite und `py_compile`.
+- `git diff --check`, Scope- und Secret-Mustersuche.
+- Explizites Staging, Commit, Push und Draft-PR-Erstellung über `gh`.
+
+### Ausgeführte Tests
+
+- Neuer isolierter kompakter Brain-Regressionstest vor dem Fix.
+- `.\.venv\Scripts\python.exe -m unittest tests.test_brain_adapter tests.test_decision_signal_adapter tests.test_crypto_trade_tracker tests.test_event_payload_contract tests.test_learning_graph_phase3 tests.test_integration_full -v`
+- `.\.venv\Scripts\python.exe -m py_compile adapters\brain_adapter.py tests\test_brain_adapter.py`
+- `.\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Tatsächliche Testergebnisse
+
+- Vor dem Fix: Regressionstest erwartungsgemäß mit fehlendem `schema_name` gescheitert.
+- Nach dem Fix: 28/28 gezielte Brain-/Decision-/Tracker-/Graph-/Integrations-/Vertragstests bestanden in 1,258 Sekunden.
+- Vollständige Suite: 222/222 bestanden in 52,209 Sekunden.
+- `py_compile`, `git diff --check` und Secret-Prüfung: bestanden; keine Secret-Treffer.
+- Größenprüfung: kompakte Brain-Persistenz kleiner als 25 % der umfangreichen Testpayload.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt.
+
+### Bekannte Fehler
+
+- `KP-015` bleibt teilweise offen: Decision-/Signal-Payloads führen das Legacy-Feld `raw_result` noch weiter, bei kompaktem Brain-Input allerdings als `None`.
+- NeuroBrain speichert neben seiner Kopfsicht weiterhin die vollständige empfangene Event-Payload.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Projektion genau einmal an der Brain-Eingangsgrenze und Wiederverwendung derselben Sicht für Persistenz und Folgeevent.
+- `Event.event_id` ist die kanonische `source_event_id`, auch wenn der Event-Umschlag kein eigenes `event_id`-Feld enthält.
+- Neue Brain-Persistenz ist ausschließlich Version 1; alte History bleibt unverändert und weiterhin lesbar.
+- Decision Core und NeuroBrain werden in getrennten Folgeschritten migriert, damit Fehlergrenzen und Größenwirkung isoliert testbar bleiben.
+- Keine reale Orderausführung und keine Änderung der Telegram-Sicherheitsgrenze.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #11: `https://github.com/cRioshy/Pando/pull/11`, Basis `agent/prepare-compact-payload-consumers`; Draft und ungemergt.
+- Der aktuell laufende lokale Dienst wurde in diesem Schritt nicht neu gestartet; die Änderung ist per Unit-/Integrationssuite verifiziert und wird erst nach kontrolliertem Neustart aktiv.
+- Decision-/Signal- und NeuroBrain-Persistenz sind noch nicht vollständig migriert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+`DecisionSignalAdapter` in einem eigenen kleinen Schritt auf die Version-1-Projektion umstellen: Decision- und Signal-IDs sowie Quellreferenzen erhalten, `raw_result` nicht mehr als Feld in neue Decision-/Signal-Ledger schreiben und Decision-/Signal-Events per Vertrags- und Größenregression prüfen. Bestehende Ledger nicht ändern oder löschen; NeuroBrain erst danach separat migrieren.
+
+---
+
 ## Aktuelle Aufgabe: Consumer für kompakte Event-Payloads vorbereiten
 
 ### Datum und Uhrzeit
