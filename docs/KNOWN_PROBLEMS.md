@@ -86,12 +86,12 @@ Stand: 1. August 2026
 ### KP-015 – Vollständige Raw Results vergrößern Event-Ledger
 
 - **Priorität:** hoch
-- **Status:** offen; Migrationsvertrag und Consumer-Vorbereitung umgesetzt und getestet
-- **Beobachtung:** Brain persistiert vollständige Markt-Payloads; Brain-, Decision- und Signal-Ereignisse reichen `raw_result` weiter. NeuroBrain speichert neben einer kleinen Kopfsicht ebenfalls die komplette Event-Payload.
+- **Status:** offen; Brain-Grenze migriert, Decision-/Signal- und NeuroBrain-Persistenz ausstehend
+- **Beobachtung:** Brain persistiert und publiziert neue Analysen kompakt. Decision-/Signal-Payloads führen das Legacy-Feld `raw_result` derzeit noch weiter; NeuroBrain speichert neben einer kleinen Kopfsicht ebenfalls die komplette Event-Payload.
 - **Auswirkung:** Wiederholte Rohdaten und Kerzen vergrößern Brain-/Decision-/Signal-/NeuroBrain-Ledger und verlängern Storage-Scans.
 - **Verifizierte Altpfade:** `CryptoTradeTracker` kann Swing-Werte weiterhin aus `raw_result.market_data.candles` lesen; `LearningGraphBuilder` kann das Ergebnis weiterhin aus `raw_result.result` lesen. Beide Pfade sind jetzt ausschließlich Fallback hinter den kompakten Feldern.
 - **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1. Tracker und Graph bevorzugen die kompakten Ersatzfelder; vier Regressionstests sichern Priorität und Legacy-Kompatibilität.
-- **Nächster Fix:** Brain-/Decision-/Signal- und NeuroBrain-Persistenz schrittweise auf die kompakte Projektion umstellen. Bestehende History nicht verändern und Legacy-Leser erhalten.
+- **Nächster Fix:** Decision-/Signal-Payloads auf Version 1 umstellen und anschließend NeuroBrain-Persistenz migrieren. Bestehende History nicht verändern und Legacy-Leser erhalten.
 
 ## Behoben oder entschärft
 

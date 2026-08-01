@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,9 +12,72 @@ from adapters.brain_adapter import AI_LEARNING_UPDATED, BRAIN_DECISION_RECEIVED,
 from brain_event_store import BrainEventReader
 from adapters.stock_adapter import STOCK_ANALYSIS_FINISHED
 from event_bus import Event, EventBus
+from event_payload_contract import CONTRACT_NAME, CONTRACT_VERSION, contract_errors
 
 
 class BrainAdapterTest(unittest.TestCase):
+    def test_brain_persists_and_publishes_only_compact_versioned_payload(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                bus = EventBus()
+                seen = []
+                bus.subscribe(BRAIN_DECISION_RECEIVED, seen.append)
+                path = Path(temp) / "brain_events.jsonl"
+                adapter = BrainAdapter(bus, path)
+                market_payload = {
+                    "market_type": "stock",
+                    "symbol": "AAPL",
+                    "direction": "LONG",
+                    "probability": 68.0,
+                    "price": 220.0,
+                    "current_price": 220.0,
+                    "indicators": {"atr": 4.0, "rsi": 55.0},
+                    "risk": {"stop_loss": 214.0, "take_profit_1": 229.0},
+                    "source_timestamp": "2026-08-01T18:00:00+00:00",
+                    "raw_result": {
+                        "result": "OPEN",
+                        "market_data": {
+                            "candles": [
+                                {"low": 210.0 + index, "high": 230.0 + index, "close": 220.0}
+                                for index in range(500)
+                            ]
+                        },
+                        "private_reasoning": "must not be persisted",
+                    },
+                    "features": {"training_only": list(range(500))},
+                    "market_data_diagnostics": {"responses": ["large"] * 500},
+                }
+                source_event = Event(
+                    topic=STOCK_ANALYSIS_FINISHED,
+                    source="stock",
+                    payload={"event_type": STOCK_ANALYSIS_FINISHED, "payload": market_payload},
+                )
+
+                await adapter.start()
+                bus.publish(source_event)
+                await adapter.stop()
+
+                rows = BrainEventReader(
+                    legacy_file=path,
+                    rotated_root=path.parent / "brain_events",
+                ).recent(limit=10)
+                persisted = rows[0]["payload"]
+                published = seen[0].payload["payload"]
+                for compact in (persisted, published):
+                    self.assertEqual(compact["schema_name"], CONTRACT_NAME)
+                    self.assertEqual(compact["schema_version"], CONTRACT_VERSION)
+                    self.assertEqual(compact["source_event_id"], source_event.event_id)
+                    self.assertEqual(compact["public_result"], "OPEN")
+                    self.assertEqual(contract_errors(compact), [])
+                    encoded = json.dumps(compact)
+                    self.assertNotIn("raw_result", encoded)
+                    self.assertNotIn("features", encoded)
+                    self.assertNotIn("candles", encoded)
+                    self.assertNotIn("private_reasoning", encoded)
+                self.assertLess(len(json.dumps(persisted)), len(json.dumps(market_payload)) // 4)
+
+        asyncio.run(run())
+
     def test_import_and_start_do_not_touch_existing_brains(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:

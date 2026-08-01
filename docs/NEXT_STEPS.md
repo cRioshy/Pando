@@ -52,7 +52,10 @@ Stand: 1. August 2026
    - Crypto Trade Tracker bevorzugt `market_context.recent_swing_low/high`, Learning Graph bevorzugt `public_result`; alte Raw-Payloads bleiben lesbar.
    - Vier neue Regressionstests und 221/221 Gesamttests bestanden.
    - Commit `1550d07` veröffentlicht; gestapelter Draft-PR #10 gegen `agent/define-compact-event-payload-contract` erstellt und nicht gemergt.
-   - Danach nur die definierte Projektion neu persistieren und IDs beziehungsweise Referenzen erhalten.
+   - **Brain-Migration am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - Neue Brain-History und `BRAIN_DECISION_RECEIVED` verwenden ausschließlich Version 1 mit erhaltener Quell-ID.
+   - 28/28 gezielte und 222/222 vollständige Tests bestanden.
+   - Als Nächstes Decision-/Signal-Payloads, danach NeuroBrain-Persistenz isoliert migrieren.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**

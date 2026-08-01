@@ -104,9 +104,9 @@ Live-Adapter verwenden `include_targets=False`; historische Trainingsziele werde
 
 ## Brain
 
-`BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, schreibt sie in datums- und größenrotierte JSONL-Dateien und publiziert Folgeereignisse. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
+`BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, projiziert jede neue Analyse einmal auf `pandorickki.compact-market-event` Version 1, schreibt diese Sicht in datums- und größenrotierte JSONL-Dateien und publiziert dieselbe Sicht als `BRAIN_DECISION_RECEIVED`. Quell-Event-ID, Markt-/Preis-/Risiko-/Zeitfelder und kompakte Ersatzfelder bleiben erhalten; Raw Results, Features, Diagnostik und Kerzen werden nicht neu in Brain-History übernommen. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
 
-Ein versionierter kompakter Event-Payload-Vertrag liegt als noch nicht aktiv verdrahtetes Migrationsziel in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Die heutige Laufzeit persistiert und transportiert weiterhin die bisherigen Payloads; Produktionsverhalten wurde in diesem Schritt nicht verändert.
+Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Brain ist die erste aktiv migrierte Producer-/Persistenzgrenze. Decision-/Signal- und NeuroBrain-Persistenz reichen noch nicht überall ausschließlich die Projektion weiter.
 
 ## Decision Core
 
@@ -187,7 +187,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach Vorbereitung der kompakten Consumer mit 221/221 Tests in 48,558 Sekunden. Vier neue Regressionstests prüfen die Priorität von `market_context` und `public_result` sowie beide Legacy-Fallbacks. Die fünf Vertragstests und die zuvor ergänzten 12 Outcome-Tracker-Tests bleiben Bestandteil der Suite.
+Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Brain-Migration mit 222/222 Tests in 52,209 Sekunden. Der neue Brain-Test prüft Persistenz und Folgeevent, Schema/IDs, den Ausschluss aller Bulk-Felder und eine Größenreduktion auf weniger als ein Viertel des umfangreichen Testinputs. 28 gezielte Brain-/Decision-/Tracker-/Graph-/Integrations-/Vertragstests bestanden ebenfalls.
 
 ## Bekannte Risiken
 
@@ -201,7 +201,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach Vorbereitung der kompakten
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain, Decision Core und NeuroBrain transportieren beziehungsweise persistieren noch vollständige Payloads. Crypto Trade Tracker und Learning Graph sind auf die dokumentierten Ersatzfelder vorbereitet; der Producer-/Persistenzwechsel ist noch nicht umgesetzt.
+11. Brain persistiert und publiziert neue Analysen kompakt. Decision Core erzeugt derzeit weiterhin eigene Payloads mit dem Legacy-Feld `raw_result` (bei kompaktem Brain-Input `None`), und NeuroBrain persistiert weiterhin komplette empfangene Event-Payloads neben seiner Kopfsicht.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

@@ -180,7 +180,7 @@ flowchart LR
     RESULT --> PROJECT
 ```
 
-Das Diagramm zeigt weiterhin den Producer-Zielzustand, nicht den aktuellen aktiven Datenfluss. Der Crypto Trade Tracker liest inzwischen `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Brain, Decision Core und NeuroBrain erzeugen beziehungsweise persistieren jedoch noch nicht die kompakte Projektion.
+Brain verwendet die Projektion inzwischen als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Decision-/Signal- und NeuroBrain-Persistenz sind noch nicht vollständig migriert; für diese Knoten zeigt das Diagramm weiterhin den Zielzustand.
 
 ## Crypto-Ausfall- und Fallback-Semantik
 
