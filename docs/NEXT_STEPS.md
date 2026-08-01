@@ -40,11 +40,12 @@ Stand: 1. August 2026
    - Commit `8a0a78d` veröffentlicht; gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` erstellt und nicht gemergt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
-   - **Implementierung abgeschlossen am 1. August 2026; Veröffentlichung noch offen.**
+   - **Erledigt und veröffentlicht am 1. August 2026.**
    - Tatsächliche Producer und Feldleser in Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain geprüft.
    - Vertrag `pandorickki.compact-market-event` Version 1, ausführbare Projektion, Validator und Kompatibilitätstests ergänzt.
    - Zwei echte Legacy-Abhängigkeiten ausdrücklich erfasst: Crypto-Swings aus Kerzen und Learning-Ergebnis aus `raw_result`.
    - Produktionspayloads und bestehende History bewusst noch nicht verändert.
+   - Commit `311dd38` veröffentlicht; gestapelter Draft-PR #9 gegen `agent/fix-outcome-timestamp-normalization` erstellt und nicht gemergt.
 
 7. **Brain- und NeuroBrain-Payloads verkleinern.**
    - Zuerst Crypto Trade Tracker auf `market_context.recent_swing_low/high` und Learning Graph auf `public_result` vorbereiten.
@@ -73,6 +74,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Kompakten Event-Payload-Vertrag Version 1 mit tatsächlicher Consumer-Matrix, Validator und fünf Kompatibilitätstests definiert; Produktionspayloads noch unverändert gelassen.
+- 217/217 Gesamttests bestanden; Commit `311dd38` und gestapelter Draft-PR #9 veröffentlicht.
 - Outcome-Zeitstempel-Fix kontrolliert live verifiziert: vier Crypto-Heartbeats, alle Services `OK`, bekannter Fehlerzähler unverändert bei 158, Telegram aus/Dry-Run.
 - Commit `a2a139f` veröffentlicht und gestapelten Draft-PR #8 gegen den Fehlerjournal-Branch erstellt.
 - Outcome-Tracker-Zeitnormalisierung rückwärtskompatibel umgesetzt: naive historische Werte gelten beim Lesen als UTC, vorhandene History bleibt unverändert.

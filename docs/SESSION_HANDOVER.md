@@ -1,5 +1,95 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Kompakten Event-Payload-Vertrag Version 1 definieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 21:15 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Vor der späteren Verkleinerung von Brain- und NeuroBrain-Ledgern den tatsächlichen Feldverbrauch aller relevanten Event-Consumer ermitteln und einen versionierten, getesteten kompakten Payload-Vertrag festlegen. Noch keine Produktionspayloads umstellen, keine History verändern, keine realen Trades oder Orderausführung aktivieren und Telegram deaktiviert beziehungsweise im Dry-Run lassen.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation, Git-Stand und tatsächliche Producer-/Consumer-Codepfade geprüft.
+- Gestapelten Branch `agent/define-compact-event-payload-contract` von `agent/fix-outcome-timestamp-normalization` erstellt.
+- Producer in Crypto-, Stock-, Commodity-, Brain- und Decision-/Signal-Adaptern inventarisiert.
+- Feldleser in Brain, Decision Core, Crypto Trade Tracker, Outcome Tracker, Control Center, Telegram, Learning Graph und NeuroBrain geprüft.
+- Zwei verbliebene echte Raw-Abhängigkeiten identifiziert: Crypto-Swings aus `raw_result.market_data.candles` und Learning-Ergebnis aus `raw_result.result`.
+- Vertrag `pandorickki.compact-market-event` Version 1 als ausführbare Referenzprojektion und Validator implementiert.
+- Legacy-Kerzen werden im Migrationshelfer ausschließlich auf `recent_swing_low`/`recent_swing_high` verdichtet; `public_result` ersetzt das Legacy-Ergebnislabel.
+- `raw_result`, `features`, `market_data_diagnostics` und `candles` in jeder Verschachtelung des Zielvertrags verboten.
+- Fünf Vertragstests und vollständige Architektur-/Feldmatrix-Dokumentation ergänzt.
+- Produktionsadapter bewusst nicht verdrahtet; laufendes Verhalten und vorhandene History bleiben unverändert.
+- Commit `311dd38` auf `origin/agent/define-compact-event-payload-contract` veröffentlicht und gestapelten Draft-PR #9 gegen `agent/fix-outcome-timestamp-normalization` erstellt.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `event_payload_contract.py`
+- `tests/test_event_payload_contract.py`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen der vorgeschriebenen Übergabedateien und gezielte Codeinventur mit `rg` und `Get-Content`.
+- `git switch -c agent/define-compact-event-payload-contract`.
+- Gezielte `unittest`-Läufe, vollständige Testsuite, `py_compile`, `git diff --check` und Secret-Mustersuche.
+- Explizites Staging, Commit, `git push -u origin agent/define-compact-event-payload-contract`.
+- `gh auth status` und `gh pr create --draft` für den gestapelten PR.
+
+### Ausgeführte Tests
+
+- `.\.venv\Scripts\python.exe -m unittest tests.test_event_payload_contract -v`
+- `.\.venv\Scripts\python.exe -m unittest discover -s tests`
+- `.\.venv\Scripts\python.exe -m py_compile event_payload_contract.py tests\test_event_payload_contract.py`
+- `git diff --check`
+- Secret-Mustersuche im neuen Code, den Tests und der Vertragsdokumentation.
+
+### Tatsächliche Testergebnisse
+
+- Vertragstests: 5/5 bestanden in 0,002 Sekunden.
+- Vollständige Suite: 217/217 bestanden in 45,511 Sekunden.
+- `py_compile`: bestanden.
+- Secret-Mustersuche: keine Treffer.
+- `git diff --check`: initial zwei Markdown-Zeilen mit absichtlichem Zeilenumbruch als Whitespace gemeldet; vor dem Abschluss entfernt und erneut geprüft.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt.
+
+### Bekannte Fehler
+
+- `KP-015` bleibt offen: Die heutige Laufzeit transportiert und persistiert weiterhin vollständige Raw Results. Der neue Vertrag ist noch nicht produktiv aktiviert.
+- Crypto Trade Tracker und Learning Graph müssen vor der Producer-Umschaltung auf ihre kompakten Ersatzfelder vorbereitet werden.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Ein gemeinsamer, explizit versionierter Vertrag statt stillschweigender Feldentfernung.
+- Bulk-, Trainings- und Diagnostikfelder sind im kompakten Vertrag verboten; strukturierte Fakten, Indikatoren und Risiko bleiben als begrenzte Consumer-Sichten erhalten.
+- Schema-Version 1 ist zunächst ein inaktives Migrationsziel. Producer werden erst nach Consumer-Kompatibilität umgestellt.
+- Bestehende JSONL-History wird nicht migriert, umgeschrieben oder gelöscht; Leser benötigen weiterhin einen Legacy-Pfad.
+- Telegram- und Orderfreigabe sind ausdrücklich nicht Bestandteil der Payload-Migration.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #9: `https://github.com/cRioshy/Pando/pull/9`, Basis `agent/fix-outcome-timestamp-normalization`; Draft und ungemergt.
+- Crypto Trade Tracker liest die neuen Swing-Felder noch nicht direkt.
+- Brain-, Decision-/Signal- und NeuroBrain-Persistenz verwendet die Projektion noch nicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+In einem kleinen Consumer-Kompatibilitätsschritt zuerst `CryptoTradeTracker` so erweitern, dass er `market_context.recent_swing_low/high` bevorzugt und nur für alte Payloads auf Kerzen zurückfällt; `LearningGraphBuilder` soll `public_result` bevorzugen und `raw_result.result` nur noch als Legacy-Fallback lesen. Dazu gezielte Regressionstests schreiben. Noch keine Producer-Payloads verkleinern und bestehende History nicht verändern.
+
+---
+
 ## Aktuelle Aufgabe: KP-014 – Outcome-Zeitstempel normalisieren
 
 ### Datum und Uhrzeit

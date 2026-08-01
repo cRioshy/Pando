@@ -1,7 +1,9 @@
 # Vertrag für kompakte Event-Payloads
 
-Stand: 1. August 2026  
-Vertragsname: `pandorickki.compact-market-event`  
+Stand: 1. August 2026
+
+Vertragsname: `pandorickki.compact-market-event`
+
 Version: `1`
 
 ## Zweck und aktueller Status

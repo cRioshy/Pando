@@ -183,7 +183,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der Outcome-Zeitnormalisierung mit 212/212 Tests in 48,735 Sekunden. Die 12 Outcome-Tracker-Tests bestanden in 0,449 Sekunden. Darin sind reine naive, reine offset-bewusste und gemischte Zeitstempel sowie der reale Legacy-Trade-Fehlerpfad ohne neues `OUTCOME_TRACKER_ERROR` abgedeckt.
+Der vollständige Lauf am 1. August 2026 bestand nach Ergänzung des kompakten Event-Payload-Vertrags mit 217/217 Tests in 45,511 Sekunden. Die fünf neuen Vertragstests prüfen Schema, Feldabdeckung, Bulk-Ausschluss und Legacy-Ersatzfelder. Die zuvor ergänzten 12 Outcome-Tracker-Tests bleiben Bestandteil der Suite.
 
 ## Bekannte Risiken
 
