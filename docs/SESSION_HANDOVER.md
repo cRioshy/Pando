@@ -1,5 +1,95 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Begrenztes Service-Fehlerjournal implementieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 16:31 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegrenztes und secret-gefiltertes Fehlerjournal ergänzen. Erste und letzte konkrete Servicefehler sollen rekonstruierbar bleiben, ohne vollständige Event-Payloads, externe Antworten oder Zugangsdaten zu persistieren. Keine realen Trades, keine Orderausführung und kein Telegram-Liveversand.
+
+### Durchgeführte Arbeiten
+
+- Die vier Dokumentationsänderungen der kontrollierten Neustartprüfung als Commit `f3ed01c` auf `agent/instrument-storage-scanner` veröffentlicht und damit Draft-PR #6 aktualisiert.
+- Neuen gestapelten Arbeitsbranch `agent/add-service-error-journal` von diesem Stand erstellt.
+- Alle tatsächlich publizierten Fehler-Topics und verschachtelten Adapter-Payloads geprüft.
+- `ServiceErrorJournal` als Wildcard-Subscriber implementiert; es akzeptiert `SYSTEM_ERROR`, `service.error` sowie Topics mit Suffix `_ERROR`.
+- Eine kompakte Version-1-Projektion für Service, Stufe, Symbol, Provider, Fehlerart, Korrelation und maximal zehn Provider-Versuche implementiert; rohe Payloads werden nicht übernommen.
+- Secret-Schutz für sensible Schlüsselnamen, Zuweisungen, Bearer-Werte und Query-Parameter ergänzt.
+- Aktives JSONL auf 5 MiB, Archive auf vier und die atomare Erst-/Letzt-Zusammenfassung auf 500 Fingerprints begrenzt.
+- Journal-Lifecycle in den Orchestrator integriert: Start vor den Adaptern, Shutdown nach den Adaptern, eigener Health-Eintrag und Journalisierung von Start-, Lauf- und Stopfehlern.
+- Konfiguration, Beispielumgebung, Tests und Ist-Dokumentation aktualisiert.
+- Keine vorhandenen Runtime-, History-, Lern-, Token- oder Konfigurationsdaten gelöscht oder verändert.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `config.py`
+- `jsonl_ledger.py`
+- `orchestrator.py`
+- `tests/test_config.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `service_error_journal.py`
+- `tests/test_service_error_journal.py`
+
+### Ausgeführte Befehle
+
+- Vorgeschriebene Übergabedokumente und betroffene Codepfade vollständig gelesen.
+- `gh auth status`, `git fetch origin`, Branch-/Remote-/Status- und PR-Prüfungen.
+- Expliziter Commit und Push der vorherigen Neustartdokumentation.
+- `git switch -c agent/add-service-error-journal`.
+- `python -m py_compile` für die geänderten Python-Module.
+- Gezielte und vollständige `unittest`-Läufe.
+- `git diff --check`, Scope-Prüfung und Secret-Mustersuche im Veröffentlichungsumfang.
+
+### Ausgeführte Tests
+
+- `python -m unittest tests.test_service_error_journal`
+- `python -m unittest tests.test_service_error_journal tests.test_config tests.test_parallel_orchestrator tests.test_orchestrator_stock`
+- `python -m unittest discover -s tests`
+
+### Tatsächliche Testergebnisse
+
+- Neue Journaltests: 5/5 bestanden in 0,350 Sekunden.
+- Gezielter Journal-/Config-/Orchestratorlauf: 17/17 bestanden in 5,567 Sekunden.
+- Vollständige Suite: 210/210 bestanden in 43,191 Sekunden.
+- `git diff --check`: keine Whitespace-Fehler; ausschließlich erwartete Git-Hinweise zur künftigen LF-/CRLF-Normalisierung.
+- Secret-Mustersuche: keine echten Zugangsdaten im Veröffentlichungsumfang gefunden; vorkommende Secret-Texte sind ausschließlich Platzhalter, Filterregeln und Testwerte.
+
+### Bekannte Fehler
+
+- Der synchrone EventBus bleibt ohne Backpressure (`KP-003`). Das Journal schreibt nur bei Fehlern und fängt eigene Fehler ab, kann den Publisher bei langsamem Datenträger aber kurz blockieren.
+- WebSocket-Reconnect (`KP-002`), verzögerter Web-Stop (`KP-013`) und die übrigen offenen Punkte in `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+- Die DeprecationWarnings zu `datetime.utcnow()` stammen weiterhin aus dem externen Legacy-Crypto-Projekt und wurden in dieser Aufgabe nicht verändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine vollständigen oder beliebigen Events persistieren; ausschließlich ein enger, versionierter Fehlervertrag.
+- Secret-Filterung findet vor jedem Schreibvorgang statt. Provider-Antwortkörper und `raw_result` sind nicht Teil der Projektion.
+- Der Journalbestand ist bewusst begrenzt. Nur diese neu eingeführten Journalarchive werden nach der konfigurierten Grenze entfernt; vorhandene Projekt-History bleibt unangetastet.
+- Journalfehler dürfen Publisher niemals abbrechen und werden stattdessen als eigener Service-Health sichtbar.
+- Der vorhandene synchrone EventBus wird in diesem Schritt nicht grundsätzlich umgebaut.
+
+### Nicht abgeschlossene Punkte
+
+- Branch, Commit, gestapelter Draft-PR und Liveprüfung des neuen Journals stehen noch aus.
+- Draft-PRs dürfen nicht gemergt werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den geprüften Umfang explizit stagen, committen und auf `agent/add-service-error-journal` pushen; danach einen gestapelten Draft-PR gegen `agent/instrument-storage-scanner` erstellen, die exakten Veröffentlichungsdaten nachtragen und PandorickKi kontrolliert neu starten, um `service_error_journal=OK` live zu verifizieren.
+
+---
+
 ## Aktuelle Aufgabe: PandorickKi kontrolliert neu starten und live prüfen
 
 ### Datum und Uhrzeit

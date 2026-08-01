@@ -28,6 +28,8 @@ flowchart LR
     EB --> TG["Telegram: Dry-Run oder optionaler Versand"]
     EB --> NB["NeuroBrainReceiver: lokale read-only Inbox"]
     EB --> CC["ControlCenterAdapter"]
+    EB --> EJ["ServiceErrorJournal: kompakt und secret-gefiltert"]
+    EJ --> EF["Begrenzte JSONL-Archive + atomare Zusammenfassung"]
     OR["Orchestrator"] --> SS["SharedState"]
     OR --> HM["HealthMonitor"]
     SS --> CC
@@ -94,6 +96,7 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `NeuroBrainReceiverAdapter` | Read-only Datei-Inbox und Duplikatschutz | Rückkanal in Decision Core |
 | `TelegramAdapter` | Dry-Run oder optionaler Nachrichtenversand | Zwingende finale Decision-Freigabe |
 | `ControlCenterAdapter` | Kompakte Event-/Statussicht | Stale-Heartbeat-Klassifikation |
+| `ServiceErrorJournal` | Versionierte Projektion von Fehlerereignissen, Secret-Filter, begrenzte Rotation, persistente Erst-/Letztbeobachtung | Vollständige Payload-Ablage, zentrale Retention aller anderen Ledger |
 
 ## Persistenzarchitektur
 
@@ -104,6 +107,8 @@ flowchart TD
     EVENTS --> SIG["Signal JSONL, größenrotiert"]
     EVENTS --> OUT["Outcome JSONL, größenrotiert"]
     EVENTS --> NEURO["NeuroBrain Inbox JSONL"]
+    ERRORS["Nur Fehlerereignisse"] --> ERRLOG["service_errors.jsonl, 5 MiB + max. 4 Archive"]
+    ERRORS --> ERRSUM["service_error_summary.json, atomar + max. 500 Fingerprints"]
     OPEN["Offene simulierte Trades"] --> JSON["Atomar ersetztes JSON"]
     BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
     SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
@@ -123,6 +128,8 @@ Der Scanner lädt beim Start den letzten Cache. `start_scan()` akzeptiert nur ei
 JSONL-Dateien werden binär ab dem persistierten Offset gelesen; unvollständige letzte Zeilen werden erst nach einem Zeilenabschluss übernommen. Schrumpfung oder Austausch einer Datei setzt den Index zurück. Ein globales Standardbudget von 64 MiB begrenzt jeden Lauf. Der Scanstatus projiziert kumulativ Gesamt-, indexierte und restliche Bytes, vollständige JSONL-Dateien sowie aus Budget und Intervall abgeleitete Restläufe/-zeit. Große SQLite-, JSON-, CSV- und Logdateien werden nur per Metadaten erfasst. Cache und Index werden über temporäre Dateien und `os.replace()` atomar ersetzt.
 
 Timeout, Abbruch und einzelne verschwundene Dateien beenden nicht die Verfügbarkeit des letzten Caches. Laufzeiten werden für Zielermittlung, Pfadauflösung, Metadaten, Fingerprint, Dateiverarbeitung, Index- und Cachepersistenz getrennt erfasst. Der Realbenchmark mit 64 MiB blieb bei 2,135 Sekunden und damit deutlich unter dem 30-Sekunden-Limit; der Dauerbetrieb muss nach Neustart weiter beobachtet werden.
+
+Das Fehlerjournal wird vor den Adaptern an den Wildcard-Kanal des EventBus gehängt und nach deren Shutdown entfernt. Es speichert Ereignis-/Korrelations-ID, Zeit, Topic, Service, Stufe, Symbol, Provider, Fehlerart und bis zu zehn kompakte Provider-Versuche. Secrets werden anhand sensibler Schlüsselnamen und Textmustern ersetzt; rohe Payloads und Response-Bodies werden nicht persistiert. Eigene Schreibfehler werden im Journal-Health gezählt und nicht an den Publisher weitergeworfen.
 
 Der Scanner besitzt einen eigenen Lebenszyklus-Lock und einen dauerhaften `closed`-Zustand. `start_scan()` lehnt nach `close()` neue Hintergrundscans mit `CLOSED` ab; synchrone `refresh()`-Aufrufe liefern danach nur noch den letzten Snapshot. `close()` setzt das Abbruchsignal und wartet ohne willkürlichen Ein-Sekunden-Abbruch auf den aktiven Worker. Eine Sperrbarriere stellt zusätzlich sicher, dass auch ein synchron laufender Refresh beendet ist. Deshalb kann nach Rückkehr von `close()` kein Cache- oder Index-Schreibvorgang mehr stattfinden. Wiederholtes `close()` ist idempotent.
 

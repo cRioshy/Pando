@@ -20,6 +20,7 @@ from adapters.telegram_adapter import TelegramAdapter
 from config import PlatformConfig
 from event_bus import Event, EventBus
 from health_monitor import HealthMonitor, HealthReport
+from service_error_journal import ServiceErrorJournal
 from shared_state import SharedState
 
 
@@ -82,18 +83,32 @@ class Orchestrator:
         health_monitor: HealthMonitor | None = None,
         adapters: list[ServiceAdapter] | None = None,
         config: PlatformConfig | None = None,
+        error_journal: ServiceErrorJournal | None = None,
     ) -> None:
         self.config = config or PlatformConfig.from_env()
         self.event_bus = event_bus or EventBus(max_history=self.config.event_bus_max_history)
         self.shared_state = shared_state or SharedState(self.config.shared_state_file)
         self.health_monitor = health_monitor or HealthMonitor()
         self.adapters = adapters or self._default_adapters()
+        self.error_journal = error_journal
+        if self.error_journal is None and adapters is None and self.config.service_error_journal_enabled:
+            self.error_journal = ServiceErrorJournal(
+                self.event_bus,
+                journal_file=self.config.service_error_journal_file,
+                summary_file=self.config.service_error_summary_file,
+                rotation_bytes=self.config.service_error_rotation_bytes,
+                max_archives=self.config.service_error_max_archives,
+                max_summary_entries=self.config.service_error_max_summary_entries,
+            )
         self._live_control_task: asyncio.Task | None = None
         self.event_bus.subscribe("*", self._record_event)
 
     async def start(self) -> None:
         """Start all adapters."""
 
+        if self.error_journal is not None:
+            self.error_journal.start()
+            self._sync_error_journal_health()
         for adapter in self.adapters:
             try:
                 await adapter.start()
@@ -101,11 +116,7 @@ class Orchestrator:
             except Exception as exc:
                 self.shared_state.update_service(adapter.name, "ERROR", {"error": str(exc)})
                 self.event_bus.publish(
-                    Event(
-                        topic="service.error",
-                        source=adapter.name,
-                        payload={"error": str(exc)},
-                    )
+                    Event(topic="service.error", source=adapter.name, payload={"error": str(exc)})
                 )
 
     async def stop(self) -> None:
@@ -118,6 +129,17 @@ class Orchestrator:
                 self.shared_state.update_service(adapter.name, "STOPPED")
             except Exception as exc:
                 self.shared_state.update_service(adapter.name, "ERROR", {"error": str(exc)})
+                self.event_bus.publish(
+                    Event(
+                        topic="service.error",
+                        source=adapter.name,
+                        payload={"error": str(exc)},
+                    )
+                )
+        if self.error_journal is not None:
+            self._sync_error_journal_health()
+            self.error_journal.stop()
+            self.shared_state.update_service(self.error_journal.name, "STOPPED")
 
     async def run_once(self, *, final_control_snapshot: bool = True) -> HealthReport:
         """Run one orchestration cycle with real asyncio service tasks."""
@@ -130,6 +152,8 @@ class Orchestrator:
             for adapter in self.adapters
         ]
         await asyncio.gather(*tasks)
+
+        self._sync_error_journal_health()
 
         if final_control_snapshot:
             await self._publish_final_control_snapshot()
@@ -317,6 +341,22 @@ class Orchestrator:
                 "topic": event.topic,
                 "source": event.source,
                 "created_at": event.created_at,
+            },
+        )
+
+    def _sync_error_journal_health(self) -> None:
+        """Project journal health into shared state without exposing local paths."""
+
+        if self.error_journal is None:
+            return
+        health = self.error_journal.health()
+        status = "OK" if health.get("healthy") else "ERROR"
+        self.shared_state.update_service(
+            self.error_journal.name,
+            status,
+            {
+                key: health.get(key)
+                for key in ("running", "healthy", "events_recorded", "unique_errors", "failed_writes", "last_error")
             },
         )
 

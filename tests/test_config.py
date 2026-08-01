@@ -29,6 +29,12 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_CONTROL_CENTER_ENABLED": "0",
                 "PANDORICKKI_EVENT_BUS_MAX_HISTORY": "123",
                 "PANDORICKKI_JSONL_LEDGER_ROTATION_BYTES": "2097152",
+                "PANDORICKKI_SERVICE_ERROR_JOURNAL_ENABLED": "0",
+                "PANDORICKKI_SERVICE_ERROR_JOURNAL_FILE": "C:/tmp/pandorickki-data/errors.jsonl",
+                "PANDORICKKI_SERVICE_ERROR_SUMMARY_FILE": "C:/tmp/pandorickki-data/errors.json",
+                "PANDORICKKI_SERVICE_ERROR_ROTATION_BYTES": "1048576",
+                "PANDORICKKI_SERVICE_ERROR_MAX_ARCHIVES": "2",
+                "PANDORICKKI_SERVICE_ERROR_MAX_SUMMARY_ENTRIES": "25",
                 "PANDORICKKI_TELEGRAM_ENABLED": "1",
                 "PANDORICKKI_TELEGRAM_DRY_RUN": "1",
                 "PANDORICKKI_SIMULATED_OPEN_TRADES_FILE": "C:/tmp/pandorickki-data/open_trades.json",
@@ -52,6 +58,12 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.control_center_enabled)
         self.assertEqual(config.event_bus_max_history, 123)
         self.assertEqual(config.jsonl_ledger_rotation_bytes, 2097152)
+        self.assertFalse(config.service_error_journal_enabled)
+        self.assertEqual(config.service_error_journal_file, Path("C:/tmp/pandorickki-data/errors.jsonl"))
+        self.assertEqual(config.service_error_summary_file, Path("C:/tmp/pandorickki-data/errors.json"))
+        self.assertEqual(config.service_error_rotation_bytes, 1048576)
+        self.assertEqual(config.service_error_max_archives, 2)
+        self.assertEqual(config.service_error_max_summary_entries, 25)
         self.assertTrue(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
         self.assertEqual(config.simulated_open_trades_file, Path("C:/tmp/pandorickki-data/open_trades.json"))
@@ -80,6 +92,19 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.commodities_enabled)
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
+        self.assertTrue(config.service_error_journal_enabled)
+
+    def test_custom_data_dir_derives_error_journal_paths(self) -> None:
+        config = PlatformConfig(data_dir=Path("C:/tmp/custom-pandorickki-data"))
+
+        self.assertEqual(
+            config.service_error_journal_file,
+            Path("C:/tmp/custom-pandorickki-data/service_errors.jsonl"),
+        )
+        self.assertEqual(
+            config.service_error_summary_file,
+            Path("C:/tmp/custom-pandorickki-data/service_error_summary.json"),
+        )
 
     def test_control_center_toggle_controls_default_adapters(self) -> None:
         enabled = Orchestrator(config=PlatformConfig(control_center_enabled=True))

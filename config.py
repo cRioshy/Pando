@@ -69,6 +69,12 @@ class PlatformConfig:
     brain_event_rotation_bytes: int = 200 * 1024 * 1024
     brain_event_day_warning_bytes: int = int(1.5 * 1024 * 1024 * 1024)
     jsonl_ledger_rotation_bytes: int = 128 * 1024 * 1024
+    service_error_journal_enabled: bool = True
+    service_error_journal_file: Path = PROJECT_ROOT / "data" / "service_errors.jsonl"
+    service_error_summary_file: Path = PROJECT_ROOT / "data" / "service_error_summary.json"
+    service_error_rotation_bytes: int = 5 * 1024 * 1024
+    service_error_max_archives: int = 4
+    service_error_max_summary_entries: int = 500
     neurobrain_receiver_enabled: bool = False
     neurobrain_inbox_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "inbox.jsonl"
     neurobrain_status_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
@@ -129,6 +135,12 @@ class PlatformConfig:
         default_neurobrain_status = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
         if self.neurobrain_status_file == default_neurobrain_status and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "neurobrain_status_file", self.data_dir / "neurobrain" / "status.json")
+        default_error_journal = PROJECT_ROOT / "data" / "service_errors.jsonl"
+        if self.service_error_journal_file == default_error_journal and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "service_error_journal_file", self.data_dir / "service_errors.jsonl")
+        default_error_summary = PROJECT_ROOT / "data" / "service_error_summary.json"
+        if self.service_error_summary_file == default_error_summary and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "service_error_summary_file", self.data_dir / "service_error_summary.json")
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -170,6 +182,24 @@ class PlatformConfig:
             jsonl_ledger_rotation_bytes=_env_int(
                 "PANDORICKKI_JSONL_LEDGER_ROTATION_BYTES",
                 128 * 1024 * 1024,
+            ),
+            service_error_journal_enabled=_env_bool("PANDORICKKI_SERVICE_ERROR_JOURNAL_ENABLED", True),
+            service_error_journal_file=_env_path(
+                "PANDORICKKI_SERVICE_ERROR_JOURNAL_FILE",
+                data_dir / "service_errors.jsonl",
+            ),
+            service_error_summary_file=_env_path(
+                "PANDORICKKI_SERVICE_ERROR_SUMMARY_FILE",
+                data_dir / "service_error_summary.json",
+            ),
+            service_error_rotation_bytes=_env_int(
+                "PANDORICKKI_SERVICE_ERROR_ROTATION_BYTES",
+                5 * 1024 * 1024,
+            ),
+            service_error_max_archives=_env_int("PANDORICKKI_SERVICE_ERROR_MAX_ARCHIVES", 4),
+            service_error_max_summary_entries=_env_int(
+                "PANDORICKKI_SERVICE_ERROR_MAX_SUMMARY_ENTRIES",
+                500,
             ),
             neurobrain_receiver_enabled=_env_bool("PANDORICKKI_NEUROBRAIN_RECEIVER_ENABLED", False),
             neurobrain_inbox_file=_env_path(
@@ -275,6 +305,12 @@ class PlatformConfig:
             warnings.append("Brain event rotation size is below 1 MB; suitable only for tests.")
         if self.jsonl_ledger_rotation_bytes < 1024 * 1024:
             warnings.append("JSONL ledger rotation size is below 1 MB; suitable only for tests.")
+        if self.service_error_rotation_bytes < 64 * 1024:
+            warnings.append("Service error journal rotation size is below 64 KB; suitable only for tests.")
+        if self.service_error_max_archives < 1:
+            warnings.append("Service error journal keeps no archives; only the active file remains.")
+        if self.service_error_max_summary_entries < 10:
+            warnings.append("Service error summary entry limit below 10; suitable only for tests.")
         if self.neurobrain_receiver_enabled:
             warnings.append("NeuroBrain receiver is enabled in read-only event mirror mode.")
         if not self.control_center_enabled:
@@ -319,6 +355,12 @@ class PlatformConfig:
             brain_event_rotation_bytes=self.brain_event_rotation_bytes,
             brain_event_day_warning_bytes=self.brain_event_day_warning_bytes,
             jsonl_ledger_rotation_bytes=self.jsonl_ledger_rotation_bytes,
+            service_error_journal_enabled=self.service_error_journal_enabled,
+            service_error_journal_file=self.service_error_journal_file,
+            service_error_summary_file=self.service_error_summary_file,
+            service_error_rotation_bytes=self.service_error_rotation_bytes,
+            service_error_max_archives=self.service_error_max_archives,
+            service_error_max_summary_entries=self.service_error_max_summary_entries,
             neurobrain_receiver_enabled=self.neurobrain_receiver_enabled,
             neurobrain_inbox_file=self.neurobrain_inbox_file,
             neurobrain_status_file=self.neurobrain_status_file,

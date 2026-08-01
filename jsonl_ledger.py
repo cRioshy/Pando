@@ -13,9 +13,16 @@ from typing import Any
 class RotatingJsonlLedger:
     """Append JSONL records and rotate the active file before it grows too large."""
 
-    def __init__(self, path: Path, *, max_bytes: int = 128 * 1024 * 1024) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        max_bytes: int = 128 * 1024 * 1024,
+        max_archives: int | None = None,
+    ) -> None:
         self.path = path
         self.max_bytes = max(int(max_bytes), 1024 * 1024)
+        self.max_archives = None if max_archives is None else max(int(max_archives), 0)
         self._lock = RLock()
 
     def append(self, record: dict[str, Any]) -> Path:
@@ -52,6 +59,20 @@ class RotatingJsonlLedger:
             target = archive_dir / f"{self.path.stem}_{timestamp}_{counter:03d}{self.path.suffix}"
             counter += 1
         os.replace(self.path, target)
+        self._prune_archives(archive_dir)
+
+    def _prune_archives(self, archive_dir: Path) -> None:
+        """Keep only the configured number of archives for bounded ledgers."""
+
+        if self.max_archives is None:
+            return
+        archives = sorted(
+            item
+            for item in archive_dir.glob(f"{self.path.stem}_*{self.path.suffix}")
+            if item.is_file()
+        )
+        for stale in archives[: max(len(archives) - self.max_archives, 0)]:
+            stale.unlink()
 
 
 def related_jsonl_files(path: Path) -> list[Path]:

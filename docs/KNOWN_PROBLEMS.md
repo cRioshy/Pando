@@ -4,15 +4,6 @@ Stand: 1. August 2026
 
 ## Offen
 
-### KP-012 – Historische Service-Exceptions werden nicht dauerhaft journalisiert
-
-- **Priorität:** mittel
-- **Status:** offen; durch aktuelle Health-Details teilweise entschärft
-- **Beobachtung:** Der erste konkrete Crypto-Fehler vom 27. Juli war am 31. Juli nicht mehr vorhanden, weil vollständige Service-Events nur in einer begrenzten In-Memory-Historie lagen.
-- **Aktueller Schutz:** Crypto-Events enthalten jetzt Fehlerart, Stufe, Symbol und Provider-Versuche. `SharedState` hält `last_error` und `last_error_details`, solange der Fehler aktuell ist.
-- **Restproblem:** Eine länger zurückliegende erste Exception kann weiterhin aus dem In-Memory-Bestand verschwinden.
-- **Nächster Fix:** Kleines größenbegrenztes, rotierendes Service-Fehlerjournal entwerfen; keine Tokens, Antwortinhalte oder unbegrenzte Logs persistieren.
-
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
 - **Priorität:** niedrig
@@ -93,6 +84,15 @@ Stand: 1. August 2026
 - **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
 ## Behoben oder entschärft
+
+### KP-R09 – Historische Service-Exceptions verschwanden aus der In-Memory-Historie
+
+- **Status:** behoben und getestet am 1. August 2026
+- Ein standardmäßig aktives `ServiceErrorJournal` persistiert kompakte versionierte Projektionen von `SYSTEM_ERROR`, `service.error` und allen Themen mit Suffix `_ERROR`.
+- Das aktive JSONL rotiert bei 5 MiB und behält höchstens vier Archive. Die atomar geschriebene Zusammenfassung behält höchstens 500 Fehlerfingerprints samt Anzahl sowie erster und letzter Beobachtung.
+- Schlüssel- und Textfilter entfernen Tokens, API-Keys, Authorization-, Cookie-, Passwort-, Secret- und Chat-ID-Werte. Rohe Payloads und externe Response-Inhalte werden nicht kopiert.
+- Journal-Schreibfehler brechen den Event-Publisher nicht und werden über `service_error_journal` als fehlerhafter Health-Zustand sichtbar.
+- Der begrenzte Bestand ist bewusst kein vollständiges Langzeitarchiv; bestehende andere History-Dateien bleiben unverändert.
 
 ### KP-R08 – Scannerfortschritt war nicht messbar und praktisch zu langsam
 

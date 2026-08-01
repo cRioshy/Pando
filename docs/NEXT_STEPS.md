@@ -33,9 +33,10 @@ Stand: 1. August 2026
    - Commit `cc6e92d` veröffentlicht; gestapelter Draft-PR #6 gegen `agent/fix-storage-physical-totals` erstellt und nicht gemergt.
 
 5. **Dauerhaftes begrenztes Service-Fehlerjournal ergänzen.**
-   - Erste und letzte konkrete Exception auch nach längerer Laufzeit rekonstruierbar machen.
-   - Provider, Stufe, Symbol und Fehlerart speichern, aber keine Secrets oder vollständigen externen Antwortinhalte.
-   - Größenlimit und Rotation von Beginn an festlegen.
+   - **Erledigt am 1. August 2026.**
+   - Kompakte versionierte Fehlerprojektion mit Erst-/Letztbeobachtung und Fehleranzahl umgesetzt.
+   - Secret-Filter und Ausschluss vollständiger Payloads beziehungsweise externer Antwortinhalte getestet.
+   - Aktives Journal auf 5 MiB, Archive auf vier und Zusammenfassung auf 500 Fingerprints begrenzt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
    - Benötigte Felder für Decision Core, Tracker, Learning und UI vollständig ermitteln.
@@ -67,6 +68,7 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Begrenztes, secret-gefiltertes Service-Fehlerjournal mit atomarer Erst-/Letzt-Zusammenfassung ergänzt.
 - PandorickKi nach Scanner-Veröffentlichung kontrolliert neu gestartet und zwei Produktionszyklen verifiziert: alle Services `OK`, keine neuen Sessionfehler, Telegram aus/Dry-Run.
 - Produktions-Storage-Scan mit 106/106 Dateien in 2,416 Sekunden und 9,20 % kumulativem JSONL-Fortschritt bestätigt; Control Center ohne Browser-Konsolenfehler geprüft.
 - Storage-Scanner phasenweise instrumentiert und kumulativen JSONL-Indexfortschritt samt Restschätzung sichtbar gemacht.

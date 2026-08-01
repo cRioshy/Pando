@@ -23,7 +23,7 @@ PandorickKi ist eine lokal laufende Integrationsplattform für bestehende Crypto
 
 ## Aktuelle Architektur
 
-Die Anwendung läuft im Wesentlichen als ein Python-Prozess. Der `Orchestrator` verwaltet Adapter und führt deren `run_once()`-Zyklen parallel als AsyncIO-Tasks aus. Die Adapter kommunizieren überwiegend über einen synchronen In-Process-`EventBus`. `SharedState` hält den beobachtbaren Laufzeitzustand; `HealthMonitor` erzeugt einen groben Health-Report. Der Webserver basiert auf `ThreadingHTTPServer` und läuft in einem zusätzlichen Thread.
+Die Anwendung läuft im Wesentlichen als ein Python-Prozess. Der `Orchestrator` verwaltet Adapter und führt deren `run_once()`-Zyklen parallel als AsyncIO-Tasks aus. Die Adapter kommunizieren überwiegend über einen synchronen In-Process-`EventBus`. Ein `ServiceErrorJournal` hört ausschließlich auf Fehlerereignisse und persistiert daraus kompakte, secret-gefilterte Projektionen. `SharedState` hält den beobachtbaren Laufzeitzustand; `HealthMonitor` erzeugt einen groben Health-Report. Der Webserver basiert auf `ThreadingHTTPServer` und läuft in einem zusätzlichen Thread.
 
 Die Architektur ist eine Integrations- und Beobachtungsschicht, kein autonomes Handelssystem. `BrainAdapter` und `DecisionSignalAdapter` übernehmen derzeit hauptsächlich Persistenz, Weiterleitung und deterministische Normalisierung, keine unabhängige KI- oder Risikofreigabe.
 
@@ -42,6 +42,8 @@ Der Standard-Orchestrator erstellt, abhängig von der Konfiguration:
 9. `TelegramAdapter`
 10. optional `ControlCenterAdapter`
 
+Zusätzlich startet der Standard-Orchestrator das interne `ServiceErrorJournal` vor den Adaptern und stoppt es nach ihnen. Es erscheint als Service `service_error_journal`, ist aber kein zyklischer Marktadapter. Konfiguration: standardmäßig aktiv, 5 MiB je aktive Datei, höchstens vier Archive und höchstens 500 zusammengefasste Fehlerfingerprints.
+
 Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket und Statistikdienst `OK`. Brain, Decision Core, Outcome Tracker, NeuroBrain Receiver, Crypto Trade Tracker, Telegram und Control Center meldeten `OK`; Crypto und Stock befanden sich in einem laufenden Adapterzyklus.
 
 ## Einstiegspunkte
@@ -58,6 +60,7 @@ Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket un
 1. Marktadapter rufen vorhandene externe Analyseprojekte beziehungsweise Preisquellen auf.
 2. Crypto und Stock ergänzen OHLCV-Daten optional durch die `FeatureEngine`.
 3. Die Adapter publizieren Markt- und Analyseereignisse über den `EventBus`.
+4. Fehlerereignisse (`SYSTEM_ERROR`, `service.error` und Themen mit Suffix `_ERROR`) werden als versionierte Projektion journalisiert; vollständige Payloads und externe Antworten werden nicht übernommen.
 4. `BrainAdapter` speichert abgeschlossene Analysen rotierend und publiziert `BRAIN_DECISION_RECEIVED` sowie `AI_LEARNING_UPDATED`.
 5. `DecisionSignalAdapter` normalisiert das Brain-Ereignis, erzeugt deterministische IDs und persistiert Decision- und Signal-Ledger.
 6. Outcome- und Crypto-Trade-Tracker öffnen und aktualisieren ausschließlich simulierte Trades.
@@ -144,8 +147,8 @@ Telegram ist über Umgebungsvariablen steuerbar. Sichere Vorgaben sind `PANDORIC
 
 ## Speicherformate
 
-- JSON: Shared State, offene simulierte Trades, Status- und Cachedateien.
-- JSONL: Brain-Ereignisse, Decisions, Signals, Outcomes, Trade-Historie, NeuroBrain-Inbox, Telegram-Dry-Run und Audits.
+- JSON: Shared State, offene simulierte Trades, Status-, Cache- und begrenzte Servicefehler-Zusammenfassung (`service_error_summary.json`).
+- JSONL: Brain-Ereignisse, Decisions, Signals, Outcomes, Trade-Historie, NeuroBrain-Inbox, Telegram-Dry-Run, Audits und kompakte Servicefehler (`service_errors.jsonl`).
 - Rotierte JSONL: Größen- beziehungsweise datumsbezogene Ledgersegmente.
 - SQLite: vorhandene externe beziehungsweise historische Datenbestände; große Dateien werden vom Statistikscanner nur per Metadaten erfasst.
 - Statische HTML-/CSS-/JavaScript-Dateien: lokales Control Center und Graphvisualisierung.
@@ -170,7 +173,7 @@ Die Batch-Starter erzeugen die ignorierte projektlokale `.venv` bei Bedarf, inst
 
 ```powershell
 python -m unittest discover -s tests
-python -m unittest tests.test_statistics_and_storage tests.test_web_control_center
+python -m unittest tests.test_service_error_journal tests.test_config tests.test_parallel_orchestrator
 python -m compileall .
 ```
 
@@ -188,6 +191,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach der Scanner-Instrumentieru
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
+11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
 13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
