@@ -1,5 +1,95 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Consumer für kompakte Event-Payloads vorbereiten
+
+### Datum und Uhrzeit
+
+1. August 2026, 21:50 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die zwei im Payload-Vertrag dokumentierten Raw-Abhängigkeiten rückwärtskompatibel auf kompakte Ersatzfelder vorbereiten. Crypto Trade Tracker und Learning Graph sollen neue Payloads bevorzugen, alte Events und History aber weiterhin lesen. Brain-, Decision-/Signal- und NeuroBrain-Producer beziehungsweise Persistenz noch nicht verkleinern.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation, Payload-Vertrag, Branchstand und tatsächliche Consumer erneut geprüft.
+- Gestapelten Branch `agent/prepare-compact-payload-consumers` von `agent/define-compact-event-payload-contract` erstellt.
+- Zwei Regressionstests zunächst vor dem Fix ausgeführt und beide falschen Prioritäten reproduziert.
+- `CryptoTradeTracker._swing_price()` so geändert, dass `market_context.recent_swing_low/high` bei gültigen Werten Vorrang hat.
+- Bisherige Berechnung aus den letzten 20 Kerzen in `raw_result.market_data.candles` unverändert als Legacy-Fallback erhalten.
+- `LearningGraphBuilder._public_result()` so geändert, dass `public_result` Vorrang vor `raw_result.result` hat.
+- Bestehenden Raw-Ergebniszugriff als Legacy-Fallback erhalten.
+- Je Consumer Prioritäts- und Legacy-Fallback-Test ergänzt.
+- Architektur-, Systemzustands-, Vertrags-, Problem- und Planungsdokumentation aktualisiert.
+- Commit `1550d07` auf `origin/agent/prepare-compact-payload-consumers` veröffentlicht und gestapelten Draft-PR #10 gegen `agent/define-compact-event-payload-contract` erstellt.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei verändert oder gelöscht.
+
+### Veränderte Dateien
+
+- `adapters/crypto_trade_tracker.py`
+- `learning_graph/graph_builder.py`
+- `tests/test_crypto_trade_tracker.py`
+- `tests/test_learning_graph_phase3.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code- und Testinventur mit `rg` und `Get-Content`.
+- `git switch -c agent/prepare-compact-payload-consumers`.
+- Gezielte Regressionstests vor und nach dem Fix, vollständige Testsuite und `py_compile`.
+- `git diff --check`, Scope- und Secret-Mustersuche.
+- Explizites Staging, Commit, Push und Draft-PR-Erstellung über `gh`.
+
+### Ausgeführte Tests
+
+- Zwei neue isolierte Prioritätstests vor dem Fix.
+- `.\.venv\Scripts\python.exe -m unittest tests.test_crypto_trade_tracker tests.test_learning_graph_phase3 tests.test_event_payload_contract -v`
+- `.\.venv\Scripts\python.exe -m py_compile adapters\crypto_trade_tracker.py learning_graph\graph_builder.py tests\test_crypto_trade_tracker.py tests\test_learning_graph_phase3.py`
+- `.\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Tatsächliche Testergebnisse
+
+- Vor dem Fix: 2/2 Prioritätstests erwartungsgemäß fehlgeschlagen. Tracker lieferte Raw-Swing `90.0` statt kompakt `98.5`; Graph lieferte Raw-Ergebnis `TP3_WIN` statt kompakt `DIRECT_STOP`.
+- Nach dem Fix: 20/20 gezielte Tracker-/Graph-/Vertragstests bestanden in 0,142 Sekunden.
+- Vollständige Suite: 221/221 bestanden in 48,558 Sekunden.
+- `py_compile`, `git diff --check` und Secret-Prüfung: bestanden; keine Secret-Treffer.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt.
+
+### Bekannte Fehler
+
+- `KP-015` bleibt offen: Brain, Decision Core und NeuroBrain transportieren beziehungsweise persistieren weiterhin vollständige Raw Results.
+- Die beiden bisherigen Consumer-Blocker sind entschärft; Raw-Zugriffe existieren bewusst nur noch als Legacy-Fallback.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Kompakte Felder haben Vorrang; Raw-Felder bleiben während der Migration ausschließlich als Lesefallback.
+- Ungültige oder fehlende kompakte Swing-Werte fallen weiterhin sicher auf den bisherigen Kerzenpfad zurück.
+- Keine Historymigration und keine Änderung bestehender Producer in diesem Schritt.
+- Keine reale Orderausführung und keine Änderung der Telegram-Sicherheitsgrenze.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #10: `https://github.com/cRioshy/Pando/pull/10`, Basis `agent/define-compact-event-payload-contract`; Draft und ungemergt.
+- Brain-/Decision-/Signal-Producer und NeuroBrain-Persistenz verwenden die kompakte Projektion noch nicht.
+- Bestehende History benötigt auch nach der Producer-Umstellung weiterhin die Legacy-Lesefallbacks.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Die Producer-/Persistenzmigration klein aufteilen: zuerst `BrainAdapter` so umstellen, dass neu geschriebene Brain-Datensätze und `BRAIN_DECISION_RECEIVED` ausschließlich die Version-1-Projektion mit erhaltenen IDs verwenden. `DecisionSignalAdapter` und NeuroBrain zunächst unverändert lassen, damit die Brain-Grenze isoliert mit Kompatibilitäts- und Größenregressionstests geprüft werden kann. Bestehende Brain-History nicht ändern oder löschen.
+
+---
+
 ## Aktuelle Aufgabe: Kompakten Event-Payload-Vertrag Version 1 definieren
 
 ### Datum und Uhrzeit

@@ -48,9 +48,10 @@ Stand: 1. August 2026
    - Commit `311dd38` veröffentlicht; gestapelter Draft-PR #9 gegen `agent/fix-outcome-timestamp-normalization` erstellt und nicht gemergt.
 
 7. **Brain- und NeuroBrain-Payloads verkleinern.**
-   - **Consumer-Vorbereitung am 1. August 2026 abgeschlossen; Veröffentlichung noch offen.**
+   - **Consumer-Vorbereitung am 1. August 2026 abgeschlossen und veröffentlicht.**
    - Crypto Trade Tracker bevorzugt `market_context.recent_swing_low/high`, Learning Graph bevorzugt `public_result`; alte Raw-Payloads bleiben lesbar.
    - Vier neue Regressionstests und 221/221 Gesamttests bestanden.
+   - Commit `1550d07` veröffentlicht; gestapelter Draft-PR #10 gegen `agent/define-compact-event-payload-contract` erstellt und nicht gemergt.
    - Danach nur die definierte Projektion neu persistieren und IDs beziehungsweise Referenzen erhalten.
    - Bestehende History unverändert lesbar lassen.
 
@@ -76,6 +77,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Crypto Trade Tracker und Learning Graph auf kompakte Ersatzfelder vorbereitet; Legacy-Raw-Payloads bleiben lesbar.
+- 20/20 gezielte und 221/221 vollständige Tests bestanden; Commit `1550d07` und gestapelter Draft-PR #10 veröffentlicht.
 - Kompakten Event-Payload-Vertrag Version 1 mit tatsächlicher Consumer-Matrix, Validator und fünf Kompatibilitätstests definiert; Produktionspayloads noch unverändert gelassen.
 - 217/217 Gesamttests bestanden; Commit `311dd38` und gestapelter Draft-PR #9 veröffentlicht.
 - Outcome-Zeitstempel-Fix kontrolliert live verifiziert: vier Crypto-Heartbeats, alle Services `OK`, bekannter Fehlerzähler unverändert bei 158, Telegram aus/Dry-Run.
