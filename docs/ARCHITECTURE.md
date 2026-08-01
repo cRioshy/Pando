@@ -161,6 +161,27 @@ Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage
 - Externe Legacy-Projekte bleiben außerhalb dieses Repositories und werden nur adaptiert.
 - Crypto-Marktdaten verwenden ausschließlich öffentliche read-only HTTP-Endpunkte; Futures-Kontext ist optional und löst keine Orders aus.
 
+## Kompakter Event-Payload-Vertrag
+
+Der noch nicht produktiv aktivierte Vertrag `pandorickki.compact-market-event` Version 1 beschreibt die kontrollierte Migration weg von vollständigen Raw Results. Seine ausführbare Referenz ist `event_payload_contract.py`; die Feldmatrix und Migrationsregeln stehen in `docs/EVENT_PAYLOAD_CONTRACT.md`.
+
+```mermaid
+flowchart LR
+    LEGACY["Heutige normalisierte Markt-Events samt raw_result"] --> PROJECT["Versionierte kompakte Projektion v1"]
+    PROJECT --> BRAIN["Brain"]
+    PROJECT --> DECISION["Decision Core"]
+    PROJECT --> TRACKERS["Trade- und Outcome-Tracker"]
+    PROJECT --> UI["Control Center / Telegram Dry-Run"]
+    PROJECT --> LEARNING["Learning Graph"]
+    PROJECT --> NEURO["NeuroBrain-Inbox"]
+    LEGACY -. "nur während Migration" .-> SWING["Kerzen zu recent_swing_low/high verdichten"]
+    LEGACY -. "nur während Migration" .-> RESULT["raw result label zu public_result"]
+    SWING --> PROJECT
+    RESULT --> PROJECT
+```
+
+Das Diagramm zeigt den Zielzustand, nicht den aktuellen aktiven Datenfluss. Vor der Umschaltung müssen der Crypto Trade Tracker `market_context.recent_swing_low/high` und der Learning Graph `public_result` direkt lesen. Bestehende History bleibt über Legacy-Lesepfade verfügbar und wird nicht umgeschrieben.
+
 ## Crypto-Ausfall- und Fallback-Semantik
 
 ```mermaid

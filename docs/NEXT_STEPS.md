@@ -40,13 +40,15 @@ Stand: 1. August 2026
    - Commit `8a0a78d` veröffentlicht; gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` erstellt und nicht gemergt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
-   - Voraussetzung `KP-014` behoben, mit 212/212 Tests und vier Livezyklen verifiziert.
-   - Commit `a2a139f` veröffentlicht; gestapelter Draft-PR #8 gegen `agent/add-service-error-journal` erstellt und nicht gemergt.
-   - Benötigte Felder für Decision Core, Tracker, Learning und UI vollständig ermitteln.
-   - Versionierte Projektion und Kompatibilitätstests festlegen; `raw_result` nicht ungeprüft entfernen.
+   - **Implementierung abgeschlossen am 1. August 2026; Veröffentlichung noch offen.**
+   - Tatsächliche Producer und Feldleser in Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain geprüft.
+   - Vertrag `pandorickki.compact-market-event` Version 1, ausführbare Projektion, Validator und Kompatibilitätstests ergänzt.
+   - Zwei echte Legacy-Abhängigkeiten ausdrücklich erfasst: Crypto-Swings aus Kerzen und Learning-Ergebnis aus `raw_result`.
+   - Produktionspayloads und bestehende History bewusst noch nicht verändert.
 
 7. **Brain- und NeuroBrain-Payloads verkleinern.**
-   - Nur die definierte Projektion neu persistieren und IDs beziehungsweise Referenzen erhalten.
+   - Zuerst Crypto Trade Tracker auf `market_context.recent_swing_low/high` und Learning Graph auf `public_result` vorbereiten.
+   - Danach nur die definierte Projektion neu persistieren und IDs beziehungsweise Referenzen erhalten.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**

@@ -106,6 +106,8 @@ Live-Adapter verwenden `include_targets=False`; historische Trainingsziele werde
 
 `BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, schreibt sie in datums- und größenrotierte JSONL-Dateien und publiziert Folgeereignisse. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
 
+Ein versionierter kompakter Event-Payload-Vertrag liegt als noch nicht aktiv verdrahtetes Migrationsziel in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Die heutige Laufzeit persistiert und transportiert weiterhin die bisherigen Payloads; Produktionsverhalten wurde in diesem Schritt nicht verändert.
+
 ## Decision Core
 
 `DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, normalisiert Markt-, Richtung-, Preis- und Risikofelder und schreibt rotierende JSONL-Ledger. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
@@ -195,8 +197,9 @@ Der vollständige Lauf am 1. August 2026 bestand nach der Outcome-Zeitnormalisie
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
-11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
-12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
-13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
-14. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.
+11. Brain, Decision Core und NeuroBrain transportieren beziehungsweise persistieren noch vollständige Payloads. Der getestete kompakte Vertrag ist noch nicht aktiv; vor seiner Aktivierung müssen Crypto Trade Tracker und Learning Graph auf die dokumentierten Ersatzfelder migriert werden.
+12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
+13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
+14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
+15. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
+16. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.

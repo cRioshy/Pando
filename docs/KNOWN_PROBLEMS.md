@@ -83,6 +83,16 @@ Stand: 1. August 2026
 - **Auswirkung:** Die Oberfläche zeigt einen akzeptierten Stop, während Port und Prozess noch bis zum nächsten Schleifendurchlauf aktiv bleiben.
 - **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
+### KP-015 – Vollständige Raw Results vergrößern Event-Ledger
+
+- **Priorität:** hoch
+- **Status:** offen; Migrationsvertrag Version 1 definiert und getestet
+- **Beobachtung:** Brain persistiert vollständige Markt-Payloads; Brain-, Decision- und Signal-Ereignisse reichen `raw_result` weiter. NeuroBrain speichert neben einer kleinen Kopfsicht ebenfalls die komplette Event-Payload.
+- **Auswirkung:** Wiederholte Rohdaten und Kerzen vergrößern Brain-/Decision-/Signal-/NeuroBrain-Ledger und verlängern Storage-Scans.
+- **Verifizierte Blocker:** `CryptoTradeTracker` liest Swing-Werte noch aus `raw_result.market_data.candles`; `LearningGraphBuilder` liest ein Ergebnislabel noch aus `raw_result.result`.
+- **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1, kompakte Ersatzfelder und Kompatibilitätsprüfungen. Produktionspayloads sind noch unverändert.
+- **Nächster Fix:** Consumer auf `market_context.recent_swing_low/high` beziehungsweise `public_result` vorbereiten; danach Brain-/Decision-/Signal- und NeuroBrain-Persistenz schrittweise umstellen. Bestehende History nicht verändern.
+
 ## Behoben oder entschärft
 
 ### KP-R10 – Outcome Tracker mischte naive und UTC-Zeitstempel
