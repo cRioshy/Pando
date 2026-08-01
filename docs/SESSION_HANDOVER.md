@@ -21,6 +21,8 @@ Die bestätigte Race in `StorageStatisticsService.close()` reproduzierbar machen
 - `close()` signalisiert Abbruch, wartet vollständig auf den aktiven Worker und verwendet die Scan-Sperre als Barriere für gleichzeitig laufende synchrone Refreshes.
 - Worker-Referenz wird nach vollständigem Ende bereinigt; wiederholtes `close()` ist sicher.
 - Isolierten Regressionstest, Storage-Modul, Storage-/Webintegration und vollständige Testsuite erfolgreich ausgeführt.
+- Fix als Commit `610b4a9cd7555f0cd8c5989256482799059547e2` auf `origin/agent/fix-storage-worker-shutdown` veröffentlicht.
+- Gestapelten Draft-PR #4 gegen `agent/add-market-feature-engine` erstellt: `https://github.com/cRioshy/Pando/pull/4`. PR #3 gegen `main` blieb unverändert und Draft.
 
 ### Veränderte Dateien
 
@@ -44,6 +46,9 @@ Die bestätigte Race in `StorageStatisticsService.close()` reproduzierbar machen
 - `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage`
 - `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage tests.test_web_control_center`
 - `\.venv\Scripts\python.exe -m unittest discover -s tests`
+- `git commit -m "Fix storage worker shutdown"`
+- `git push -u origin agent/fix-storage-worker-shutdown`
+- `gh pr create --repo cRioshy/Pando --base agent/add-market-feature-engine --head agent/fix-storage-worker-shutdown --draft ...`
 
 ### Ausgeführte Tests und tatsächliche Ergebnisse
 
@@ -68,12 +73,12 @@ Die bestätigte Race in `StorageStatisticsService.close()` reproduzierbar machen
 
 ### Nicht abgeschlossene Punkte
 
-- Commit, Push und ein separater Draft-PR für diesen Branch stehen nach der lokalen Abschlussprüfung noch aus.
+- Draft-PR #4 wurde ausdrücklich nicht gemergt.
 - Storage-Anzeige und Scanner-Performance wurden bewusst noch nicht verändert.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den vollständigen Diff auf Scope und Secrets prüfen, die sieben geänderten Dateien committen und den Branch veröffentlichen. Danach die überlappenden Storage-Ziele analysieren und physische Gesamtsummen deduplizieren, während logische Kategorien getrennt sichtbar bleiben.
+Vor jeder weiteren Änderung Branch- und PR-Status erneut prüfen. Danach die überlappenden Storage-Ziele analysieren und physische Gesamtsummen deduplizieren, während logische Kategorien getrennt sichtbar bleiben. Keine Runtime- oder History-Dateien löschen.
 
 ---
 

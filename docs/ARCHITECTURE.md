@@ -1,6 +1,6 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 31. Juli 2026
+Stand: 1. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 

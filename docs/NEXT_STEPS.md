@@ -15,6 +15,7 @@ Stand: 1. August 2026
    - Regressionstest reproduzierte die verfrühte Rückkehr und `WinError 145` vor dem Fix.
    - Nach `close()` werden neue Scans abgelehnt und laufende Worker beziehungsweise synchrone Refreshes vollständig abgewartet.
    - 201/201 Gesamttests bestanden; keine Runtime-Daten gelöscht.
+   - Commit `610b4a9` veröffentlicht; gestapelter Draft-PR #4 gegen `agent/add-market-feature-engine` erstellt und nicht gemergt.
 
 3. **Storage-Anzeige korrigieren.**
    - Überlappende logische Ziele erkennen und physische Dateien in der Gesamtsumme nur einmal zählen.
