@@ -28,11 +28,11 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 |---|---|---|
 | Brain | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis, Indikatoren, Risiko, Quellzeit und Event-ID | persistiert derzeit zusätzlich die komplette Eingangspayload |
 | Decision Core | Brain-Felder plus Confidence und IDs | reicht `raw_result` derzeit unverändert weiter, wertet es aber nicht fachlich aus |
-| Crypto Trade Tracker | Markt, Symbol, Richtung, Preis, ATR, Risiko, IDs | liest für Swing-Low/-High noch Kerzen aus `raw_result.market_data.candles` |
+| Crypto Trade Tracker | Markt, Symbol, Richtung, Preis, ATR, Risiko, IDs | bevorzugt `market_context.recent_swing_low/high`; alte Payloads verwenden weiterhin Kerzen als Legacy-Fallback |
 | Outcome Tracker | Markt, Symbol, Richtung, Preis, Risikoziele, Decision-/Signal-IDs und Zeitstempel | benötigt kein vollständiges Raw Result |
 | Control Center | kompakte Anzeige-, Preis-, Status- und Tradefelder | projiziert bereits auf eine kleine Sicht |
 | Telegram | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis und optionale Tradefelder | bleibt deaktiviert beziehungsweise Dry-Run |
-| Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | liest das Ergebnislabel noch aus `raw_result.result`, unterstützt aber bereits `public_result` |
+| Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
 | NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | erzeugt bereits eine kleine Kopfsicht, speichert daneben aber noch die komplette Event-Payload |
 
 ## Version 1
@@ -59,14 +59,14 @@ Verboten sind in jeder Verschachtelung:
 
 | Heutiger Zugriff | Kompakter Ersatz | Migration |
 |---|---|---|
-| `CryptoTradeTracker`: `raw_result.market_data.candles` | `market_context.recent_swing_low` und `market_context.recent_swing_high` | Tracker muss vor Entfernung von `raw_result` auf diese Felder umgestellt werden |
-| `LearningGraphBuilder`: `raw_result.result` | `public_result` | vorhandener Fallback kann nach der Producer-Migration zum Primärfeld werden |
+| `CryptoTradeTracker`: `raw_result.market_data.candles` | `market_context.recent_swing_low` und `market_context.recent_swing_high` | seit 1. August 2026 Primärfelder; Rohkerzen nur noch Legacy-Fallback |
+| `LearningGraphBuilder`: `raw_result.result` | `public_result` | seit 1. August 2026 Primärfeld; Raw Result nur noch Legacy-Fallback |
 
 Die Referenzprojektion berechnet die beiden Swing-Werte ausschließlich für die Kompatibilitätsmigration aus den letzten 20 Legacy-Kerzen. Die Kerzen selbst werden nie in die kompakte Ausgabe übernommen.
 
 ## Migrations- und Kompatibilitätsregeln
 
-1. Zuerst Consumer für `schema_name`/`schema_version` und die beiden Ersatzfelder vorbereiten.
+1. Consumer für `schema_name`/`schema_version` und die beiden Ersatzfelder vorbereiten. Die Ersatzfeld-Priorität für Tracker und Graph ist umgesetzt; die Schemaannahme erfolgt erst beim Producer-Wechsel.
 2. Danach Brain- und Decision-/Signal-Producer auf die Projektion umstellen.
 3. NeuroBrain darf nur die Projektion persistieren; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten.
 4. Bestehende JSONL-History wird weder geändert noch gelöscht. Leser behalten einen Legacy-Pfad für alte Datensätze.

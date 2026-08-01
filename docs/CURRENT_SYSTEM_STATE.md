@@ -116,9 +116,13 @@ Ein versionierter kompakter Event-Payload-Vertrag liegt als noch nicht aktiv ver
 
 `OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert. Beim Berechnen von Laufzeiten werden historische ISO-Zeitstempel ohne Offset rückwärtskompatibel als UTC interpretiert; die gespeicherten Originalwerte werden nicht umgeschrieben.
 
+Der Crypto Trade Tracker bevorzugt für die Stop-Berechnung die kompakten Felder `market_context.recent_swing_low` beziehungsweise `recent_swing_high`. Vorhandene Events und History ohne diese Felder bleiben über den bisherigen Kerzenpfad in `raw_result` lesbar.
+
 ## Learning und History
 
 Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorhandene Historien. `AI_LEARNING_UPDATED` bezeichnet derzeit ein Daten-/Projektionsereignis, kein Training oder Update eines ML-Modells. Die Graphdienste unter `learning_graph/` liefern sanitizierte Nodes, Edges, Cluster und Übersichten für API und Browser.
+
+Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
 Der Storage-Statistikdienst besitzt inzwischen:
 
@@ -183,7 +187,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach Ergänzung des kompakten Event-Payload-Vertrags mit 217/217 Tests in 45,511 Sekunden. Die fünf neuen Vertragstests prüfen Schema, Feldabdeckung, Bulk-Ausschluss und Legacy-Ersatzfelder. Die zuvor ergänzten 12 Outcome-Tracker-Tests bleiben Bestandteil der Suite.
+Der vollständige Lauf am 1. August 2026 bestand nach Vorbereitung der kompakten Consumer mit 221/221 Tests in 48,558 Sekunden. Vier neue Regressionstests prüfen die Priorität von `market_context` und `public_result` sowie beide Legacy-Fallbacks. Die fünf Vertragstests und die zuvor ergänzten 12 Outcome-Tracker-Tests bleiben Bestandteil der Suite.
 
 ## Bekannte Risiken
 
@@ -197,7 +201,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach Ergänzung des kompakten E
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain, Decision Core und NeuroBrain transportieren beziehungsweise persistieren noch vollständige Payloads. Der getestete kompakte Vertrag ist noch nicht aktiv; vor seiner Aktivierung müssen Crypto Trade Tracker und Learning Graph auf die dokumentierten Ersatzfelder migriert werden.
+11. Brain, Decision Core und NeuroBrain transportieren beziehungsweise persistieren noch vollständige Payloads. Crypto Trade Tracker und Learning Graph sind auf die dokumentierten Ersatzfelder vorbereitet; der Producer-/Persistenzwechsel ist noch nicht umgesetzt.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

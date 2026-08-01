@@ -58,6 +58,51 @@ def analysis(price: float, *, symbol: str = "BTCUSDT") -> Event:
 
 
 class CryptoTradeTrackerTest(unittest.TestCase):
+    def test_compact_market_context_is_preferred_over_legacy_candles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            tracker = CryptoTradeTracker(
+                EventBus(),
+                active_file=Path(temp) / "active.json",
+                history_file=Path(temp) / "history.jsonl",
+            )
+            data = {
+                "market_context": {
+                    "recent_swing_low": 98.5,
+                    "recent_swing_high": 101.5,
+                },
+                "raw_result": {
+                    "market_data": {
+                        "candles": [
+                            {"low": 90.0, "high": 110.0},
+                        ]
+                    }
+                },
+            }
+
+            self.assertEqual(tracker._swing_price("LONG", data), 98.5)
+            self.assertEqual(tracker._swing_price("SHORT", data), 101.5)
+
+    def test_legacy_candles_remain_a_swing_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            tracker = CryptoTradeTracker(
+                EventBus(),
+                active_file=Path(temp) / "active.json",
+                history_file=Path(temp) / "history.jsonl",
+            )
+            data = {
+                "raw_result": {
+                    "market_data": {
+                        "candles": [
+                            {"low": 97.0, "high": 103.0},
+                            {"low": 96.0, "high": 104.0},
+                        ]
+                    }
+                }
+            }
+
+            self.assertEqual(tracker._swing_price("LONG", data), 96.0)
+            self.assertEqual(tracker._swing_price("SHORT", data), 104.0)
+
     def test_long_signal_creates_entry_with_stop_below_entry(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:

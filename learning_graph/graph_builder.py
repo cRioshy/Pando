@@ -228,7 +228,7 @@ class GraphBuilder:
 
         payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
         raw_result = payload.get("raw_result") if isinstance(payload.get("raw_result"), dict) else {}
-        result = raw_result.get("result") or payload.get("public_result")
+        result = payload.get("public_result") or raw_result.get("result")
         allowed = {"TP3_WIN", "TP2_THEN_STOP", "TP1_THEN_STOP", "DIRECT_STOP", "OPEN", "CLOSED"}
         return str(result) if result in allowed else "OPEN"
 

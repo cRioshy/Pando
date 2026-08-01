@@ -44,6 +44,19 @@ def sample_record(symbol: str = "BTCUSDT", direction: str = "LONG") -> dict:
 
 
 class LearningGraphPhase3Test(unittest.TestCase):
+    def test_public_result_is_preferred_over_legacy_raw_result(self) -> None:
+        record = sample_record()
+        record["payload"]["public_result"] = "DIRECT_STOP"
+        record["payload"]["raw_result"]["result"] = "TP3_WIN"
+
+        self.assertEqual(GraphBuilder()._public_result(record), "DIRECT_STOP")
+
+    def test_legacy_raw_result_remains_a_result_fallback(self) -> None:
+        record = sample_record()
+        record["payload"]["raw_result"]["result"] = "TP2_THEN_STOP"
+
+        self.assertEqual(GraphBuilder()._public_result(record), "TP2_THEN_STOP")
+
     def test_graph_sanitizer_removes_secret_fields(self) -> None:
         sanitizer = GraphSanitizer()
         node = sanitizer.sanitize_node(

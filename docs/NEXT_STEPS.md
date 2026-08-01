@@ -48,7 +48,9 @@ Stand: 1. August 2026
    - Commit `311dd38` veröffentlicht; gestapelter Draft-PR #9 gegen `agent/fix-outcome-timestamp-normalization` erstellt und nicht gemergt.
 
 7. **Brain- und NeuroBrain-Payloads verkleinern.**
-   - Zuerst Crypto Trade Tracker auf `market_context.recent_swing_low/high` und Learning Graph auf `public_result` vorbereiten.
+   - **Consumer-Vorbereitung am 1. August 2026 abgeschlossen; Veröffentlichung noch offen.**
+   - Crypto Trade Tracker bevorzugt `market_context.recent_swing_low/high`, Learning Graph bevorzugt `public_result`; alte Raw-Payloads bleiben lesbar.
+   - Vier neue Regressionstests und 221/221 Gesamttests bestanden.
    - Danach nur die definierte Projektion neu persistieren und IDs beziehungsweise Referenzen erhalten.
    - Bestehende History unverändert lesbar lassen.
 

@@ -317,6 +317,13 @@ class CryptoTradeTracker:
     def _swing_price(self, direction: str, data: dict[str, Any]) -> float | None:
         """Return recent swing low for LONG or swing high for SHORT."""
 
+        context = data.get("market_context")
+        if isinstance(context, dict):
+            context_key = "recent_swing_low" if direction == "LONG" else "recent_swing_high"
+            compact_swing = as_float(context.get(context_key))
+            if compact_swing is not None:
+                return compact_swing
+
         raw = data.get("raw_result")
         market_data = raw.get("market_data", {}) if isinstance(raw, dict) else {}
         candles = market_data.get("candles", []) if isinstance(market_data, dict) else []
