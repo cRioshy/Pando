@@ -22,6 +22,7 @@ Stand: 1. August 2026
    - Überlappende logische Ziele bleiben getrennt sichtbar, physische Dateien werden aber nur einmal gescannt und summiert.
    - API und UI unterscheiden physisch eindeutige Werte, logische Kategorieverweise und Überlappungen.
    - Alte Caches werden bis zum nächsten vollständigen Scan als nicht physisch verifiziert markiert.
+   - Commit `a15770b` veröffentlicht; gestapelter Draft-PR #5 gegen `agent/fix-storage-worker-shutdown` erstellt und nicht gemergt.
 
 4. **Storage-Scanner instrumentieren und reparieren.**
    - Zeitmessungen für Dateiermittlung, Metadaten/Fingerprint, Dateityp-Auswertung und Cache-Schreiben ergänzen.

@@ -22,6 +22,8 @@
 - Statistik-API und Rick-API um die neuen Summenfelder erweitert.
 - Control Center zeigt eine eigene Zusammenfassung für physisch eindeutige Werte, logische Kategorieverweise und Überlappungen; Cache-Buster aktualisiert.
 - Gezielte und vollständige Tests erfolgreich ausgeführt.
+- Änderung als Commit `a15770bf46749f3c7585edf58bed4753cdca591e` auf `origin/agent/fix-storage-physical-totals` veröffentlicht.
+- Gestapelten Draft-PR #5 gegen `agent/fix-storage-worker-shutdown` erstellt: `https://github.com/cRioshy/Pando/pull/5`. PR #3 und PR #4 blieben unverändert und Draft.
 
 ### Veränderte Dateien
 
@@ -50,6 +52,9 @@
 - `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage`
 - `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage tests.test_web_control_center tests.test_rick_read_only_api`
 - `\.venv\Scripts\python.exe -m unittest discover -s tests`
+- `git commit -m "Deduplicate storage physical totals"`
+- `git push -u origin agent/fix-storage-physical-totals`
+- `gh pr create --repo cRioshy/Pando --base agent/fix-storage-worker-shutdown --head agent/fix-storage-physical-totals --draft ...`
 
 ### Ausgeführte Tests und tatsächliche Ergebnisse
 
@@ -75,12 +80,12 @@
 
 ### Nicht abgeschlossene Punkte
 
-- Commit, Push und ein separater gestapelter Draft-PR stehen nach der Abschlussprüfung noch aus.
+- Draft-PR #5 wurde ausdrücklich nicht gemergt.
 - Scanner-Phasenmessung, realistisches inkrementelles Budget und Fortschrittsreparatur gehören bewusst erst zu Schritt 4.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den vollständigen Diff auf Scope, Secrets und API-Kompatibilität prüfen, die zwölf geänderten Dateien committen und den Branch als gestapelten Draft-PR veröffentlichen. Danach Laufzeiten für Dateiermittlung, Pfadauflösung, Metadaten/Fingerprint, Dateiartbehandlung sowie Cache-/Index-Schreiben instrumentieren und mit dem realen Bestand ohne Datenlöschung messen.
+Vor jeder weiteren Änderung Branch- und PR-Status erneut prüfen. Danach Laufzeiten für Dateiermittlung, Pfadauflösung, Metadaten/Fingerprint, Dateiartbehandlung sowie Cache-/Index-Schreiben instrumentieren und mit dem realen Bestand ohne Datenlöschung messen.
 
 ---
 
