@@ -180,7 +180,7 @@ flowchart LR
     RESULT --> PROJECT
 ```
 
-Brain verwendet die Projektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. NeuroBrain-Persistenz ist noch nicht migriert; für diesen Knoten zeigt das Diagramm weiterhin den Zielzustand.
+Brain verwendet die Projektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. NeuroBrain behält eine kompakte Kopfsicht und persistiert als Detailpayload nur noch Version 1. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Damit ist der dargestellte kompakte Persistenzfluss implementiert, aber noch nicht kontrolliert live neu gestartet.
 
 ## Crypto-Ausfall- und Fallback-Semantik
 

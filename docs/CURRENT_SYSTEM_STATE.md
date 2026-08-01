@@ -124,6 +124,8 @@ Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorh
 
 Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
+Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben.
+
 Der Storage-Statistikdienst besitzt inzwischen:
 
 - einen persistenten Ergebnis-Cache `storage/statistics/storage_statistics.json`,
@@ -187,7 +189,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Decision-/Signal-Migration mit 223/223 Tests in 49,274 Sekunden. Der neue End-to-End-Test prüft beide Events und beide Ledger, Schema/IDs, Bulk-Ausschluss, Legacy-Eingangskompatibilität und eine Signalgröße von weniger als einem Viertel des umfangreichen Testinputs. 32 gezielte Decision-/Brain-/Outcome-/Tracker-/Integrations-/Vertragstests bestanden ebenfalls.
+Der vollständige Lauf am 1. August 2026 bestand nach der kompakten NeuroBrain-Migration mit 224/224 Tests in 50,007 Sekunden. Die NeuroBrain-Tests prüfen Schema, zweistufige ID-Kette, Bulk-Ausschluss, Größenreduktion, unverändertes Quell-Event, Duplikatschutz und unveränderte alte Inboxzeilen. 18 gezielte NeuroBrain-/Vertrags-/Decision-/Brain-Tests bestanden ebenfalls.
 
 ## Bekannte Risiken
 
@@ -201,7 +203,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Decision-/Si
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain und Decision Core persistieren und publizieren neue Stufen kompakt. NeuroBrain persistiert weiterhin komplette empfangene Event-Payloads neben seiner Kopfsicht und ist die verbleibende Payload-Persistenzgrenze.
+11. Brain, Decision Core und NeuroBrain persistieren neue Stufen kompakt. Die vollständige gestapelte Änderung ist noch nicht kontrolliert live neu gestartet; vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

@@ -11,6 +11,7 @@ from threading import RLock
 from typing import Any
 
 from event_bus import Event, EventBus
+from event_payload_contract import compact_market_payload
 from jsonl_ledger import RotatingJsonlLedger
 
 
@@ -192,22 +193,22 @@ class NeuroBrainReceiverAdapter:
         """Convert an EventBus event to a stable NeuroBrain inbox record."""
 
         payload = event.payload if isinstance(event.payload, dict) else {"raw_payload": event.payload}
-        nested_payload = payload.get("payload") if isinstance(payload.get("payload"), dict) else payload
+        compact_payload = compact_market_payload(payload)
         return {
             "received_at": datetime.now(UTC).isoformat(),
             "source_event_id": event.event_id,
             "topic": event.topic,
             "source": event.source,
             "source_created_at": event.created_at,
-            "event_type": payload.get("event_type", event.topic),
-            "market_type": nested_payload.get("market_type") or payload.get("market_type"),
-            "symbol": nested_payload.get("symbol") or payload.get("symbol"),
-            "decision_id": nested_payload.get("decision_id") or payload.get("decision_id"),
-            "signal_id": nested_payload.get("signal_id") or payload.get("signal_id"),
-            "direction": nested_payload.get("direction") or payload.get("direction"),
-            "probability": nested_payload.get("probability") or payload.get("probability"),
-            "source_timestamp": nested_payload.get("source_timestamp") or payload.get("source_timestamp"),
-            "payload": payload,
+            "event_type": compact_payload.get("event_type", event.topic),
+            "market_type": compact_payload.get("market_type"),
+            "symbol": compact_payload.get("symbol"),
+            "decision_id": compact_payload.get("decision_id"),
+            "signal_id": compact_payload.get("signal_id"),
+            "direction": compact_payload.get("direction"),
+            "probability": compact_payload.get("probability"),
+            "source_timestamp": compact_payload.get("source_timestamp"),
+            "payload": compact_payload,
         }
 
     def _write_status(self) -> None:

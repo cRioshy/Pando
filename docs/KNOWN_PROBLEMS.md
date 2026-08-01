@@ -86,12 +86,12 @@ Stand: 1. August 2026
 ### KP-015 – Vollständige Raw Results vergrößern Event-Ledger
 
 - **Priorität:** hoch
-- **Status:** offen; Brain und Decision-/Signal migriert, NeuroBrain-Persistenz ausstehend
-- **Beobachtung:** Brain und Decision Core persistieren und publizieren neue Stufen kompakt. NeuroBrain speichert neben einer kleinen Kopfsicht weiterhin die komplette Event-Payload.
+- **Status:** implementiert und getestet; kontrollierte Liveverifikation ausstehend
+- **Beobachtung:** Brain und Decision Core persistieren und publizieren neue Stufen kompakt. NeuroBrain speichert neben seiner Kopfsicht nur noch die Version-1-Projektion.
 - **Auswirkung:** Wiederholte Rohdaten und Kerzen vergrößern Brain-/Decision-/Signal-/NeuroBrain-Ledger und verlängern Storage-Scans.
 - **Verifizierte Altpfade:** `CryptoTradeTracker` kann Swing-Werte weiterhin aus `raw_result.market_data.candles` lesen; `LearningGraphBuilder` kann das Ergebnis weiterhin aus `raw_result.result` lesen. Beide Pfade sind jetzt ausschließlich Fallback hinter den kompakten Feldern.
 - **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1. Tracker und Graph bevorzugen die kompakten Ersatzfelder; vier Regressionstests sichern Priorität und Legacy-Kompatibilität.
-- **Nächster Fix:** NeuroBrain-Persistenz auf Version 1 umstellen, seine Kopfsicht und Quell-IDs erhalten. Bestehende History nicht verändern und Legacy-Leser erhalten.
+- **Nächster Schritt:** Den vollständigen gestapelten Stand kontrolliert neu starten und neue Brain-, Decision-, Signal- und NeuroBrain-Zeilen read-only auf Schema, IDs und fehlende Bulk-Felder prüfen. Bestehende History nicht verändern.
 
 ## Behoben oder entschärft
 

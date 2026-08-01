@@ -8,7 +8,7 @@ Version: `1`
 
 ## Zweck und aktueller Status
 
-Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain sowie Decision-/Signal-Events und ihre neuen Ledgerdatensätze verwenden Version 1 inzwischen aktiv. NeuroBrain-Persistenz ist noch nicht umgestellt. Bestehende Events und History-Dateien bleiben unverändert.
+Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain, Decision-/Signal-Events und Ledger sowie neue NeuroBrain-Inboxzeilen verwenden Version 1 inzwischen aktiv. Bestehende Events und History-Dateien bleiben unverändert.
 
 Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_payload()` akzeptiert sowohl den heutigen EventBus-Umschlag als auch eine flache Payload, erzeugt Schema-Metadaten und kopiert nur ausdrücklich zugelassene Felder.
 
@@ -33,7 +33,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | Control Center | kompakte Anzeige-, Preis-, Status- und Tradefelder | projiziert bereits auf eine kleine Sicht |
 | Telegram | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis und optionale Tradefelder | bleibt deaktiviert beziehungsweise Dry-Run |
 | Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
-| NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | erzeugt bereits eine kleine Kopfsicht, speichert daneben aber noch die komplette Event-Payload |
+| NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | behält seine kleine Kopfsicht und speichert daneben nur noch die kompakte Version-1-Projektion |
 
 ## Version 1
 
@@ -69,7 +69,7 @@ Die Referenzprojektion berechnet die beiden Swing-Werte ausschließlich für die
 1. Consumer für `schema_name`/`schema_version` und die beiden Ersatzfelder vorbereiten. Die Ersatzfeld-Priorität für Tracker und Graph ist umgesetzt; die Schemaannahme erfolgt erst beim Producer-Wechsel.
 2. Brain auf die Projektion umstellen. Dieser Schritt ist für neue Brain-Datensätze und Folgeevents umgesetzt.
 3. Decision-/Signal-Producer auf die Projektion umstellen. Dieser Schritt ist für neue Events und Ledgerdatensätze umgesetzt.
-4. NeuroBrain darf nur die Projektion persistieren; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten.
+4. NeuroBrain darf nur die Projektion persistieren; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten. Dieser Schritt ist für neue Inboxzeilen umgesetzt.
 5. Bestehende JSONL-History wird weder geändert noch gelöscht. Leser behalten einen Legacy-Pfad für alte Datensätze.
 6. Unbekannte Schema-Hauptversionen werden nicht stillschweigend als kompatibel behandelt.
 7. Keine reale Order- oder Telegram-Freigabe ist Bestandteil dieses Vertrags.

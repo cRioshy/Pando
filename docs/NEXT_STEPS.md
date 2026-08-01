@@ -60,7 +60,10 @@ Stand: 1. August 2026
    - Neue Decision-/Signal-Events und beide Ledger verwenden Version 1 ohne `raw_result`; alle IDs bleiben erhalten.
    - 32/32 gezielte und 223/223 vollständige Tests bestanden.
    - Commit `ed89a01` veröffentlicht; gestapelter Draft-PR #12 gegen `agent/compact-brain-payloads` erstellt und nicht gemergt.
-   - Als Nächstes ausschließlich NeuroBrain-Persistenz isoliert migrieren.
+   - **NeuroBrain-Persistenz am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - Neue Inboxzeilen behalten ihre Kopfsicht und enthalten als Detailpayload nur Version 1; alte Inboxzeilen bleiben unverändert.
+   - 18/18 gezielte und 224/224 vollständige Tests bestanden.
+   - Nach Veröffentlichung vollständigen gestapelten Stand kontrolliert neu starten und neue Persistenzzeilen read-only verifizieren.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
