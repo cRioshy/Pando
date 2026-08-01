@@ -16,6 +16,7 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 from threading import Event as ThreadEvent
+from threading import Thread
 from unittest.mock import patch
 
 from adapters.control_center_adapter import ControlCenterAdapter
@@ -531,6 +532,55 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertTrue(first["accepted"])
             self.assertFalse(second["accepted"])
             self.assertEqual(second["status"], "RUNNING")
+
+    def test_close_waits_until_background_worker_can_no_longer_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            (config.data_dir / "records.jsonl").write_text('{"ok":true}\n', encoding="utf-8")
+            service = StorageStatisticsService(config)
+            write_entered = ThreadEvent()
+            release_write = ThreadEvent()
+            close_returned = ThreadEvent()
+            writes_after_close: list[Path] = []
+            original_write = service._atomic_write_json
+
+            def blocked_write(path: Path, payload: dict) -> None:
+                if not write_entered.is_set():
+                    write_entered.set()
+                    release_write.wait(timeout=3)
+                if close_returned.is_set():
+                    writes_after_close.append(path)
+                original_write(path, payload)
+
+            def close_service() -> None:
+                service.close()
+                close_returned.set()
+
+            with patch.object(service, "_atomic_write_json", side_effect=blocked_write):
+                started = service.start_scan()
+                self.assertTrue(started["accepted"])
+                self.assertTrue(write_entered.wait(timeout=1))
+                closer = Thread(target=close_service, name="storage-service-closer")
+                closer.start()
+                try:
+                    self.assertFalse(
+                        close_returned.wait(timeout=1.2),
+                        "close() returned while the storage worker could still write",
+                    )
+                finally:
+                    release_write.set()
+                closer.join(timeout=3)
+
+            self.assertTrue(close_returned.is_set())
+            self.assertFalse(closer.is_alive())
+            self.assertTrue(service._worker is None or not service._worker.is_alive())
+            self.assertEqual(writes_after_close, [])
+            rejected = service.start_scan()
+            self.assertFalse(rejected["accepted"])
+            self.assertEqual(rejected["status"], "CLOSED")
+            service.close()
 
     def test_large_jsonl_uses_bounded_incremental_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

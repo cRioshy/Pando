@@ -117,7 +117,7 @@ Der Scanner lädt beim Start den letzten Cache. `start_scan()` akzeptiert nur ei
 
 Timeout, Abbruch und einzelne verschwundene Dateien beenden nicht die Verfügbarkeit des letzten Caches. Der reale Datenbestand verursacht derzeit trotzdem noch `TIMEOUT`; die Ursache ist noch zu untersuchen.
 
-`close()` setzt aktuell das Abbruchsignal und wartet höchstens eine Sekunde auf den Worker. Ein Testlauf zeigte, dass der Thread danach noch Cache-/Indexdateien schreiben kann. Shutdown und Besitz der Zielverzeichnisse sind deshalb noch nicht zuverlässig synchronisiert.
+Der Scanner besitzt einen eigenen Lebenszyklus-Lock und einen dauerhaften `closed`-Zustand. `start_scan()` lehnt nach `close()` neue Hintergrundscans mit `CLOSED` ab; synchrone `refresh()`-Aufrufe liefern danach nur noch den letzten Snapshot. `close()` setzt das Abbruchsignal und wartet ohne willkürlichen Ein-Sekunden-Abbruch auf den aktiven Worker. Eine Sperrbarriere stellt zusätzlich sicher, dass auch ein synchron laufender Refresh beendet ist. Deshalb kann nach Rückkehr von `close()` kein Cache- oder Index-Schreibvorgang mehr stattfinden. Wiederholtes `close()` ist idempotent.
 
 ## Webarchitektur
 
@@ -173,5 +173,4 @@ Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturser
 - Keine zentrale Retention-Policy für den gesamten Runtime-Bestand.
 - Absolute Windows-Pfade begrenzen Portabilität.
 - Storage-Scans können trotz inkrementellem Index das Zeitlimit überschreiten.
-- Der Storage-Worker kann den derzeit einsekündigen Shutdown-Join überleben.
 - Health zeigt Heartbeats, klassifiziert aber keine veralteten Services.

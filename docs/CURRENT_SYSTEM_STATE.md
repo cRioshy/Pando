@@ -114,7 +114,8 @@ Der Storage-Statistikdienst besitzt inzwischen:
 - inkrementelle JSONL-Offsets,
 - atomare Cache-/Index-Schreibvorgänge,
 - Metadatenmodus für große SQLite-, JSON-, CSV- und Logdateien,
-- ein globales JSONL-Bytebudget pro Scan.
+- ein globales JSONL-Bytebudget pro Scan,
+- einen geschützten Lebenszyklus: Nach `close()` werden keine neuen Scans akzeptiert und laufende Hintergrund- oder synchrone Scans sind vollständig beendet, bevor `close()` zurückkehrt.
 
 Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Der laufende Bestand lag beim letzten Abruf bei 7 Ordnern, 93 gecachten Dateien und 4,26 GB. Ein Scan endete dennoch nach 35,236 Sekunden als `TIMEOUT` und bearbeitete 27 von 94 Dateien; das ist ein offener Performancefehler, kein Datenverlustsignal.
 
@@ -162,18 +163,17 @@ python -m unittest tests.test_statistics_and_storage tests.test_web_control_cent
 python -m compileall .
 ```
 
-Der vollständige Lauf am 31. Juli 2026 bestand mit 200/200 Tests in 61,863 Sekunden. Zusätzlich bestand ein nicht persistierender Live-Crypto-Diagnoselauf mit drei von drei Symbolen sowie die anschließende Verifikation von zwei Produktionszyklen. Die bekannte nicht-deterministische Storage-Shutdown-Race bleibt unabhängig davon offen.
+Der vollständige Lauf am 1. August 2026 bestand nach dem Storage-Shutdown-Fix mit 201/201 Tests in 37,859 Sekunden. Der gezielte Storage-/Weblauf bestand mit 36/36 Tests; der isolierte neue Shutdown-Regressionstest bestand ebenfalls. Die frühere nicht-deterministische Storage-Shutdown-Race ist damit reproduzierbar behoben.
 
 ## Bekannte Risiken
 
-1. Der Storage-Worker kann den einsekündigen Shutdown-Join überleben und danach noch in temporäre Verzeichnisse schreiben.
-2. Storage-Scans überschreiten im realen Datenbestand weiterhin teilweise das konfigurierte Timeout.
-3. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
-4. WebSocket-Reconnect und Polling-Fallback sind nicht vollständig robust.
-5. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
-6. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
-7. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
-8. Absolute Windows-Pfade begrenzen die Portabilität.
-9. Feature-Eingangsdaten werden nicht streng genug validiert.
-10. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
-11. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
+1. Storage-Scans überschreiten im realen Datenbestand weiterhin teilweise das konfigurierte Timeout.
+2. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
+3. WebSocket-Reconnect und Polling-Fallback sind nicht vollständig robust.
+4. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
+5. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
+6. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
+7. Absolute Windows-Pfade begrenzen die Portabilität.
+8. Feature-Eingangsdaten werden nicht streng genug validiert.
+9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
+10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.

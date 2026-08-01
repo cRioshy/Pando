@@ -1,6 +1,6 @@
 # Bekannte Probleme
 
-Stand: 31. Juli 2026
+Stand: 1. August 2026
 
 ## Offen
 
@@ -12,15 +12,6 @@ Stand: 31. Juli 2026
 - **Aktueller Schutz:** Crypto-Events enthalten jetzt Fehlerart, Stufe, Symbol und Provider-Versuche. `SharedState` hält `last_error` und `last_error_details`, solange der Fehler aktuell ist.
 - **Restproblem:** Eine länger zurückliegende erste Exception kann weiterhin aus dem In-Memory-Bestand verschwinden.
 - **Nächster Fix:** Kleines größenbegrenztes, rotierendes Service-Fehlerjournal entwerfen; keine Tokens, Antwortinhalte oder unbegrenzte Logs persistieren.
-
-### KP-011 – Storage-Worker kann Shutdown überleben
-
-- **Priorität:** hoch
-- **Status:** offen, nicht-deterministisch bestätigt
-- **Beobachtung:** Der vollständige Testlauf vom 26. Juli 2026 scheiterte einmal mit `WinError 145`, weil ein temporäres `storage/statistics`-Verzeichnis beim Testende noch nicht leer war. Der isolierte Wiederholungslauf bestand.
-- **Ursache im Code:** `StorageStatisticsService.close()` setzt das Abbruchsignal, wartet aber nur eine Sekunde. Ein noch lebender Worker kann anschließend Index oder Cache schreiben.
-- **Auswirkung:** Flaky Tests; beim schnellen Shutdown kann ein Worker länger als sein Besitzer beziehungsweise dessen temporäres Zielverzeichnis leben.
-- **Nächster Fix:** Shutdown-Vertrag festlegen, Worker zuverlässig beenden oder Schreibabschluss synchronisieren und einen deterministischen Regressionstest ergänzen.
 
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
@@ -92,6 +83,14 @@ Stand: 31. Juli 2026
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
 
 ## Behoben oder entschärft
+
+### KP-R06 – Storage-Worker schrieb nach `close()` weiter
+
+- **Status:** behoben und deterministisch getestet am 1. August 2026
+- Ein Regressionstest blockiert einen laufenden Cache-/Index-Schreibvorgang und reproduzierte vor dem Fix sowohl die verfrühte Rückkehr von `close()` als auch `WinError 145` beim anschließenden Entfernen des Testverzeichnisses.
+- `close()` setzt jetzt einen dauerhaften geschlossenen Zustand, signalisiert Abbruch und wartet vollständig auf den aktiven Worker sowie einen gegebenenfalls synchron laufenden Refresh.
+- Neue Scans werden nach `close()` mit `CLOSED` abgelehnt; wiederholtes `close()` bleibt sicher.
+- Nach dem Fix bestanden der isolierte Regressionstest, 27/27 Storage-Tests, 36/36 Storage-/Webtests und 201/201 Gesamttests.
 
 ### KP-R05 – Crypto-Analyse seit 27. Juli ohne Ergebnisse
 

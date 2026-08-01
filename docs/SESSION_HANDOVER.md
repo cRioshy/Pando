@@ -1,6 +1,83 @@
 # Session-Handover
 
-## Aktuelle Aufgabe: Funktionierenden Crypto-Stand sichern und veröffentlichen
+## Aktuelle Aufgabe: Storage-Worker-Shutdown deterministisch reparieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 12:48 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die bestätigte Race in `StorageStatisticsService.close()` reproduzierbar machen und so beheben, dass nach Rückkehr von `close()` kein Hintergrundworker oder synchroner Refresh mehr Cache beziehungsweise Index schreiben kann. Keine Runtime-, History- oder Lerndaten löschen und keine Trading-/Telegram-Konfiguration verändern.
+
+### Durchgeführte Arbeiten
+
+- Übergabedokumentation, tatsächlichen Storage-Code, vorhandene Tests und Git-Stand geprüft.
+- Neuen Branch `agent/fix-storage-worker-shutdown` vom veröffentlichten Crypto-Stand erstellt; Draft-PR #3 blieb unverändert.
+- Deterministischen Regressionstest ergänzt, der `_atomic_write_json()` während eines Hintergrundscans blockiert und `close()` parallel aufruft.
+- Vor dem Fix reproduziert, dass `close()` nach einer Sekunde zurückkehrte, obwohl der Worker weiterhin schreiben konnte; die Testbereinigung scheiterte zusätzlich mit dem bekannten `WinError 145`.
+- Einen Lebenszyklus-Lock und dauerhaften `_closed`-Zustand ergänzt.
+- `start_scan()` lehnt nach `close()` neue Scans mit Status `CLOSED` ab; `refresh()` startet nach dem Schließen keinen synchronen Scan mehr.
+- `close()` signalisiert Abbruch, wartet vollständig auf den aktiven Worker und verwendet die Scan-Sperre als Barriere für gleichzeitig laufende synchrone Refreshes.
+- Worker-Referenz wird nach vollständigem Ende bereinigt; wiederholtes `close()` ist sicher.
+- Isolierten Regressionstest, Storage-Modul, Storage-/Webintegration und vollständige Testsuite erfolgreich ausgeführt.
+
+### Veränderte Dateien
+
+- `web/statistics_service.py`
+- `tests/test_statistics_and_storage.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `git status -sb`, `git log -3 --oneline` und relevante `rg`-/Codeprüfungen.
+- `git switch -c agent/fix-storage-worker-shutdown`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage.StatisticsAndStorageTest.test_close_waits_until_background_worker_can_no_longer_write`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage tests.test_web_control_center`
+- `\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Neuer Regressionstest vor dem Fix: erwartungsgemäß fehlgeschlagen; `close()` kehrte bei blockiertem Worker zu früh zurück, anschließend `WinError 145`.
+- Neuer Regressionstest nach dem Fix: 1/1 bestanden in 1,245 Sekunden.
+- Storage-/Statistikmodul: 27/27 bestanden in 3,220 Sekunden.
+- Storage-/Webintegration: 36/36 bestanden in 9,402 Sekunden.
+- Gesamtsuite: 201/201 bestanden in 37,859 Sekunden.
+- Bekannte externe DeprecationWarnings für `datetime.utcnow()` blieben ohne Testauswirkung.
+
+### Bekannte Fehler
+
+- Storage-Scans überschreiten am realen Datenbestand weiterhin teilweise das konfigurierte Timeout (`KP-001`).
+- Überlappende Storage-Ziele können physische Gesamtsummen weiterhin doppelt zählen; dies ist der nächste geplante Schritt.
+- Weitere offene Probleme aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- `close()` besitzt jetzt einen starken Abschlussvertrag und darf zugunsten korrekter Besitz-/Dateisemantik auf den kooperativ abbrechenden Scanner warten.
+- Ein dauerhafter Closed-Zustand verhindert Neustarts desselben Serviceobjekts nach dem Shutdown.
+- Es wurde keine globale EventBus- oder Storage-Datenarchitektur verändert.
+
+### Nicht abgeschlossene Punkte
+
+- Commit, Push und ein separater Draft-PR für diesen Branch stehen nach der lokalen Abschlussprüfung noch aus.
+- Storage-Anzeige und Scanner-Performance wurden bewusst noch nicht verändert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den vollständigen Diff auf Scope und Secrets prüfen, die sieben geänderten Dateien committen und den Branch veröffentlichen. Danach die überlappenden Storage-Ziele analysieren und physische Gesamtsummen deduplizieren, während logische Kategorien getrennt sichtbar bleiben.
+
+---
+
+## Vorherige Aufgabe: Funktionierenden Crypto-Stand sichern und veröffentlichen
 
 ### Datum und Uhrzeit
 

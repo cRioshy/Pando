@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event as ThreadEvent
-from threading import Lock, RLock, Thread
+from threading import Lock, RLock, Thread, current_thread
 from typing import Any
 from uuid import uuid4
 
@@ -598,8 +598,10 @@ class StorageStatisticsService:
         self.index_file = statistics_dir / "storage_file_index.json"
         self._lock = RLock()
         self._scan_lock = Lock()
+        self._lifecycle_lock = Lock()
         self._cancel_event = ThreadEvent()
         self._worker: Thread | None = None
+        self._closed = False
         self._index: dict[str, dict[str, Any]] = self._load_json_file(self.index_file, {}).get("files", {})
         cached = self._load_json_file(self.cache_file, {})
         self._snapshot = cached if self._valid_snapshot(cached) else self._empty_snapshot()
@@ -615,8 +617,11 @@ class StorageStatisticsService:
     def refresh(self) -> dict[str, Any]:
         """Run one scan synchronously when no background scan is active."""
 
-        if not self._scan_lock.acquire(blocking=False):
-            return self.snapshot()
+        with self._lifecycle_lock:
+            if self._closed:
+                return self.snapshot()
+            if not self._scan_lock.acquire(blocking=False):
+                return self.snapshot()
         scan_id = str(uuid4())
         try:
             return self._refresh_acquired(scan_id)
@@ -629,25 +634,34 @@ class StorageStatisticsService:
     ) -> dict[str, Any]:
         """Start one background scan and return immediately with its identity."""
 
-        if not self._scan_lock.acquire(blocking=False):
-            current = self.snapshot()
-            return {
-                "accepted": False,
-                "scan_id": current.get("scan", {}).get("scan_id"),
-                "status": "RUNNING",
-                "storage": current,
-            }
+        with self._lifecycle_lock:
+            if self._closed:
+                current = self.snapshot()
+                return {
+                    "accepted": False,
+                    "scan_id": current.get("scan", {}).get("scan_id"),
+                    "status": "CLOSED",
+                    "storage": current,
+                }
+            if not self._scan_lock.acquire(blocking=False):
+                current = self.snapshot()
+                return {
+                    "accepted": False,
+                    "scan_id": current.get("scan", {}).get("scan_id"),
+                    "status": "RUNNING",
+                    "storage": current,
+                }
 
-        scan_id = str(uuid4())
-        self._cancel_event.clear()
-        self._begin_scan(scan_id)
-        self._worker = Thread(
-            target=self._background_scan,
-            args=(scan_id, on_complete),
-            name="pandorickki-storage-scanner",
-            daemon=True,
-        )
-        self._worker.start()
+            scan_id = str(uuid4())
+            self._cancel_event.clear()
+            self._begin_scan(scan_id)
+            self._worker = Thread(
+                target=self._background_scan,
+                args=(scan_id, on_complete),
+                name="pandorickki-storage-scanner",
+                daemon=True,
+            )
+            self._worker.start()
         return {
             "accepted": True,
             "scan_id": scan_id,
@@ -666,12 +680,20 @@ class StorageStatisticsService:
         }
 
     def close(self) -> None:
-        """Request scanner shutdown without delaying platform shutdown."""
+        """Stop accepting scans and wait until the active worker has finished."""
 
-        self._cancel_event.set()
-        worker = self._worker
-        if worker is not None and worker.is_alive():
-            worker.join(timeout=1.0)
+        with self._lifecycle_lock:
+            self._closed = True
+            self._cancel_event.set()
+            worker = self._worker
+        if worker is not None and worker is not current_thread() and worker.is_alive():
+            worker.join()
+        if worker is not current_thread():
+            self._scan_lock.acquire()
+            self._scan_lock.release()
+        with self._lifecycle_lock:
+            if self._worker is worker and (worker is None or not worker.is_alive()):
+                self._worker = None
 
     def snapshot(self) -> dict[str, Any]:
         """Return the last cached storage snapshot and current scan state."""
@@ -724,14 +746,19 @@ class StorageStatisticsService:
         """Run a scan in the dedicated daemon worker."""
 
         try:
-            result = self._refresh_acquired(scan_id)
-        finally:
-            self._scan_lock.release()
-        if on_complete is not None:
             try:
-                on_complete(result)
-            except Exception:
-                pass
+                result = self._refresh_acquired(scan_id)
+            finally:
+                self._scan_lock.release()
+            if on_complete is not None:
+                try:
+                    on_complete(result)
+                except Exception:
+                    pass
+        finally:
+            with self._lifecycle_lock:
+                if self._worker is current_thread():
+                    self._worker = None
 
     def _refresh_acquired(self, scan_id: str) -> dict[str, Any]:
         """Run one cooperatively bounded scan while the single-scan lock is held."""

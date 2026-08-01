@@ -11,9 +11,10 @@ Stand: 1. August 2026
    - Draft-PR #3 gegen `main` erstellt; ausdrücklich nicht mergen.
 
 2. **Storage-Worker-Shutdown deterministisch machen.**
-   - Reproduzierbaren Test für einen beim `close()` laufenden Schreibvorgang ergänzen.
-   - Einen eindeutigen Shutdown-Vertrag festlegen: Nach `close()` darf kein Worker mehr schreiben.
-   - Keine Runtime-Daten löschen; ausschließlich Thread-/Abbruch-Synchronisation ändern.
+   - **Erledigt am 1. August 2026.**
+   - Regressionstest reproduzierte die verfrühte Rückkehr und `WinError 145` vor dem Fix.
+   - Nach `close()` werden neue Scans abgelehnt und laufende Worker beziehungsweise synchrone Refreshes vollständig abgewartet.
+   - 201/201 Gesamttests bestanden; keine Runtime-Daten gelöscht.
 
 3. **Storage-Anzeige korrigieren.**
    - Überlappende logische Ziele erkennen und physische Dateien in der Gesamtsumme nur einmal zählen.
@@ -58,6 +59,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Storage-Worker-Shutdown mit deterministischem Race-Test und eindeutigem `close()`-Vertrag behoben.
+- 27/27 Storage-, 36/36 Storage-/Web- und 201/201 Gesamttests nach dem Fix bestanden.
 - Crypto-Reparaturstand mit verifiziertem BEFORE-Backup, 200/200 Tests und zwei erfolgreichen Livezyklen gesichert.
 - Commit `b0379c3` veröffentlicht und Draft-PR #3 gegen `main` erstellt.
 - Persistenter Storage-Cache und Dateiindex.
