@@ -177,7 +177,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der Scanner-Instrumentierung mit 204/204 Tests in 51,063 Sekunden. Der gezielte Storage-/Web-Lauf bestand mit 39/39 Tests in 10,349 Sekunden. Darin sind Phasenmessung, kumulativer JSONL-Fortschritt, Restschätzung, Budgetgrenzen, physische Deduplizierung und UI-Anzeige abgedeckt.
+Der vollständige Lauf am 1. August 2026 bestand nach Einführung des Service-Fehlerjournals mit 210/210 Tests in 43,191 Sekunden. Der gezielte Journal-/Config-/Orchestratorlauf bestand mit 17/17 Tests in 5,567 Sekunden. Darin sind Secret-Filter, kompakte Projektion, persistente Erst-/Letztbeobachtung, begrenzte Rotation, ausfallsicherer Publisher und Lifecycle-Integration abgedeckt; die vorhandenen Storage- und Webtests bleiben Teil der Gesamtsuite.
 
 ## Bekannte Risiken
 

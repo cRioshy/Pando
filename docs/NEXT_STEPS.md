@@ -37,6 +37,7 @@ Stand: 1. August 2026
    - Kompakte versionierte Fehlerprojektion mit Erst-/Letztbeobachtung und Fehleranzahl umgesetzt.
    - Secret-Filter und Ausschluss vollständiger Payloads beziehungsweise externer Antwortinhalte getestet.
    - Aktives Journal auf 5 MiB, Archive auf vier und Zusammenfassung auf 500 Fingerprints begrenzt.
+   - Commit `8a0a78d` veröffentlicht; gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` erstellt und nicht gemergt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
    - Benötigte Felder für Decision Core, Tracker, Learning und UI vollständig ermitteln.

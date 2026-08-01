@@ -93,6 +93,7 @@ Stand: 1. August 2026
 - Schlüssel- und Textfilter entfernen Tokens, API-Keys, Authorization-, Cookie-, Passwort-, Secret- und Chat-ID-Werte. Rohe Payloads und externe Response-Inhalte werden nicht kopiert.
 - Journal-Schreibfehler brechen den Event-Publisher nicht und werden über `service_error_journal` als fehlerhafter Health-Zustand sichtbar.
 - Der begrenzte Bestand ist bewusst kein vollständiges Langzeitarchiv; bestehende andere History-Dateien bleiben unverändert.
+- 17/17 gezielte und 210/210 vollständige Tests bestanden.
 
 ### KP-R08 – Scannerfortschritt war nicht messbar und praktisch zu langsam
 

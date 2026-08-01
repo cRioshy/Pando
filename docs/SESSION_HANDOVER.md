@@ -81,12 +81,14 @@ Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegren
 
 ### Nicht abgeschlossene Punkte
 
-- Branch, Commit, gestapelter Draft-PR und Liveprüfung des neuen Journals stehen noch aus.
+- Commit `8a0a78d` wurde auf `origin/agent/add-service-error-journal` veröffentlicht.
+- Gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` wurde erstellt: `https://github.com/cRioshy/Pando/pull/7`.
+- Die Liveprüfung des neuen Journals steht noch aus.
 - Draft-PRs dürfen nicht gemergt werden.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den geprüften Umfang explizit stagen, committen und auf `agent/add-service-error-journal` pushen; danach einen gestapelten Draft-PR gegen `agent/instrument-storage-scanner` erstellen, die exakten Veröffentlichungsdaten nachtragen und PandorickKi kontrolliert neu starten, um `service_error_journal=OK` live zu verifizieren.
+PandorickKi kontrolliert stoppen und aus `agent/add-service-error-journal` mit den bisherigen sicheren Laufzeitwerten neu starten; danach mindestens zwei Zyklen, `service_error_journal=OK`, Telegram aus/Dry-Run, Errorzähler und Storagezustand über die lokale API verifizieren.
 
 ---
 
