@@ -307,6 +307,22 @@ function renderStorage(storage) {
   if (scanElement) {
     scanElement.textContent = `Scan: ${scanStatus}${completed}${duration}`;
   }
+  const totalsElement = $("storageTotals");
+  if (totalsElement) {
+    const physicalFiles = storage && storage.physical_total_files;
+    if (physicalFiles === null || physicalFiles === undefined) {
+      totalsElement.textContent = "Physische Gesamtwerte: werden beim nächsten vollständigen Scan verifiziert";
+    } else {
+      const physicalRecords = Number(storage.physical_total_records || 0).toLocaleString();
+      const logicalFiles = Number(storage.logical_total_files || 0).toLocaleString();
+      const logicalRecords = Number(storage.logical_total_records || 0).toLocaleString();
+      const overlaps = Number(storage.overlapping_file_references || 0).toLocaleString();
+      totalsElement.textContent =
+        `Physisch eindeutig: ${Number(physicalFiles).toLocaleString()} Dateien · ${physicalRecords} Datensätze · ${storage.physical_total_size_human || "0 B"}` +
+        ` | Logische Kategorien: ${logicalFiles} Dateiverweise · ${logicalRecords} Datensätze · ${storage.logical_total_size_human || "0 B"}` +
+        ` | Überlappungen: ${overlaps}`;
+    }
+  }
   const folders = (storage && storage.folders) || [];
   if (!folders.length) {
     const tr = document.createElement("tr");

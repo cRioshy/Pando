@@ -201,6 +201,7 @@ class WebControlCenterTest(unittest.TestCase):
 
     def test_frontend_loads_statistics_separately_from_live_snapshot(self) -> None:
         script = (PROJECT_ROOT / "web" / "static" / "control_center.js").read_text(encoding="utf-8")
+        page = (PROJECT_ROOT / "web" / "static" / "control_center.html").read_text(encoding="utf-8")
         routes = (PROJECT_ROOT / "web" / "routes.py").read_text(encoding="utf-8")
 
         self.assertIn("async function loadStatistics()", script)
@@ -208,6 +209,8 @@ class WebControlCenterTest(unittest.TestCase):
         self.assertIn("loadStatistics().catch", script)
         self.assertIn("live_event_snapshot()", routes)
         self.assertNotIn('"snapshot": self.server.app.snapshot()', routes)
+        self.assertIn('id="storageTotals"', page)
+        self.assertIn("storage-physical-totals-v1", page)
 
     def test_bad_event_does_not_stop_webserver(self) -> None:
         async def run() -> None:

@@ -116,14 +116,16 @@ Der Storage-Statistikdienst besitzt inzwischen:
 - Metadatenmodus für große SQLite-, JSON-, CSV- und Logdateien,
 - ein globales JSONL-Bytebudget pro Scan,
 - einen geschützten Lebenszyklus: Nach `close()` werden keine neuen Scans akzeptiert und laufende Hintergrund- oder synchrone Scans sind vollständig beendet, bevor `close()` zurückkehrt.
+- physische Pfad-Deduplizierung innerhalb eines Scans: Überlappende logische Ziele verwenden dasselbe Dateiergebnis und verbrauchen Scanbudget nur einmal,
+- getrennte verifizierte Summen für physische Dateien und logische Kategorieverweise einschließlich ausgewiesener Überlappungsanzahl.
 
-Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Der laufende Bestand lag beim letzten Abruf bei 7 Ordnern, 93 gecachten Dateien und 4,26 GB. Ein Scan endete dennoch nach 35,236 Sekunden als `TIMEOUT` und bearbeitete 27 von 94 Dateien; das ist ein offener Performancefehler, kein Datenverlustsignal.
+Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Ein alter Cache ohne getrennte Summen wird als `LEGACY_CACHE` markiert; seine bisherigen Gesamtwerte werden nicht als physisch verifiziert ausgegeben. Erst ein neuer vollständiger Scan erzeugt `VERIFIED`-Werte. Der laufende Bestand lag beim früheren Abruf bei 7 logischen Ordnern, 93 gecachten Dateiverweisen und 4,26 GB logischer Summe. Ein Scan endete dennoch nach 35,236 Sekunden als `TIMEOUT` und bearbeitete 27 von 94 Dateiverweisen; das ist ein offener Performancefehler, kein Datenverlustsignal.
 
 ## Control Center
 
 Das lokale Control Center wird standardmäßig unter `http://127.0.0.1:8000/` bereitgestellt. Es zeigt Health, Services, Märkte, Brain, Signals, Statistiken, Speicher, Learning Report und Graphen. HTTP-Endpunkte liefern read-only Sichten; `/api/statistics/storage/refresh` startet einen Hintergrundscan und antwortet mit HTTP `202 Accepted`.
 
-Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus und verwendet Cache-Buster sowie `defer` für lokale Skripte. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
+Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
 
 Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust. Servicezustände berücksichtigen inzwischen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert.
 
@@ -163,7 +165,7 @@ python -m unittest tests.test_statistics_and_storage tests.test_web_control_cent
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach dem Storage-Shutdown-Fix mit 201/201 Tests in 37,859 Sekunden. Der gezielte Storage-/Weblauf bestand mit 36/36 Tests; der isolierte neue Shutdown-Regressionstest bestand ebenfalls. Die frühere nicht-deterministische Storage-Shutdown-Race ist damit reproduzierbar behoben.
+Der vollständige Lauf am 1. August 2026 bestand nach der Storage-Deduplizierung mit 203/203 Tests in 36,854 Sekunden. Der gezielte Storage-/Web-/Rick-API-Lauf bestand mit 44/44 Tests. Darin sind die physische Deduplizierung überlappender Ziele, einmalige Dateiverarbeitung, getrennte Summen und die sichere Behandlung alter Caches abgedeckt.
 
 ## Bekannte Risiken
 

@@ -107,13 +107,18 @@ flowchart TD
     OPEN["Offene simulierte Trades"] --> JSON["Atomar ersetztes JSON"]
     BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
     SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
-    SCAN --> INDEX["storage_file_index.json"]
-    SCAN --> SNAP["storage_statistics.json"]
+    SCAN --> UNIQUE["Einmaliger Scan je aufgelöstem physischen Pfad"]
+    UNIQUE --> LOGICAL["Logische Kategorien und Dateiverweise"]
+    UNIQUE --> PHYSICAL["Physisch eindeutige Gesamtwerte"]
+    UNIQUE --> INDEX["storage_file_index.json"]
+    LOGICAL & PHYSICAL --> SNAP["storage_statistics.json"]
     INDEX -->|"Offsets und Dateiidentität"| SCAN
     SNAP --> API["Storage API und Control Center"]
 ```
 
-Der Scanner lädt beim Start den letzten Cache. `start_scan()` akzeptiert nur einen laufenden Scan, arbeitet im Hintergrund und liefert unmittelbar Scan-ID und Status zurück. JSONL-Dateien werden binär ab dem persistierten Offset gelesen; unvollständige letzte Zeilen werden erst nach einem Zeilenabschluss übernommen. Schrumpfung oder Austausch einer Datei setzt den Index zurück. Große SQLite-, JSON-, CSV- und Logdateien werden nur per Metadaten erfasst. Cache und Index werden über temporäre Dateien und `os.replace()` atomar ersetzt.
+Der Scanner lädt beim Start den letzten Cache. `start_scan()` akzeptiert nur einen laufenden Scan, arbeitet im Hintergrund und liefert unmittelbar Scan-ID und Status zurück. Alle Zielpfade werden logisch beibehalten, aber pro Scan über ihren aufgelösten physischen Pfad dedupliziert. Ein gemeinsamer Dateiergebnis-Cache verhindert wiederholtes Lesen und mehrfachen Budgetverbrauch; die Kategorieansicht erhält weiterhin den jeweils passenden relativen Pfad. `total_*` bezeichnet verifizierte physische Werte, zusätzlich werden `physical_total_*`, `logical_total_*` und `overlapping_file_references` explizit geliefert. Alte Caches ohne diese Felder werden als `LEGACY_CACHE` statt als physisch verifiziert markiert.
+
+JSONL-Dateien werden binär ab dem persistierten Offset gelesen; unvollständige letzte Zeilen werden erst nach einem Zeilenabschluss übernommen. Schrumpfung oder Austausch einer Datei setzt den Index zurück. Große SQLite-, JSON-, CSV- und Logdateien werden nur per Metadaten erfasst. Cache und Index werden über temporäre Dateien und `os.replace()` atomar ersetzt.
 
 Timeout, Abbruch und einzelne verschwundene Dateien beenden nicht die Verfügbarkeit des letzten Caches. Der reale Datenbestand verursacht derzeit trotzdem noch `TIMEOUT`; die Ursache ist noch zu untersuchen.
 

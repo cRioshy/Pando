@@ -608,6 +608,17 @@ class StorageStatisticsService:
         if cached:
             self._snapshot["scan_status"] = "IDLE"
             self._snapshot.setdefault("scan", self._empty_scan_status())["status"] = "IDLE"
+            if "physical_total_files" not in self._snapshot:
+                self._snapshot["totals_status"] = "LEGACY_CACHE"
+                self._snapshot["physical_total_files"] = None
+                self._snapshot["physical_total_records"] = None
+                self._snapshot["physical_total_size_bytes"] = None
+                self._snapshot["physical_total_size_human"] = None
+                self._snapshot["logical_total_files"] = self._snapshot.get("total_files", 0)
+                self._snapshot["logical_total_records"] = self._snapshot.get("total_records", 0)
+                self._snapshot["logical_total_size_bytes"] = self._snapshot.get("total_size_bytes", 0)
+                self._snapshot["logical_total_size_human"] = self._snapshot.get("total_size_human", "0 B")
+                self._snapshot["overlapping_file_references"] = None
 
     async def refresh_async(self) -> dict[str, Any]:
         """Run a synchronous compatibility refresh outside the event loop."""
@@ -801,32 +812,49 @@ class StorageStatisticsService:
             return self._finish_interrupted_scan(scan_id, started_at, progress, "ERROR", str(exc))
 
     def _scan(self, deadline: float, progress: dict[str, int]) -> dict[str, Any]:
-        """Scan all targets with one global byte budget."""
+        """Scan each physical path once while retaining logical target views."""
 
         target_files: list[tuple[StorageTarget, list[Path]]] = []
+        unique_paths: set[Path] = set()
         for target in self.targets():
             self._check_interrupted(deadline)
             files = [target.path] if target.path.is_file() else [
                 item for item in target.path.rglob("*") if item.is_file()
             ]
             target_files.append((target, files))
-            progress["files_total"] += len(files)
+            unique_paths.update(path.resolve() for path in files)
+        progress["files_total"] = len(unique_paths)
 
         remaining_budget = [self.scan_byte_budget]
+        scanned_files: dict[Path, dict[str, Any]] = {}
         folders = [
-            self._scan_target(target, files, deadline, progress, remaining_budget)
+            self._scan_target(target, files, deadline, progress, remaining_budget, scanned_files)
             for target, files in target_files
         ]
-        total_files = sum(folder["file_count"] for folder in folders)
-        total_records = sum(folder["record_count"] or 0 for folder in folders)
-        total_size = sum(folder["total_size_bytes"] for folder in folders)
+        logical_total_files = sum(folder["file_count"] for folder in folders)
+        logical_total_records = sum(folder["record_count"] or 0 for folder in folders)
+        logical_total_size = sum(folder["total_size_bytes"] for folder in folders)
+        physical_items = list(scanned_files.values())
+        physical_total_files = len(physical_items)
+        physical_total_records = sum(item["record_count"] or 0 for item in physical_items)
+        physical_total_size = sum(item["size_bytes"] for item in physical_items)
         return {
             "last_scan": datetime.now(UTC).isoformat(),
             "scan_interval_seconds": self.scan_interval_seconds,
-            "total_files": total_files,
-            "total_records": total_records,
-            "total_size_bytes": total_size,
-            "total_size_human": human_size(total_size),
+            "totals_status": "VERIFIED",
+            "total_files": physical_total_files,
+            "total_records": physical_total_records,
+            "total_size_bytes": physical_total_size,
+            "total_size_human": human_size(physical_total_size),
+            "physical_total_files": physical_total_files,
+            "physical_total_records": physical_total_records,
+            "physical_total_size_bytes": physical_total_size,
+            "physical_total_size_human": human_size(physical_total_size),
+            "logical_total_files": logical_total_files,
+            "logical_total_records": logical_total_records,
+            "logical_total_size_bytes": logical_total_size,
+            "logical_total_size_human": human_size(logical_total_size),
+            "overlapping_file_references": max(logical_total_files - physical_total_files, 0),
             "folders": folders,
             "_partial": any(folder["status"] == "DEGRADED" for folder in folders),
         }
@@ -838,33 +866,41 @@ class StorageStatisticsService:
         deadline: float,
         progress: dict[str, int],
         remaining_budget: list[int],
+        scanned_files: dict[Path, dict[str, Any]],
     ) -> dict[str, Any]:
-        """Scan one folder or single file target."""
+        """Build one logical target view from physically deduplicated file scans."""
 
         file_stats = []
         for path in files:
             self._check_interrupted(deadline)
-            try:
-                item = self._scan_file(path, target.root, deadline, progress, remaining_budget)
-            except OSError as exc:
-                item = {
-                    "name": path.name,
-                    "relative_path": safe_relative(path, target.root),
-                    "is_backup": is_backup_path(path),
-                    "file_type": path.suffix.lower().lstrip(".") or "unknown",
-                    "size_bytes": 0,
-                    "size_human": "0 B",
-                    "modified_at": None,
-                    "record_count": None,
-                    "record_count_status": "unavailable",
-                    "log_lines": None,
-                    "status": "DEGRADED",
-                    "error": str(exc),
-                }
+            physical_path = path.resolve()
+            cached_item = scanned_files.get(physical_path)
+            if cached_item is None:
+                try:
+                    item = self._scan_file(path, target.root, deadline, progress, remaining_budget)
+                except OSError as exc:
+                    item = {
+                        "name": path.name,
+                        "relative_path": safe_relative(path, target.root),
+                        "is_backup": is_backup_path(path),
+                        "file_type": path.suffix.lower().lstrip(".") or "unknown",
+                        "size_bytes": 0,
+                        "size_human": "0 B",
+                        "modified_at": None,
+                        "record_count": None,
+                        "record_count_status": "unavailable",
+                        "log_lines": None,
+                        "status": "DEGRADED",
+                        "error": str(exc),
+                    }
+                scanned_files[physical_path] = dict(item)
+                progress["files_completed"] += 1
+                if item.get("error"):
+                    progress["files_failed"] += 1
+            else:
+                item = dict(cached_item)
+                item["relative_path"] = safe_relative(path, target.root)
             file_stats.append(item)
-            progress["files_completed"] += 1
-            if item.get("error"):
-                progress["files_failed"] += 1
         production_errors = [
             item["error"]
             for item in file_stats
@@ -1183,10 +1219,20 @@ class StorageStatisticsService:
         return {
             "last_scan": None,
             "scan_interval_seconds": self.scan_interval_seconds,
+            "totals_status": "EMPTY",
             "total_files": 0,
             "total_records": 0,
             "total_size_bytes": 0,
             "total_size_human": "0 B",
+            "physical_total_files": 0,
+            "physical_total_records": 0,
+            "physical_total_size_bytes": 0,
+            "physical_total_size_human": "0 B",
+            "logical_total_files": 0,
+            "logical_total_records": 0,
+            "logical_total_size_bytes": 0,
+            "logical_total_size_human": "0 B",
+            "overlapping_file_references": 0,
             "folders": [],
             "scan_status": "IDLE",
             "scan": self._empty_scan_status(),

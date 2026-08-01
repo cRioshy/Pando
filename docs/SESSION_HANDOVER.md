@@ -1,6 +1,90 @@
 # Session-Handover
 
-## Aktuelle Aufgabe: Storage-Worker-Shutdown deterministisch reparieren
+## Aktuelle Aufgabe: Storage-Ziele und physische Gesamtwerte deduplizieren
+
+### Datum und Uhrzeit
+
+1. August 2026, 13:00 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Überlappende Storage-Ziele so korrigieren, dass logische Kategorien getrennt sichtbar bleiben, jede physische Datei aber nur einmal gescannt und in physischen Gesamtwerten nur einmal gezählt wird. Keine Runtime-, History- oder Lerndaten löschen oder inhaltlich verändern.
+
+### Durchgeführte Arbeiten
+
+- Übergabedokumentation, Branchbasis, Scanner-Datenmodell, Web-API, Rick-API und Control-Center-Verbraucher geprüft.
+- Neuen Branch `agent/fix-storage-physical-totals` auf Basis des veröffentlichten Storage-Shutdown-Branches erstellt.
+- Regressionstest mit `platform_data`, `brain_events` und `shared_state` ergänzt: vier logische Dateiverweise müssen zwei physischen Dateien entsprechen und `_scan_file()` darf nur zweimal laufen.
+- `_scan()` um einen gemeinsamen Dateiergebnis-Cache je aufgelöstem physischen Pfad ergänzt.
+- Logische Kategorien und deren relative Pfade bleiben erhalten; Fortschritt, Fehlerzähler und JSONL-Bytebudget zählen physische Dateien nur einmal.
+- `total_*` auf physisch eindeutige Werte umgestellt und explizite Felder `physical_total_*`, `logical_total_*` sowie `overlapping_file_references` ergänzt.
+- Vorhandene alte Cachedateien ohne neue Summenfelder werden als `LEGACY_CACHE` markiert; ihre bisherigen Werte werden nicht als physisch verifiziert behauptet.
+- Statistik-API und Rick-API um die neuen Summenfelder erweitert.
+- Control Center zeigt eine eigene Zusammenfassung für physisch eindeutige Werte, logische Kategorieverweise und Überlappungen; Cache-Buster aktualisiert.
+- Gezielte und vollständige Tests erfolgreich ausgeführt.
+
+### Veränderte Dateien
+
+- `web/statistics_service.py`
+- `web/api.py`
+- `web/rick_api_service.py`
+- `web/static/control_center.html`
+- `web/static/control_center.js`
+- `tests/test_statistics_and_storage.py`
+- `tests/test_web_control_center.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `git status -sb`, relevante `rg`- und Codeprüfungen.
+- `git switch -c agent/fix-storage-physical-totals`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage.StatisticsAndStorageTest.test_overlapping_targets_keep_logical_categories_but_dedupe_physical_totals`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage`
+- `\.venv\Scripts\python.exe -m unittest tests.test_statistics_and_storage tests.test_web_control_center tests.test_rick_read_only_api`
+- `\.venv\Scripts\python.exe -m unittest discover -s tests`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Neuer Überlappungstest vor dem Fix: erwartungsgemäß mit fehlenden getrennten Summenfeldern fehlgeschlagen.
+- Neuer Überlappungstest nach dem Fix: 1/1 bestanden in 0,040 Sekunden; vier logische Referenzen, zwei physische Dateien, zwei tatsächliche `_scan_file()`-Aufrufe.
+- Storage-Modul nach Backend-Fix: 28/28 bestanden in 3,289 Sekunden.
+- Gezielter Storage-/Web-/Rick-API-Lauf einschließlich Legacy-Cache-Test: 44/44 bestanden in 12,489 Sekunden.
+- Gesamtsuite: 203/203 bestanden in 36,854 Sekunden.
+- Bekannte externe DeprecationWarnings für `datetime.utcnow()` blieben ohne Testauswirkung.
+
+### Bekannte Fehler
+
+- Der reale Storage-Scan kann das konfigurierte Zeitlimit weiterhin überschreiten (`KP-001`).
+- Ein neuer vollständiger Produktionsscan wurde in dieser Aufgabe bewusst nicht erzwungen; deshalb werden keine neuen realen physischen Größenwerte erfunden oder dokumentiert.
+- Weitere offene Probleme aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Logische Kategoriezugehörigkeit und physische Dateieindeutigkeit sind getrennte Konzepte.
+- Der aufgelöste physische Pfad ist innerhalb eines Scans der Deduplizierungsschlüssel; Kategorieansichten verwenden Kopien desselben Scanergebnisses mit eigenem relativen Pfad.
+- Bestehende `total_*`-Felder stehen nach einem verifizierten Scan für physisch eindeutige Werte; explizite physische und logische Felder verhindern Mehrdeutigkeit.
+- Alte Caches werden nicht stillschweigend als neue Wahrheit umgedeutet.
+
+### Nicht abgeschlossene Punkte
+
+- Commit, Push und ein separater gestapelter Draft-PR stehen nach der Abschlussprüfung noch aus.
+- Scanner-Phasenmessung, realistisches inkrementelles Budget und Fortschrittsreparatur gehören bewusst erst zu Schritt 4.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den vollständigen Diff auf Scope, Secrets und API-Kompatibilität prüfen, die zwölf geänderten Dateien committen und den Branch als gestapelten Draft-PR veröffentlichen. Danach Laufzeiten für Dateiermittlung, Pfadauflösung, Metadaten/Fingerprint, Dateiartbehandlung sowie Cache-/Index-Schreiben instrumentieren und mit dem realen Bestand ohne Datenlöschung messen.
+
+---
+
+## Vorherige Aufgabe: Storage-Worker-Shutdown deterministisch reparieren
 
 ### Datum und Uhrzeit
 

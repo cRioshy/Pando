@@ -313,6 +313,35 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(folder["status"], "WARN")
             self.assertTrue(folder["errors"])
 
+    def test_overlapping_targets_keep_logical_categories_but_dedupe_physical_totals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            config.brain_events_file.write_text('{"event":1}\n{"event":2}\n', encoding="utf-8")
+            config.shared_state_file.write_text('{"status":"ok"}', encoding="utf-8")
+            service = StorageStatisticsService(config)
+
+            with patch.object(service, "_scan_file", wraps=service._scan_file) as scan_file:
+                snapshot = service.refresh()
+
+            folders = {folder["name"]: folder for folder in snapshot["folders"]}
+            physical_size = config.brain_events_file.stat().st_size + config.shared_state_file.stat().st_size
+            self.assertEqual(set(folders), {"platform_data", "brain_events", "shared_state"})
+            self.assertEqual(folders["platform_data"]["file_count"], 2)
+            self.assertEqual(folders["brain_events"]["file_count"], 1)
+            self.assertEqual(folders["shared_state"]["file_count"], 1)
+            self.assertEqual(snapshot["logical_total_files"], 4)
+            self.assertEqual(snapshot["physical_total_files"], 2)
+            self.assertEqual(snapshot["overlapping_file_references"], 2)
+            self.assertEqual(snapshot["logical_total_size_bytes"], physical_size * 2)
+            self.assertEqual(snapshot["physical_total_size_bytes"], physical_size)
+            self.assertEqual(snapshot["total_files"], snapshot["physical_total_files"])
+            self.assertEqual(snapshot["total_size_bytes"], snapshot["physical_total_size_bytes"])
+            self.assertEqual(snapshot["scan"]["files_total"], 2)
+            self.assertEqual(snapshot["scan"]["files_completed"], 2)
+            self.assertEqual(scan_file.call_count, 2)
+
     def test_large_sqlite_uses_metadata_without_count_query(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -389,6 +418,36 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(restored["total_records"], 1)
             self.assertEqual(restored["scan_status"], "IDLE")
             self.assertIsNotNone(restored["last_scan"])
+
+    def test_legacy_cache_does_not_claim_unverified_physical_totals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            statistics_dir = config.project_root / "storage" / "statistics"
+            statistics_dir.mkdir(parents=True)
+            (statistics_dir / "storage_statistics.json").write_text(
+                json.dumps(
+                    {
+                        "last_scan": "2026-07-31T00:00:00+00:00",
+                        "scan_interval_seconds": 60,
+                        "total_files": 4,
+                        "total_records": 8,
+                        "total_size_bytes": 1024,
+                        "total_size_human": "1.00 KB",
+                        "folders": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = StorageStatisticsService(config).snapshot()
+
+            self.assertEqual(snapshot["totals_status"], "LEGACY_CACHE")
+            self.assertIsNone(snapshot["physical_total_files"])
+            self.assertIsNone(snapshot["physical_total_size_bytes"])
+            self.assertEqual(snapshot["logical_total_files"], 4)
+            self.assertEqual(snapshot["logical_total_size_bytes"], 1024)
+            self.assertIsNone(snapshot["overlapping_file_references"])
 
     def test_jsonl_append_is_read_from_persisted_offset(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -666,6 +725,9 @@ class StatisticsAndStorageTest(unittest.TestCase):
                 self.assertIn("analyses", stats)
                 self.assertIn("developer", stats)
                 self.assertIn("trading", stats)
+                self.assertIn("physical_total_files", stats["storage"])
+                self.assertIn("logical_total_files", stats["storage"])
+                self.assertIn("overlapping_file_references", stats["storage"])
                 self.assertEqual(stats["trading"]["simulated_closed_trades"], 1)
                 self.assertEqual(stats["trading"]["simulated_wins"], 1)
                 self.assertEqual(stats["trading"]["hit_rate"], 100.0)
@@ -741,6 +803,10 @@ class StatisticsUiStateTest(unittest.TestCase):
         self.assertIn("async function loadStorageSnapshot()", script)
         self.assertIn("if (state.storageLoading) return", script)
         self.assertIn("await loadStorageSnapshot()", script)
+        self.assertIn('$("storageTotals")', script)
+        self.assertIn("storage.physical_total_files", script)
+        self.assertIn("storage.logical_total_files", script)
+        self.assertIn("storage.overlapping_file_references", script)
 
 
 if __name__ == "__main__":

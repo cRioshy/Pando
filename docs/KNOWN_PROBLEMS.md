@@ -84,6 +84,15 @@ Stand: 1. August 2026
 
 ## Behoben oder entschärft
 
+### KP-R07 – Storage-Gesamtsummen zählten überlappende Ziele mehrfach
+
+- **Status:** behoben und getestet am 1. August 2026
+- `platform_data` umfasst vorhandene Dateien unter `data/`, während Brain-Events, rotierte Brain-Dateien und Shared State zusätzlich als eigene logische Kategorien erscheinen können.
+- Der Scanner dedupliziert jetzt jeden aufgelösten physischen Pfad, scannt ihn nur einmal und verwendet das Ergebnis in allen zutreffenden Kategorien wieder.
+- `total_*` und `physical_total_*` liefern physisch eindeutige Werte; `logical_total_*` beschreibt bewusst die Summe der Kategorieverweise und `overlapping_file_references` macht Überschneidungen sichtbar.
+- Alte Cachedateien werden bis zum nächsten vollständigen Scan als `LEGACY_CACHE` markiert und beanspruchen keine verifizierten physischen Werte.
+- 44/44 gezielte Storage-/Web-/Rick-API-Tests sowie 203/203 Gesamttests bestanden.
+
 ### KP-R06 – Storage-Worker schrieb nach `close()` weiter
 
 - **Status:** behoben und deterministisch getestet am 1. August 2026

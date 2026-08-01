@@ -18,8 +18,10 @@ Stand: 1. August 2026
    - Commit `610b4a9` veröffentlicht; gestapelter Draft-PR #4 gegen `agent/add-market-feature-engine` erstellt und nicht gemergt.
 
 3. **Storage-Anzeige korrigieren.**
-   - Überlappende logische Ziele erkennen und physische Dateien in der Gesamtsumme nur einmal zählen.
-   - Logische Kategorien weiter getrennt anzeigen und logische sowie physische Summen klar benennen.
+   - **Erledigt am 1. August 2026.**
+   - Überlappende logische Ziele bleiben getrennt sichtbar, physische Dateien werden aber nur einmal gescannt und summiert.
+   - API und UI unterscheiden physisch eindeutige Werte, logische Kategorieverweise und Überlappungen.
+   - Alte Caches werden bis zum nächsten vollständigen Scan als nicht physisch verifiziert markiert.
 
 4. **Storage-Scanner instrumentieren und reparieren.**
    - Zeitmessungen für Dateiermittlung, Metadaten/Fingerprint, Dateityp-Auswertung und Cache-Schreiben ergänzen.
@@ -60,6 +62,9 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Storage-Ziele pro physischem Pfad dedupliziert und Scanbudget nur einmal je Datei verbraucht.
+- Physische und logische Summen samt Überlappungsanzahl in API und Control Center getrennt ausgewiesen.
+- 44/44 gezielte und 203/203 vollständige Tests nach der Storage-Summenkorrektur bestanden.
 - Storage-Worker-Shutdown mit deterministischem Race-Test und eindeutigem `close()`-Vertrag behoben.
 - 27/27 Storage-, 36/36 Storage-/Web- und 201/201 Gesamttests nach dem Fix bestanden.
 - Crypto-Reparaturstand mit verifiziertem BEFORE-Backup, 200/200 Tests und zwei erfolgreichen Livezyklen gesichert.
