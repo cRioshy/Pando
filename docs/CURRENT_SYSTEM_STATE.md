@@ -176,4 +176,4 @@ Der vollständige Lauf am 31. Juli 2026 bestand mit 200/200 Tests in 61,863 Seku
 8. Absolute Windows-Pfade begrenzen die Portabilität.
 9. Feature-Eingangsdaten werden nicht streng genug validiert.
 10. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
-11. Der aktuelle Stand ist auf `origin/agent/add-market-feature-engine` veröffentlicht, aber Draft-PR #2 ist noch nicht nach `main` gemergt.
+11. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.

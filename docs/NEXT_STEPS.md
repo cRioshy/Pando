@@ -5,9 +5,10 @@ Stand: 1. August 2026
 ## Verbindliche Reihenfolge
 
 1. **Funktionierenden Crypto-Stand sichern und veröffentlichen.**
-   - BEFORE-Backup, Scope-/Secret-Prüfung, Preflight, 10 Crypto-Tests, 200 Gesamttests und zwei Livezyklen sind erfolgreich.
-   - Den geprüften Stand auf `agent/add-market-feature-engine` committen und pushen.
-   - Bestehenden Draft-PR gegen `main` prüfen; nicht mergen.
+   - **Erledigt am 1. August 2026.**
+   - BEFORE-Backup, Scope-/Secret-Prüfung, Preflight, 10 Crypto-Tests, 200 Gesamttests und zwei Livezyklen erfolgreich.
+   - Commit `b0379c3` auf `agent/add-market-feature-engine` gepusht.
+   - Draft-PR #3 gegen `main` erstellt; ausdrücklich nicht mergen.
 
 2. **Storage-Worker-Shutdown deterministisch machen.**
    - Reproduzierbaren Test für einen beim `close()` laufenden Schreibvorgang ergänzen.
@@ -57,6 +58,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Crypto-Reparaturstand mit verifiziertem BEFORE-Backup, 200/200 Tests und zwei erfolgreichen Livezyklen gesichert.
+- Commit `b0379c3` veröffentlicht und Draft-PR #3 gegen `main` erstellt.
 - Persistenter Storage-Cache und Dateiindex.
 - Einzelner Hintergrundscanner mit Timeout, Sperre und Abbruch.
 - Inkrementelle JSONL-Offsets und Schutz unvollständiger letzter Zeilen.

@@ -106,8 +106,9 @@ Stand: 31. Juli 2026
 
 - **Status:** behoben
 - Commit `38e1ddf` wurde auf `origin/agent/add-market-feature-engine` veröffentlicht.
-- Draft-PR: `https://github.com/cRioshy/Pando/pull/2`
-- Der Stand liegt öffentlich auf dem Branch; die Übernahme nach `main` erfolgt erst durch Merge des PR.
+- PR #2 wurde am 26. Juli 2026 nach `main` gemergt.
+- Der spätere Crypto-Reparaturstand wurde als Commit `b0379c3` auf denselben Arbeitsbranch gepusht und liegt separat in Draft-PR #3: `https://github.com/cRioshy/Pando/pull/3`.
+- Draft-PR #3 bleibt ungemergt.
 
 ### KP-R01 – Leere Speicheranzeige während langer Scans
 

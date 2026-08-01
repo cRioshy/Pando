@@ -20,6 +20,8 @@ Den am 31. Juli 2026 live reparierten Crypto-Stand vor allen weiteren Architektu
 - Runtime-Preflight, gezielte Crypto-Tests und vollständige Testsuite erfolgreich ausgeführt.
 - Zwei kontrollierte Produktionszyklen mit öffentlichen Marktdaten ausgeführt. Gesamt-Health und alle Services meldeten `OK`; Telegram blieb deaktiviert und im Dry-Run.
 - GitHub-Anmeldung für `cRioshy` außerhalb der eingeschränkten Netzwerkumgebung erfolgreich verifiziert.
+- Crypto-Reparatur als Commit `b0379c31fb5a157cbaa0c2e34eeb959afb7c5862` erstellt und auf `origin/agent/add-market-feature-engine` gepusht.
+- Festgestellt, dass die früher dokumentierten PRs #1 und #2 bereits gemergt waren; für den neuen Stand deshalb Draft-PR #3 gegen `main` erstellt: `https://github.com/cRioshy/Pando/pull/3`.
 
 ### Veränderte Dateien
 
@@ -54,6 +56,12 @@ Den am 31. Juli 2026 live reparierten Crypto-Stand vor allen weiteren Architektu
 - `\.venv\Scripts\python.exe -m unittest discover -s tests`
 - `\.venv\Scripts\python.exe main.py --headless --cycles 2 --interval 1`
 - `gh auth status`
+- `git fetch origin`
+- Explizites `git add` der 17 geprüften Dateien.
+- `git commit -m "Restore resilient crypto market data"`
+- `git push -u origin agent/add-market-feature-engine`
+- `gh pr list --repo cRioshy/Pando --head agent/add-market-feature-engine --state all ...`
+- `gh pr create --repo cRioshy/Pando --base main --head agent/add-market-feature-engine --draft ...`
 
 ### Ausgeführte Tests und tatsächliche Ergebnisse
 
@@ -64,6 +72,7 @@ Den am 31. Juli 2026 live reparierten Crypto-Stand vor allen weiteren Architektu
 - Gesamttests: 200/200 bestanden in 40,828 Sekunden.
 - Live-Verifikation: zwei Produktionszyklen, Health `OK`; `crypto`, `brain`, `decision_core`, `outcome_tracker`, `neurobrain_receiver`, `crypto_trade_tracker`, `stock`, `telegram` und `control_center` jeweils `OK`.
 - Telegram-Schutz: `PANDORICKKI_TELEGRAM_ENABLED=0`, `PANDORICKKI_TELEGRAM_DRY_RUN=1`.
+- Veröffentlichung: Commit `b0379c31fb5a157cbaa0c2e34eeb959afb7c5862` erfolgreich gepusht; Draft-PR #3 offen gegen `main`.
 
 ### Bekannte Fehler
 
@@ -79,12 +88,12 @@ Den am 31. Juli 2026 live reparierten Crypto-Stand vor allen weiteren Architektu
 
 ### Nicht abgeschlossene Punkte
 
-- Commit und Push werden unmittelbar nach dieser dokumentierten Prüfung durchgeführt; der endgültige Commit- und Pushstatus wird anschließend in diesem Abschnitt ergänzt.
+- Draft-PR #3 wurde ausdrücklich nicht gemergt.
 - Der nächste Implementierungsschritt, Storage-Worker-Shutdown, wurde noch nicht begonnen.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Die 17 geprüften Dateien explizit stagen, als zusammenhängenden Crypto-Reparaturstand committen, auf `origin/agent/add-market-feature-engine` pushen und den bestehenden Draft-PR gegen `main` verifizieren. Danach erst den Storage-Worker-Shutdown mit einem deterministischen Regressionstest bearbeiten.
+Vor jeder Änderung den aktuellen Branch- und PR-Stand erneut prüfen. Danach den Storage-Worker-Shutdown mit einem deterministischen Regressionstest bearbeiten: Nach `StorageStatisticsService.close()` darf kein Worker mehr Cache oder Index schreiben.
 
 ---
 
