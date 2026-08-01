@@ -3,6 +3,8 @@
 Stand: 1. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Der Outcome-Zeitstempel-Fix wurde am 1. August 2026 kontrolliert live gestartet. Nach vier vollständigen Crypto-Heartbeats meldeten Plattform und alle zehn Services `OK`. Der dauerhafte Fingerprint des früheren Zeitstempelfehlers blieb unverändert bei 158 Vorkommen und seinem letzten Auftreten um 17:13:29 UTC; es entstand kein neues `OUTCOME_TRACKER_ERROR`. Das Journal meldete null Schreibfehler. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Storage verarbeitete 114/114 Dateien in 2,275 Sekunden ohne Scannerfehler.
+
 Der neue Journalstand wurde am 1. August 2026 kontrolliert live gestartet. Nach mindestens zwei vollständigen Zyklen meldeten Plattform und alle zehn sichtbaren Services `OK`; `service_error_journal` war gesund, hatte null Schreibfehler und drei Vorkommen eines Fehlerfingerprints erfasst. Crypto zeigte drei und Stock fünf Analysen. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Der Storage-Scan schloss 110/110 Dateien in 2,865 Sekunden ab; `DEGRADED` stammt weiterhin aus den bekannten Datenwarnungen, nicht aus einem Scannerfehler.
 
 ## Betriebsaktualisierung vom 1. August 2026

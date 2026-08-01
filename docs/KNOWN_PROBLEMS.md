@@ -87,12 +87,13 @@ Stand: 1. August 2026
 
 ### KP-R10 – Outcome Tracker mischte naive und UTC-Zeitstempel
 
-- **Status:** behoben und getestet am 1. August 2026; Liveprüfung nach kontrolliertem Neustart steht noch aus
+- **Status:** behoben, getestet und live verifiziert am 1. August 2026
 - `_duration_seconds()` versieht ausschließlich geparste Zeitstempel ohne `tzinfo` mit UTC. Bereits offset-bewusste Werte behalten ihren tatsächlichen Offset.
 - Bestehende offene Trades, Outcomes und andere Historydateien werden weder umgeschrieben noch gelöscht.
 - Der öffentliche Regressionstest reproduzierte vor dem Fix das reale `OUTCOME_TRACKER_ERROR`; nach dem Fix wird der Legacy-Trade geschlossen, es entsteht kein Fehlerereignis und Tracker-Health bleibt gesund.
 - Reine naive, reine offset-bewusste, gemischte und unterschiedlich offset-bewusste Zeitpaare sind abgedeckt.
 - 12/12 Outcome-Tracker-Tests und 212/212 Gesamttests bestanden.
+- Nach kontrolliertem Neustart und vier vollständigen Crypto-Heartbeats blieb der bekannte Journalfingerprint unverändert bei 158 Vorkommen; letztes Auftreten weiterhin 17:13:29 UTC. Alle zehn Services meldeten `OK`.
 
 ### KP-R09 – Historische Service-Exceptions verschwanden aus der In-Memory-Historie
 

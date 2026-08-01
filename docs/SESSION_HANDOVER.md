@@ -19,6 +19,9 @@ Den vom Service-Fehlerjournal live aufgedeckten Outcome-Tracker-Fehler klein und
 - `_duration_seconds()` so geändert, dass nur geparste Zeitstempel ohne `tzinfo` als UTC interpretiert werden; vorhandene Offsetwerte bleiben unverändert.
 - Tabellentest für naive, offset-bewusste, gemischte, unterschiedliche Offset-, ungültige und rückwärts laufende Zeitpaare ergänzt.
 - Tracker-Health im öffentlichen Fehlerpfad geprüft: Nach dem Fix kein `OUTCOME_TRACKER_ERROR`, `healthy=true`, `last_error=null`.
+- Commit `a2a139f` auf `origin/agent/fix-outcome-timestamp-normalization` veröffentlicht und gestapelten Draft-PR #8 gegen `agent/add-service-error-journal` erstellt.
+- Laufenden Dienst kontrolliert gestoppt und mit dem Fix sowie unveränderten sicheren Laufzeitwerten neu gestartet.
+- Vier vollständige Crypto-Heartbeats live geprüft; der bekannte Journalfingerprint blieb bei 158 und erzeugte kein neues Vorkommen.
 - Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei verändert oder gelöscht.
 
 ### Veränderte Dateien
@@ -40,6 +43,8 @@ Den vom Service-Fehlerjournal live aufgedeckten Outcome-Tracker-Fehler klein und
 - Git-, Branch-, Code- und Testinventur mit `git`, `rg` und `Get-Content`.
 - `git switch -c agent/fix-outcome-timestamp-normalization`.
 - Gezielte `unittest`-Läufe, `py_compile`, `git diff --check` und vollständige Testsuite.
+- `gh auth status`, explizites Staging, Commit, Push und Draft-PR-Erstellung.
+- POST `/api/control/stop`, Runtime-Preflight, versteckter Neustart und read-only API-/Journalprüfung.
 
 ### Ausgeführte Tests
 
@@ -55,10 +60,14 @@ Den vom Service-Fehlerjournal live aufgedeckten Outcome-Tracker-Fehler klein und
 - Vollständige Suite: 212/212 bestanden in 48,735 Sekunden.
 - `py_compile` und `git diff --check`: bestanden; lediglich erwartete LF-/CRLF-Hinweise von Git.
 - Bekannte `datetime.utcnow()`-DeprecationWarnings stammen aus dem externen Legacy-Crypto-Projekt und sind nicht Teil dieses Fixes.
+- Live: vier Crypto-Heartbeats; Plattform und alle zehn Services `OK`; Journalfingerprint 158 vor und nach der Prüfung, `failed_writes=0`.
+- Crypto: 3 Analysen; Stock: 5 Analysen. Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Storage: 114/114 Dateien in 2,275 Sekunden, `last_error=null`; `DEGRADED` beruht weiterhin auf bekannten Datenwarnungen.
+- Listener PID 10664 auf `127.0.0.1:8000`; Runtime-stdout und -stderr blieben leer.
 
 ### Bekannte Fehler
 
-- Die Liveprüfung auf dem laufenden Dienst steht noch aus; er verwendet bis zum Neustart weiterhin den vorigen geladenen Code.
+- Der kontrollierte Neustart benötigte knapp über 180 Sekunden bis zur Listener-Erkennung; Prozess und Dienst liefen danach sauber. Startdauer weiter beobachten, aber nicht mit einem zweiten Parallelstart umgehen.
 - Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
 
 ### Getroffene Architekturentscheidungen
@@ -69,12 +78,14 @@ Den vom Service-Fehlerjournal live aufgedeckten Outcome-Tracker-Fehler klein und
 
 ### Nicht abgeschlossene Punkte
 
-- Scope-/Secret-Prüfung, Commit, Push, gestapelter Draft-PR und kontrollierte Liveprüfung stehen noch aus.
+- Implementierung und erste Dokumentation sind als Commit `a2a139f` veröffentlicht.
+- Draft-PR #8: `https://github.com/cRioshy/Pando/pull/8`, Basis `agent/add-service-error-journal`; Draft und ungemergt.
+- Die abschließende Live-Dokumentation ist Bestandteil dieses Handovers.
 - Kein Draft-PR darf gemergt werden.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Geprüften Umfang explizit stagen, committen und auf den neuen Branch pushen; gestapelten Draft-PR gegen `agent/add-service-error-journal` erstellen. Danach PandorickKi kontrolliert neu starten und über mindestens zwei Zyklen verifizieren, dass der Journalzähler für den Outcome-Zeitfehler nicht weiter steigt. Erst anschließend mit dem Feld-/Kompatibilitätsvertrag für kompakte Event-Payloads beginnen.
+Als nächsten eigenen Schritt den Feld-/Kompatibilitätsvertrag für kompakte Event-Payloads erstellen: tatsächliche Leser von `raw_result` und verschachtelten Payloads vollständig inventarisieren, benötigte Felder und Schemaversion festlegen und Kompatibilitätstests schreiben. Noch keine Payloads entfernen, bevor dieser Vertrag geprüft ist.
 
 ---
 
