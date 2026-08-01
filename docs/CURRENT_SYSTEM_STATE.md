@@ -110,7 +110,7 @@ Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract
 
 ## Decision Core
 
-`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, normalisiert Markt-, Richtung-, Preis- und Risikofelder und schreibt rotierende JSONL-Ledger. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
+`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, projiziert beide Stufen auf `pandorickki.compact-market-event` Version 1 und verwendet die jeweilige Projektion unverändert für Event und rotierendes JSONL-Ledger. Quell-, Decision-, Signal- und Decision-Event-IDs bleiben erhalten; `raw_result`, Features und Kerzen werden nicht neu in Decision-/Signal-Payloads übernommen. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
 
 ## Outcome Tracker
 
@@ -187,7 +187,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Brain-Migration mit 222/222 Tests in 52,209 Sekunden. Der neue Brain-Test prüft Persistenz und Folgeevent, Schema/IDs, den Ausschluss aller Bulk-Felder und eine Größenreduktion auf weniger als ein Viertel des umfangreichen Testinputs. 28 gezielte Brain-/Decision-/Tracker-/Graph-/Integrations-/Vertragstests bestanden ebenfalls.
+Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Decision-/Signal-Migration mit 223/223 Tests in 49,274 Sekunden. Der neue End-to-End-Test prüft beide Events und beide Ledger, Schema/IDs, Bulk-Ausschluss, Legacy-Eingangskompatibilität und eine Signalgröße von weniger als einem Viertel des umfangreichen Testinputs. 32 gezielte Decision-/Brain-/Outcome-/Tracker-/Integrations-/Vertragstests bestanden ebenfalls.
 
 ## Bekannte Risiken
 
@@ -201,7 +201,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach der kompakten Brain-Migrat
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain persistiert und publiziert neue Analysen kompakt. Decision Core erzeugt derzeit weiterhin eigene Payloads mit dem Legacy-Feld `raw_result` (bei kompaktem Brain-Input `None`), und NeuroBrain persistiert weiterhin komplette empfangene Event-Payloads neben seiner Kopfsicht.
+11. Brain und Decision Core persistieren und publizieren neue Stufen kompakt. NeuroBrain persistiert weiterhin komplette empfangene Event-Payloads neben seiner Kopfsicht und ist die verbleibende Payload-Persistenzgrenze.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

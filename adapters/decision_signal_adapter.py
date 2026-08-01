@@ -12,6 +12,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from adapters.brain_adapter import BRAIN_DECISION_RECEIVED
 from event_bus import Event, EventBus
+from event_payload_contract import compact_market_payload
 from jsonl_ledger import RotatingJsonlLedger
 
 
@@ -179,7 +180,9 @@ class DecisionSignalAdapter:
             NAMESPACE_URL,
             f"pandorickki:decision:{source_event_id}:{data.get('market_type')}:{data.get('symbol')}:{data.get('direction')}",
         ))
-        return {
+        payload = compact_market_payload(data)
+        payload.update({
+            "event_type": DECISION_CREATED,
             "decision_id": f"decision:{decision_id}",
             "market_type": data.get("market_type"),
             "symbol": data.get("symbol"),
@@ -190,17 +193,19 @@ class DecisionSignalAdapter:
             "current_price": data.get("current_price") or data.get("price"),
             "indicators": data.get("indicators"),
             "risk": data.get("risk"),
-            "raw_result": data.get("raw_result"),
             "source_event_id": source_event_id,
             "source_timestamp": data.get("source_timestamp"),
             "created_at": created_at,
             "reason": "Final platform decision created from Brain evaluation.",
-        }
+        })
+        return payload
 
     def _signal_payload(self, decision: dict[str, Any], decision_event_id: str) -> dict[str, Any]:
         """Build the normalized final signal payload."""
 
-        return {
+        payload = compact_market_payload(decision)
+        payload.update({
+            "event_type": SIGNAL_CREATED,
             "signal_id": f"signal:{decision_event_id}",
             "decision_id": decision.get("decision_id"),
             "decision_event_id": decision_event_id,
@@ -213,10 +218,10 @@ class DecisionSignalAdapter:
             "current_price": decision.get("current_price"),
             "indicators": decision.get("indicators"),
             "risk": decision.get("risk"),
-            "raw_result": decision.get("raw_result"),
             "ready_for_telegram": True,
             "created_at": datetime.now(UTC).isoformat(),
-        }
+        })
+        return payload
 
     def _publish_lifecycle(self, topic: str, payload: dict[str, Any]) -> None:
         """Publish one lifecycle event."""

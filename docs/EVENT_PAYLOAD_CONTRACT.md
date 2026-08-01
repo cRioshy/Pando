@@ -8,7 +8,7 @@ Version: `1`
 
 ## Zweck und aktueller Status
 
-Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Der `BrainAdapter` verwendet Version 1 inzwischen für neu persistierte Brain-Datensätze und `BRAIN_DECISION_RECEIVED`. Decision-/Signal- und NeuroBrain-Persistenz sind noch nicht umgestellt. Bestehende Events und History-Dateien bleiben unverändert.
+Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain sowie Decision-/Signal-Events und ihre neuen Ledgerdatensätze verwenden Version 1 inzwischen aktiv. NeuroBrain-Persistenz ist noch nicht umgestellt. Bestehende Events und History-Dateien bleiben unverändert.
 
 Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_payload()` akzeptiert sowohl den heutigen EventBus-Umschlag als auch eine flache Payload, erzeugt Schema-Metadaten und kopiert nur ausdrücklich zugelassene Felder.
 
@@ -20,14 +20,14 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | `StockAdapter` | `STOCK_ANALYSIS_FINISHED` | normalisierte Markt-, Preis-, Fakten-, Indikator-, Risiko- und Featurefelder plus vollständiges `raw_result` |
 | `CommodityAdapter` | `COMMODITY_ANALYSIS_FINISHED` | normalisierte Quote; `raw_result` ist derzeit leer |
 | `BrainAdapter` | `BRAIN_DECISION_RECEIVED` | persistiert und publiziert für neue Analysen ausschließlich die kompakte Version-1-Projektion |
-| `DecisionSignalAdapter` | `DECISION_CREATED`, `SIGNAL_CREATED` | kopiert aktuell `indicators`, `risk` und `raw_result` weiter |
+| `DecisionSignalAdapter` | `DECISION_CREATED`, `SIGNAL_CREATED` | persistiert und publiziert beide Stufen als kompakte Version-1-Projektion mit erhaltenen IDs |
 
 ## Verifizierter Feldverbrauch
 
 | Consumer | Tatsächlich benötigte Felder | Besonderheit |
 |---|---|---|
 | Brain | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis, Indikatoren, Risiko, Quellzeit und Event-ID | projiziert einmal an der Eingangsgrenze und verwendet dieselbe kompakte Sicht für History und Folgeevent |
-| Decision Core | Brain-Felder plus Confidence und IDs | reicht `raw_result` derzeit unverändert weiter, wertet es aber nicht fachlich aus |
+| Decision Core | Brain-Felder plus Confidence und IDs | ergänzt deterministische Decision-/Signal-IDs und Stufenfelder, ohne `raw_result` neu weiterzureichen |
 | Crypto Trade Tracker | Markt, Symbol, Richtung, Preis, ATR, Risiko, IDs | bevorzugt `market_context.recent_swing_low/high`; alte Payloads verwenden weiterhin Kerzen als Legacy-Fallback |
 | Outcome Tracker | Markt, Symbol, Richtung, Preis, Risikoziele, Decision-/Signal-IDs und Zeitstempel | benötigt kein vollständiges Raw Result |
 | Control Center | kompakte Anzeige-, Preis-, Status- und Tradefelder | projiziert bereits auf eine kleine Sicht |
@@ -68,7 +68,7 @@ Die Referenzprojektion berechnet die beiden Swing-Werte ausschließlich für die
 
 1. Consumer für `schema_name`/`schema_version` und die beiden Ersatzfelder vorbereiten. Die Ersatzfeld-Priorität für Tracker und Graph ist umgesetzt; die Schemaannahme erfolgt erst beim Producer-Wechsel.
 2. Brain auf die Projektion umstellen. Dieser Schritt ist für neue Brain-Datensätze und Folgeevents umgesetzt.
-3. Danach Decision-/Signal-Producer auf die Projektion umstellen.
+3. Decision-/Signal-Producer auf die Projektion umstellen. Dieser Schritt ist für neue Events und Ledgerdatensätze umgesetzt.
 4. NeuroBrain darf nur die Projektion persistieren; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten.
 5. Bestehende JSONL-History wird weder geändert noch gelöscht. Leser behalten einen Legacy-Pfad für alte Datensätze.
 6. Unbekannte Schema-Hauptversionen werden nicht stillschweigend als kompatibel behandelt.

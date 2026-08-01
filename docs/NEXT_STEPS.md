@@ -56,7 +56,10 @@ Stand: 1. August 2026
    - Neue Brain-History und `BRAIN_DECISION_RECEIVED` verwenden ausschließlich Version 1 mit erhaltener Quell-ID.
    - 28/28 gezielte und 222/222 vollständige Tests bestanden.
    - Commit `5b59fa2` veröffentlicht; gestapelter Draft-PR #11 gegen `agent/prepare-compact-payload-consumers` erstellt und nicht gemergt.
-   - Als Nächstes Decision-/Signal-Payloads, danach NeuroBrain-Persistenz isoliert migrieren.
+   - **Decision-/Signal-Migration am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - Neue Decision-/Signal-Events und beide Ledger verwenden Version 1 ohne `raw_result`; alle IDs bleiben erhalten.
+   - 32/32 gezielte und 223/223 vollständige Tests bestanden.
+   - Als Nächstes ausschließlich NeuroBrain-Persistenz isoliert migrieren.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
