@@ -56,6 +56,7 @@ Stand: 1. August 2026
 10. **UI härten.**
     - Idempotentes Polling, WebSocket-Reconnect, `STALE`-Heartbeats und Graph-Performance bearbeiten.
     - Control-Buttons entweder an echte Lebenszyklusaktionen koppeln oder korrekt als UI-Zustand beschriften.
+    - Stop-/Restart-Wartezeit unterbrechbar machen; aktuell wird ein akzeptierter Stop erst nach dem bis zu 60 Sekunden langen Zyklus-Sleep wirksam.
 
 ## Erst anschließend
 
@@ -66,6 +67,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- PandorickKi nach Scanner-Veröffentlichung kontrolliert neu gestartet und zwei Produktionszyklen verifiziert: alle Services `OK`, keine neuen Sessionfehler, Telegram aus/Dry-Run.
+- Produktions-Storage-Scan mit 106/106 Dateien in 2,416 Sekunden und 9,20 % kumulativem JSONL-Fortschritt bestätigt; Control Center ohne Browser-Konsolenfehler geprüft.
 - Storage-Scanner phasenweise instrumentiert und kumulativen JSONL-Indexfortschritt samt Restschätzung sichtbar gemacht.
 - Standardbudget anhand schreibgeschützter Realmessungen auf 64 MiB pro Lauf eingestellt; 204/204 Gesamttests bestanden.
 - Storage-Ziele pro physischem Pfad dedupliziert und Scanbudget nur einmal je Datei verbraucht.

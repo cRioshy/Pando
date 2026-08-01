@@ -21,6 +21,7 @@ Stand: 1. August 2026
 - **Messung vom 1. August 2026:** Der schreibgeschützte Ist-Scan erfasste 105 physische Dateien und dauerte mit altem Budget 1,084 Sekunden. Ein Benchmark mit 64 MiB JSONL-Budget verarbeitete rund 68 MB in 2,135 Sekunden, deutlich unter dem 30-Sekunden-Limit.
 - **Umsetzung:** Alle relevanten Phasen werden getrennt gemessen; der JSONL-Index meldet Bytes, Prozent, vollständige Dateien und geschätzte Restläufe. Das Standardbudget beträgt jetzt 64 MiB statt 256 KiB.
 - **Restbeobachtung:** Bei weiter stark wachsendem Bestand Laufzeiten und Timeoutstatus kontrollieren. Keine Retention oder Löschung als Schnelllösung verwenden.
+- **Neustartprüfung:** Nach dem kontrollierten Neustart dauerte ein Produktionsscan 2,416 Sekunden, bearbeitete 106/106 Dateien und erhöhte den JSONL-Fortschritt auf 9,20 %; kein Timeout trat auf.
 - **Unabhängige Datenwarnung:** `stock_patterns.json` und dessen Backup `stock_patterns.before_json_repair_20260710_224237.json` enthalten vorhandene JSON-Syntaxfehler und halten den Gesamtstatus auf `DEGRADED`; sie wurden nicht verändert.
 
 ### KP-002 – WebSocket-Fallback und Reconnect sind unvollständig
@@ -82,6 +83,14 @@ Stand: 1. August 2026
 - **Status:** offen
 - **Beobachtung:** Standard- und Batchpfade verweisen teilweise auf lokale externe Projekte.
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
+
+### KP-013 – Web-Stop reagiert erst nach dem Zyklusintervall
+
+- **Priorität:** niedrig
+- **Status:** offen; kontrollierter Shutdown funktioniert, reagiert aber verzögert
+- **Beobachtung:** Der am 1. August 2026 gesendete `/api/control/stop`-Befehl wurde sofort akzeptiert, der Prozess beendete sich jedoch erst nach dem laufenden, nicht unterbrechbaren `asyncio.sleep(cycle_interval)` von bis zu 60 Sekunden.
+- **Auswirkung:** Die Oberfläche zeigt einen akzeptierten Stop, während Port und Prozess noch bis zum nächsten Schleifendurchlauf aktiv bleiben.
+- **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
 ## Behoben oder entschärft
 

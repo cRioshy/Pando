@@ -1,5 +1,100 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: PandorickKi kontrolliert neu starten und live prüfen
+
+### Datum und Uhrzeit
+
+1. August 2026, 15:38 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den laufenden PandorickKi-Webdienst nach der Scanner-Veröffentlichung kontrolliert neu starten und anhand von Prozess, API, zwei Produktionszyklen, Storage-Scan und sichtbarem Control Center prüfen, ob das Gesamtsystem sauber läuft. Keine Codeänderung, keine realen Trades und kein Telegram-Liveversand.
+
+### Durchgeführte Arbeiten
+
+- Übergabedokumentation und tatsächliche Start-/Lebenszykluspfade vollständig geprüft.
+- Vorherigen Webdienst eindeutig als `.venv`-Launcher PID 9708 und Listener-Kindprozess PID 16200 identifiziert.
+- Vor dem Stop Gesamt-Health, Servicezustände, Crypto-/Stock-Ergebnisse und Telegram-Sicherheitszustand read-only geprüft; alle Kernservices meldeten `OK`.
+- Eingebauten `/api/control/stop`-Befehl verwendet. Der Befehl wurde akzeptiert; der Prozess beendete sich nach dem laufenden Zyklusintervall ohne erzwungenen Prozessabbruch.
+- Port 8000 und beide alten PIDs anschließend als beendet verifiziert.
+- Projektlokalen Runtime-Preflight erfolgreich ausgeführt.
+- Neuen Webdienst versteckt über die projektlokale `.venv` mit denselben sicheren Starterwerten gestartet: NeuroBrain an, Live-Crypto an, Stock-Livebetrieb, Telegram aus und Dry-Run.
+- Neuen Dienst als `.venv`-Launcher PID 11884 und Listener-Kindprozess PID 9720 verifiziert.
+- Zwei vollständige Crypto-/Stock-Produktionszyklen über die lokale API beobachtet.
+- Produktions-Storage-Scans samt neuen Phasen-/Fortschrittsmetriken geprüft.
+- Bereits geöffnetes lokales Control Center neu geladen und sichtbare System-, Service-, Crypto-, Stock-, Telegram- und Storage-Zustände geprüft.
+- Browserkonsole auf Warnungen/Fehler geprüft; keine Einträge gefunden.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine versionierten Dateien.
+- Ignorierte Laufzeitlogs: `runtime_logs/web_restart_2026-08-01_15-34-40_stdout.log` und `runtime_logs/web_restart_2026-08-01_15-34-40_stderr.log`; beide blieben während der Prüfung leer.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md` und den fünf vorgeschriebenen Übergabedokumenten.
+- `git status -sb`, Prüfung von `start_pandorick_web.bat`, `main.py`, `orchestrator.py` und Control-Routen.
+- `netstat -ano`, `Get-Process` und nach Freigabe `Get-CimInstance Win32_Process` zur eindeutigen Prozesszuordnung.
+- Read-only `Invoke-RestMethod`-Abrufe auf `/api/health`, `/api/status` und `/api/statistics/storage`.
+- `Invoke-RestMethod -Method Post` auf `/api/control/stop`.
+- `\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Versteckter `Start-Process` mit `main.py --headless --web` und expliziten sicheren Umgebungswerten.
+- Browser-Neuladen, DOM-Prüfung und Konsolenlogprüfung des lokalen Control Centers.
+
+### Ausgeführte Tests
+
+- Runtime-Preflight.
+- Kontrollierter Stop samt Prozess-/Portprüfung.
+- Start- und Listenerprüfung des neuen Dienstes.
+- Zwei vollständige Produktionszyklen über die lokale API.
+- Health-, Service-, Crypto-, Stock-, Telegram-, WebSocket- und Storage-Prüfung.
+- Sichtprüfung der gerenderten Control-Center-Daten und Browserkonsole.
+
+### Tatsächliche Testergebnisse
+
+- Preflight: `OK`, Python 3.12.13 aus der projektlokalen `.venv`.
+- Alter Dienst: Stop um 13:32:33 UTC akzeptiert; reguläre Beendigung nach dem bis zu 60 Sekunden langen Zyklus-Sleep, kein erzwungener Stop nötig.
+- Neuer Dienst: Launcher PID 11884, Listener PID 9720, Port `127.0.0.1:8000` aktiv.
+- Nach zwei Zyklen: Plattform `OK`; `crypto`, `brain`, `decision_core`, `outcome_tracker`, `neurobrain_receiver`, `crypto_trade_tracker`, `stock`, `telegram` und `control_center` jeweils `OK`.
+- Crypto: 2 Zyklen, je 3 Ergebnisse, `healthy=true`, `last_error=null`; aktuelle Preise für BTCUSDT, ETHUSDT und XRPUSDT.
+- Stock: 2 Zyklen, je 5 Ergebnisse, Status `OK`.
+- Neue Sitzung: `error_count=0`.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- WebSocket: ein aktiver Browserclient; Control Center zeigt Health `OK`, drei Cryptozeilen, fünf Stockzeilen und alle Services `OK`.
+- Storage: `DEGRADED`, aber Scan technisch erfolgreich mit 106/106 Dateien, 2,416 Sekunden, `last_error=null`, `totals_status=VERIFIED`; JSONL-Fortschritt 9,20 %, 15/59 vollständig, ungefähr 84 Restläufe.
+- Browserkonsole: 0 Warnungen und 0 Fehler.
+- Laufzeit-stdout/-stderr: beide 0 Byte während der Prüfung.
+- Abschlussprüfung nach fünf laufenden Zyklen: Plattform und Crypto weiterhin `OK`, `error_count=0`, Telegram weiterhin aus/Dry-Run und Listener PID 9720 aktiv.
+
+### Bekannte Fehler
+
+- Der Web-Stop prüft `stop_requested` erst nach dem nicht unterbrechbaren Zyklus-Sleep; die kontrollierte Beendigung kann deshalb bis zu ungefähr 60 Sekunden dauern (`KP-013`).
+- Storage bleibt während der inkrementellen Nachindexierung sowie wegen der zwei bekannten beschädigten Stock-JSON-Dateien `DEGRADED`; es gab keinen Timeout oder Scannerfehler.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produktarchitektur oder kein Code wurde verändert.
+- Für den Shutdown wurde zuerst ausschließlich der eingebaute Control-Endpunkt verwendet; nach dessen verzögerter, aber regulärer Beendigung war kein harter Prozessabbruch erforderlich.
+- Der Neustart verwendet exakt die projektlokale `.venv` und die Sicherheitswerte des Webstarters; reale Orders bleiben unmöglich und Telegram bleibt aus/Dry-Run.
+
+### Nicht abgeschlossene Punkte
+
+- Die vier Dokumentationsänderungen sind lokal noch nicht committed oder gepusht.
+- Der Dienst läuft weiter; Launcher PID 11884 und Listener PID 9720 gelten nur für diese konkrete Sitzung und müssen in einer späteren Aufgabe neu ermittelt werden.
+- Das dauerhaft begrenzte Service-Fehlerjournal bleibt der nächste Implementierungsschritt.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Vor jeder Änderung Übergabe, Arbeitsbaum und laufenden Dienst erneut prüfen. Danach das rotierende, größenbegrenzte und secret-gefilterte Service-Fehlerjournal als eigene Aufgabe spezifizieren und implementieren. Keine vollständigen Provider-Antworten oder Tokens persistieren; Telegram deaktiviert beziehungsweise im Dry-Run lassen. Die verzögerte Stop-Semantik erst im später geplanten UI-/Lebenszyklus-Schritt ändern.
+
 ## Aktuelle Aufgabe: Storage-Scanner instrumentieren und reparieren
 
 ### Datum und Uhrzeit

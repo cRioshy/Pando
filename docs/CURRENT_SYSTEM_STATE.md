@@ -3,6 +3,12 @@
 Stand: 1. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+## Betriebsaktualisierung vom 1. August 2026
+
+PandorickKi wurde nach Veröffentlichung der Scanner-Instrumentierung kontrolliert neu gestartet. Der eingebaute Stop-Befehl wurde um 15:32 Uhr Europe/Berlin akzeptiert; der Prozess beendete sich ohne erzwungenen Prozessabbruch nach dem laufenden 60-Sekunden-Zyklusintervall. Der Runtime-Preflight bestand mit Python 3.12.13. Der neue Webdienst läuft seit 15:34:40 Uhr über die projektlokale `.venv` mit Telegram deaktiviert und im Dry-Run.
+
+Zwei vollständige Produktionszyklen wurden anschließend verifiziert. Gesamt-Health und alle neun Services meldeten `OK`; Crypto lieferte je Zyklus drei Ergebnisse, Stock fünf Ergebnisse und die neue Sitzung erzeugte keine Servicefehler. BTCUSDT, ETHUSDT und XRPUSDT zeigten aktuelle Preise. Telegram blieb `enabled=false`, `dry_run=true` und `messages_sent=0`. Der Storage-Scan bearbeitete 106/106 physische Dateien in 2,416 Sekunden, meldete verifizierte Summen und erhöhte den kumulativen JSONL-Fortschritt auf 9,20 % beziehungsweise 15/59 vollständige Dateien. `DEGRADED` bleibt wegen laufender Nachindexierung und zwei bereits dokumentierter fehlerhafter Stock-JSON-Dateien erwartbar. Das Control Center zeigte die neuen Metriken per WebSocket ohne Browser-Konsolenfehler.
+
 ## Betriebsaktualisierung vom 31. Juli 2026
 
 Nach knapp sechs Tagen Dauerbetrieb war die Crypto-Analyse seit dem 27. Juli ausgefallen, während Aktien weiterliefen. Der externe Crypto-Marktdatenpfad verlangte `requests` und behandelte Spot-Kerzen, Open Interest und Funding als untrennbaren Gesamtaufruf. Die aktuell bereitgestellte Python-Runtime enthielt `requests` nach einem Runtime-Austausch nicht mehr. Der konkrete erste Laufzeitfehler vom 27. Juli war wegen der begrenzten In-Memory-Eventhistorie nicht mehr rekonstruierbar.
