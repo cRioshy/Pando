@@ -56,9 +56,10 @@ Stand: 1. August 2026
    - Neue Brain-History und `BRAIN_DECISION_RECEIVED` verwenden ausschließlich Version 1 mit erhaltener Quell-ID.
    - 28/28 gezielte und 222/222 vollständige Tests bestanden.
    - Commit `5b59fa2` veröffentlicht; gestapelter Draft-PR #11 gegen `agent/prepare-compact-payload-consumers` erstellt und nicht gemergt.
-   - **Decision-/Signal-Migration am 1. August 2026 implementiert; Veröffentlichung noch offen.**
+   - **Decision-/Signal-Migration am 1. August 2026 implementiert und veröffentlicht.**
    - Neue Decision-/Signal-Events und beide Ledger verwenden Version 1 ohne `raw_result`; alle IDs bleiben erhalten.
    - 32/32 gezielte und 223/223 vollständige Tests bestanden.
+   - Commit `ed89a01` veröffentlicht; gestapelter Draft-PR #12 gegen `agent/compact-brain-payloads` erstellt und nicht gemergt.
    - Als Nächstes ausschließlich NeuroBrain-Persistenz isoliert migrieren.
    - Bestehende History unverändert lesbar lassen.
 
@@ -84,6 +85,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Neue Decision-/Signal-Events und beide Ledger auf Version 1 umgestellt; IDs und Legacy-Eingangskompatibilität erhalten.
+- 32/32 gezielte und 223/223 vollständige Tests bestanden; Commit `ed89a01` und gestapelter Draft-PR #12 veröffentlicht.
 - Neue Brain-History und `BRAIN_DECISION_RECEIVED` auf die kompakte Version-1-Projektion umgestellt; bestehende History unangetastet gelassen.
 - 28/28 gezielte und 222/222 vollständige Tests bestanden; Commit `5b59fa2` und gestapelter Draft-PR #11 veröffentlicht.
 - Crypto Trade Tracker und Learning Graph auf kompakte Ersatzfelder vorbereitet; Legacy-Raw-Payloads bleiben lesbar.
