@@ -3,6 +3,8 @@
 Stand: 1. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Der neue Journalstand wurde am 1. August 2026 kontrolliert live gestartet. Nach mindestens zwei vollständigen Zyklen meldeten Plattform und alle zehn sichtbaren Services `OK`; `service_error_journal` war gesund, hatte null Schreibfehler und drei Vorkommen eines Fehlerfingerprints erfasst. Crypto zeigte drei und Stock fünf Analysen. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Der Storage-Scan schloss 110/110 Dateien in 2,865 Sekunden ab; `DEGRADED` stammt weiterhin aus den bekannten Datenwarnungen, nicht aus einem Scannerfehler.
+
 ## Betriebsaktualisierung vom 1. August 2026
 
 PandorickKi wurde nach Veröffentlichung der Scanner-Instrumentierung kontrolliert neu gestartet. Der eingebaute Stop-Befehl wurde um 15:32 Uhr Europe/Berlin akzeptiert; der Prozess beendete sich ohne erzwungenen Prozessabbruch nach dem laufenden 60-Sekunden-Zyklusintervall. Der Runtime-Preflight bestand mit Python 3.12.13. Der neue Webdienst läuft seit 15:34:40 Uhr über die projektlokale `.venv` mit Telegram deaktiviert und im Dry-Run.
@@ -192,6 +194,7 @@ Der vollständige Lauf am 1. August 2026 bestand nach Einführung des Service-Fe
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
 11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
+12. Das Livejournal deckte einen wiederkehrenden Outcome-Tracker-Fehler bei der Subtraktion offset-naiver und offset-bewusster Zeitstempel auf (`KP-014`). Der Tracker meldet im Zyklus-Health trotzdem `OK`; Fehlerjournal und Service-Health sind deshalb derzeit nicht vollständig konsistent.
 11. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 12. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
 13. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.

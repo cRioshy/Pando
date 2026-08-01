@@ -40,6 +40,7 @@ Stand: 1. August 2026
    - Commit `8a0a78d` veröffentlicht; gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` erstellt und nicht gemergt.
 
 6. **Vertrag für kompakte Event-Payloads definieren.**
+   - Vor Beginn dieses Schritts den neu aufgedeckten Zeitstempelfehler `KP-014` klein und rückwärtskompatibel beheben; keine bestehende History umschreiben.
    - Benötigte Felder für Decision Core, Tracker, Learning und UI vollständig ermitteln.
    - Versionierte Projektion und Kompatibilitätstests festlegen; `raw_result` nicht ungeprüft entfernen.
 
@@ -69,6 +70,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Neuen Journalstand kontrolliert live gestartet: alle zehn Services `OK`, Journal gesund, Telegram aus/Dry-Run und 110/110 Storage-Dateien ohne Scannerfehler verarbeitet.
+- Das Journal machte drei Wiederholungen eines zuvor flüchtigen Outcome-Tracker-Zeitstempelfehlers dauerhaft sichtbar; als `KP-014` dokumentiert, noch nicht behoben.
 - Begrenztes, secret-gefiltertes Service-Fehlerjournal mit atomarer Erst-/Letzt-Zusammenfassung ergänzt.
 - PandorickKi nach Scanner-Veröffentlichung kontrolliert neu gestartet und zwei Produktionszyklen verifiziert: alle Services `OK`, keine neuen Sessionfehler, Telegram aus/Dry-Run.
 - Produktions-Storage-Scan mit 106/106 Dateien in 2,416 Sekunden und 9,20 % kumulativem JSONL-Fortschritt bestätigt; Control Center ohne Browser-Konsolenfehler geprüft.

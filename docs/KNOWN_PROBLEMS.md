@@ -4,6 +4,14 @@ Stand: 1. August 2026
 
 ## Offen
 
+### KP-014 – Outcome Tracker mischt naive und UTC-Zeitstempel
+
+- **Priorität:** hoch
+- **Status:** offen; durch das neue Fehlerjournal erstmals dauerhaft sichtbar
+- **Beobachtung:** In den ersten drei Livezyklen nach dem Neustart erzeugte der Outcome Tracker jeweils `can't subtract offset-naive and offset-aware datetimes`. Ursache ist die direkte Subtraktion in `_duration_seconds()`; ältere `entry_time`-Werte können ohne UTC-Offset vorliegen, während neue Endzeiten offset-bewusst sind.
+- **Auswirkung:** Einzelne simulierte Outcomes beziehungsweise deren Haltedauer können nicht korrekt abgeschlossen werden. Der normale Zyklus-Health meldet `outcome_tracker=OK`, obwohl das Fehlerereignis journalisiert wurde.
+- **Nächster Fix:** Historische naive Zeitstempel beim Parsen ausdrücklich als UTC interpretieren, gemischte und reine Zeitstempelvarianten testen und die Health-Projektion mit dem Journalfehler abstimmen. Bestehende History nicht umschreiben oder löschen.
+
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
 - **Priorität:** niedrig
@@ -94,6 +102,7 @@ Stand: 1. August 2026
 - Journal-Schreibfehler brechen den Event-Publisher nicht und werden über `service_error_journal` als fehlerhafter Health-Zustand sichtbar.
 - Der begrenzte Bestand ist bewusst kein vollständiges Langzeitarchiv; bestehende andere History-Dateien bleiben unverändert.
 - 17/17 gezielte und 210/210 vollständige Tests bestanden.
+- Live verifiziert: drei wiederkehrende Outcome-Tracker-Fehler wurden als ein Fingerprint mit erster/letzter Beobachtung erfasst; Journal-Health blieb `OK` und `failed_writes=0`.
 
 ### KP-R08 – Scannerfortschritt war nicht messbar und praktisch zu langsam
 

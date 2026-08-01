@@ -21,6 +21,8 @@ Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegren
 - Aktives JSONL auf 5 MiB, Archive auf vier und die atomare Erst-/Letzt-Zusammenfassung auf 500 Fingerprints begrenzt.
 - Journal-Lifecycle in den Orchestrator integriert: Start vor den Adaptern, Shutdown nach den Adaptern, eigener Health-Eintrag und Journalisierung von Start-, Lauf- und Stopfehlern.
 - Konfiguration, Beispielumgebung, Tests und Ist-Dokumentation aktualisiert.
+- PandorickKi über den eingebauten Control-Endpunkt regulär gestoppt, mit den bisherigen sicheren Laufzeitwerten versteckt neu gestartet und mindestens zwei vollständige Produktionszyklen geprüft.
+- Das Livejournal machte drei Wiederholungen eines Outcome-Tracker-Zeitstempelfehlers als einen dauerhaften Fingerprint sichtbar; als `KP-014` dokumentiert, aber in dieser Aufgabe nicht außerhalb des vereinbarten Journalumfangs verändert.
 - Keine vorhandenen Runtime-, History-, Lern-, Token- oder Konfigurationsdaten gelöscht oder verändert.
 
 ### Veränderte Dateien
@@ -50,6 +52,7 @@ Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegren
 - `python -m py_compile` für die geänderten Python-Module.
 - Gezielte und vollständige `unittest`-Läufe.
 - `git diff --check`, Scope-Prüfung und Secret-Mustersuche im Veröffentlichungsumfang.
+- POST `/api/control/stop`, Runtime-Preflight, versteckter Neustart und read-only API-Prüfungen auf Health, Status, Storage und Journaldateien.
 
 ### Ausgeführte Tests
 
@@ -64,10 +67,15 @@ Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegren
 - Vollständige Suite: 210/210 bestanden in 43,191 Sekunden.
 - `git diff --check`: keine Whitespace-Fehler; ausschließlich erwartete Git-Hinweise zur künftigen LF-/CRLF-Normalisierung.
 - Secret-Mustersuche: keine echten Zugangsdaten im Veröffentlichungsumfang gefunden; vorkommende Secret-Texte sind ausschließlich Platzhalter, Filterregeln und Testwerte.
+- Live nach mindestens zwei Zyklen: Plattform und alle zehn Services `OK`; Journal `OK`, 3 Ereignisse, 1 Fingerprint, 0 Schreibfehler.
+- Crypto: 3 aktuelle Analysen; Stock: 5 Analysen. Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Storage: 110/110 Dateien in 2,865 Sekunden, 71,81 % kumulativer JSONL-Fortschritt, `last_error=null`; `DEGRADED` wegen der bekannten Datenwarnungen.
+- Listener PID 6384 auf `127.0.0.1:8000`; Runtime-stdout und -stderr blieben leer.
 
 ### Bekannte Fehler
 
 - Der synchrone EventBus bleibt ohne Backpressure (`KP-003`). Das Journal schreibt nur bei Fehlern und fängt eigene Fehler ab, kann den Publisher bei langsamem Datenträger aber kurz blockieren.
+- `KP-014`: Der Outcome Tracker subtrahiert bei älteren offenen Trades offset-naive von neuen UTC-Zeitstempeln. Drei Livevorkommen wurden journalisiert; Zyklus-Health meldet trotzdem `OK`.
 - WebSocket-Reconnect (`KP-002`), verzögerter Web-Stop (`KP-013`) und die übrigen offenen Punkte in `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
 - Die DeprecationWarnings zu `datetime.utcnow()` stammen weiterhin aus dem externen Legacy-Crypto-Projekt und wurden in dieser Aufgabe nicht verändert.
 
@@ -83,12 +91,12 @@ Nach der erfolgreichen Scanner-Veröffentlichung ein dauerhaftes, größenbegren
 
 - Commit `8a0a78d` wurde auf `origin/agent/add-service-error-journal` veröffentlicht.
 - Gestapelter Draft-PR #7 gegen `agent/instrument-storage-scanner` wurde erstellt: `https://github.com/cRioshy/Pando/pull/7`.
-- Die Liveprüfung des neuen Journals steht noch aus.
+- Die Liveprüfung ist abgeschlossen und in diesem Handover dokumentiert.
 - Draft-PRs dürfen nicht gemergt werden.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-PandorickKi kontrolliert stoppen und aus `agent/add-service-error-journal` mit den bisherigen sicheren Laufzeitwerten neu starten; danach mindestens zwei Zyklen, `service_error_journal=OK`, Telegram aus/Dry-Run, Errorzähler und Storagezustand über die lokale API verifizieren.
+`KP-014` als kleinen eigenen Fix bearbeiten: naive historische Zeitstempel in `_duration_seconds()` rückwärtskompatibel als UTC behandeln, gemischte Zeitstempelvarianten und Health-Projektion testen, vorhandene History unverändert lassen. Erst danach mit dem Feld-/Kompatibilitätsvertrag für kompakte Event-Payloads fortfahren.
 
 ---
 
