@@ -1,5 +1,7 @@
 # PandorickKi currently uses Python standard-library services for the core
 # platform and vendors browser graph assets locally under web/static/vendor.
 #
-# Optional external market adapters can be enabled in connected source projects.
-requests>=2.34.2
+# Optional external market projects may have their own dependencies. PandorickKi
+# deliberately fetches public crypto data with the Python standard library so a
+# managed runtime refresh cannot silently remove its HTTP client.
+tzdata>=2025.2

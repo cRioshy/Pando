@@ -1,8 +1,17 @@
 # Bekannte Probleme
 
-Stand: 26. Juli 2026
+Stand: 31. Juli 2026
 
 ## Offen
+
+### KP-012 – Historische Service-Exceptions werden nicht dauerhaft journalisiert
+
+- **Priorität:** mittel
+- **Status:** offen; durch aktuelle Health-Details teilweise entschärft
+- **Beobachtung:** Der erste konkrete Crypto-Fehler vom 27. Juli war am 31. Juli nicht mehr vorhanden, weil vollständige Service-Events nur in einer begrenzten In-Memory-Historie lagen.
+- **Aktueller Schutz:** Crypto-Events enthalten jetzt Fehlerart, Stufe, Symbol und Provider-Versuche. `SharedState` hält `last_error` und `last_error_details`, solange der Fehler aktuell ist.
+- **Restproblem:** Eine länger zurückliegende erste Exception kann weiterhin aus dem In-Memory-Bestand verschwinden.
+- **Nächster Fix:** Kleines größenbegrenztes, rotierendes Service-Fehlerjournal entwerfen; keine Tokens, Antwortinhalte oder unbegrenzte Logs persistieren.
 
 ### KP-011 – Storage-Worker kann Shutdown überleben
 
@@ -83,6 +92,15 @@ Stand: 26. Juli 2026
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
 
 ## Behoben oder entschärft
+
+### KP-R05 – Crypto-Analyse seit 27. Juli ohne Ergebnisse
+
+- **Status:** behoben und live verifiziert am 31. Juli 2026
+- Externes `market.py` mit nicht verfügbarer `requests`-Abhängigkeit wird vom PandorickKi-Livepfad nicht mehr importiert.
+- Interner Standardbibliotheks-Client verwendet Binance-Kerzen mit Bitget-Fallback und Retry.
+- Open Interest und Funding sind optional und verwerfen keine gültigen Kerzen mehr.
+- Service-Health meldet null Ergebnisse bei Fehlern als `ERROR` statt `OK`.
+- 200/200 Tests bestanden; ein Live-Diagnoselauf und zwei Produktionszyklen lieferten insgesamt neun erfolgreiche Symbolanalysen ohne neuen Crypto-Fehler.
 
 ### KP-R04 – Arbeitsstand war nicht auf GitHub veröffentlicht
 

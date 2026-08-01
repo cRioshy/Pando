@@ -223,10 +223,29 @@ class Orchestrator:
             return
 
         event_count = self._publish_adapter_results(adapter.name, results)
+        adapter_health = await adapter.health()
+        healthy = adapter_health.get("healthy")
+        if healthy is False:
+            service_status = "DEGRADED" if results else "ERROR"
+        else:
+            service_status = "OK"
+        health_details = {
+            key: value
+            for key, value in adapter_health.items()
+            if key
+            in {
+                "healthy",
+                "last_error",
+                "last_error_details",
+                "cycles",
+                "published_results",
+                "test_mode",
+            }
+        }
         self.shared_state.update_service(
             adapter.name,
-            "OK",
-            {"results": len(results), "events": event_count},
+            service_status,
+            {"results": len(results), "events": event_count, **health_details},
         )
 
     async def _run_adapter_once(self, adapter: ServiceAdapter) -> list[Any]:

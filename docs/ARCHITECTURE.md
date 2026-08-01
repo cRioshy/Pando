@@ -1,6 +1,6 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 26. Juli 2026
+Stand: 31. Juli 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 
@@ -8,7 +8,10 @@ Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Ar
 
 ```mermaid
 flowchart LR
-    CE["Externes Crypto-Projekt"] --> CA["CryptoAdapter"]
+    BN["Binance Spot/Futures"] --> CM["CryptoMarketDataService"]
+    BG["Bitget Candle-Fallback"] --> CM
+    CM --> CA["CryptoAdapter"]
+    CE["Externes Crypto-Projekt: Analysepipeline"] --> CA
     SE["Externes Stock-Projekt"] --> SA["StockAdapter"]
     CP["Optionale Commodity-Quelle"] --> CO["CommodityAdapter"]
     FE["FeatureEngine"] --> CA
@@ -79,7 +82,8 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 
 | Komponente | Tatsächliche Verantwortung | Nicht implementiert |
 |---|---|---|
-| `CryptoAdapter` | Externe Crypto-Analyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
+| `CryptoMarketDataService` | Binance-Kerzen, Bitget-Fallback, Retry, optionales Open Interest/Funding | Orders, private APIs |
+| `CryptoAdapter` | Normalisierte Marktdaten an externe Crypto-Analyse übergeben, Preise, maximal 500 Kerzen für Features, Fehlerdiagnose, Ereignisse | Börsenorder |
 | `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `FeatureEngine` | Technische Features und optionale historische Targets | ML-Training, strikte Datenqualitätsverträge |
@@ -141,6 +145,24 @@ Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage
 - Secrets ausschließlich über lokale Umgebungskonfiguration bereitstellen.
 - Runtime-Historien, Lerndaten und Tokens nicht löschen oder veröffentlichen.
 - Externe Legacy-Projekte bleiben außerhalb dieses Repositories und werden nur adaptiert.
+- Crypto-Marktdaten verwenden ausschließlich öffentliche read-only HTTP-Endpunkte; Futures-Kontext ist optional und löst keine Orders aus.
+
+## Crypto-Ausfall- und Fallback-Semantik
+
+```mermaid
+flowchart LR
+    CA["CryptoAdapter pro Symbol"] --> BS["Binance Spot-Kerzen mit Retry"]
+    BS -->|Erfolg| FC["Optionale Binance-Futures-Daten"]
+    BS -->|Fehler| BG["Bitget Spot-Kerzen mit Retry"]
+    BG -->|Erfolg| FC
+    BG -->|Fehler| ER["CRYPTO_SERVICE_ERROR mit Diagnostik"]
+    FC -->|OI/Funding verfügbar oder None| LP["Legacy-Analyse persist=False"]
+    LP --> EV["CRYPTO_ANALYSIS_FINISHED"]
+    ER --> HS["Service ERROR bei null Ergebnissen"]
+    EV --> HS2["OK oder DEGRADED gemäß Zyklusergebnis"]
+```
+
+Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturservice. `setup_local_env.bat` legt sie bei Bedarf an, installiert die deklarierte Zeitzonendaten-Abhängigkeit und der Preflight prüft zentrale Dateien, Imports und `America/New_York` vor jedem Batch-Start.
 
 ## Bekannte Architekturgrenzen
 

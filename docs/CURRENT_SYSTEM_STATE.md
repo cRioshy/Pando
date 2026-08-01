@@ -1,7 +1,15 @@
 # PandorickKi – aktueller Systemzustand
 
-Stand: 26. Juli 2026
+Stand: 31. Juli 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
+
+## Betriebsaktualisierung vom 31. Juli 2026
+
+Nach knapp sechs Tagen Dauerbetrieb war die Crypto-Analyse seit dem 27. Juli ausgefallen, während Aktien weiterliefen. Der externe Crypto-Marktdatenpfad verlangte `requests` und behandelte Spot-Kerzen, Open Interest und Funding als untrennbaren Gesamtaufruf. Die aktuell bereitgestellte Python-Runtime enthielt `requests` nach einem Runtime-Austausch nicht mehr. Der konkrete erste Laufzeitfehler vom 27. Juli war wegen der begrenzten In-Memory-Eventhistorie nicht mehr rekonstruierbar.
+
+Der Live-Crypto-Pfad verwendet jetzt `adapters/crypto_market_data_service.py` aus PandorickKi. Er arbeitet nur mit der Python-Standardbibliothek, lädt Kerzen primär von Binance und ersatzweise von Bitget und behandelt Open Interest sowie Funding als optionale Zusatzdaten. Der externe Legacy-Code wird weiterhin nur für die nicht persistierende Analysepipeline verwendet; dessen `market.py` wird nicht mehr importiert.
+
+Der Dienst läuft seit dem kontrollierten Neustart am 31. Juli 2026 unter der projektlokalen `.venv`. Zwei verifizierte Produktionszyklen lieferten sechs neue Analysen für BTCUSDT, ETHUSDT und XRPUSDT. Crypto meldete `OK`, `healthy=true`, drei Ergebnisse pro Zyklus und keinen neuen Fehler; der historische Crypto-Fehlerzähler blieb während der Verifikation bei 12.024. Telegram blieb deaktiviert und im Dry-Run, ohne versendete Nachrichten.
 
 ## Projektziel
 
@@ -52,7 +60,7 @@ Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket un
 
 ## Datenquellen
 
-- Crypto: externes lokales Legacy-Projekt über `PANDORICKKI_CRYPTO_PATH`; Livepreise über dessen Datenpfade, im aktuellen Betrieb unter anderem Binance.
+- Crypto: Binance-Spot-Kerzen mit Bitget-Fallback über den internen `CryptoMarketDataService`; Binance Futures liefert optional Open Interest und Funding. Das externe Legacy-Projekt unter `PANDORICKKI_CRYPTO_PATH` verarbeitet die normalisierten Daten ausschließlich analytisch und nicht persistierend.
 - Aktien: externes lokales Stock-Projekt über `PANDORICKKI_STOCK_PATH`.
 - Rohstoffe: optionale Preisquelle für konfigurierte Symbole; standardmäßig deaktiviert.
 - Interne Historie: JSON-/JSONL-Ledger unter `data/`.
@@ -63,7 +71,8 @@ Die Standardpfade für Crypto und Aktien sind rechnergebundene Windows-Pfade und
 
 ## Adapter
 
-- `adapters/crypto_adapter.py`: Crypto-Analyse, Preisstatus, Feature-Anreicherung und Events; Feature-Berechnung ist im aktuellen Arbeitsstand auf die letzten 500 Kerzen begrenzt.
+- `adapters/crypto_adapter.py`: Crypto-Analyse, Preisstatus, Feature-Anreicherung, genaue Fehlerdiagnose und Events; Feature-Berechnung ist auf die letzten 500 Kerzen begrenzt.
+- `adapters/crypto_market_data_service.py`: Abhängigkeitsfreier Candle-Abruf mit Binance/Bitget-Fallback, Retry und optionalem Futures-Kontext.
 - `adapters/stock_adapter.py`: Aktienanalyse mit entsprechender Feature-Anreicherung und derselben 500-Kerzen-Grenze.
 - `adapters/commodity_adapter.py`: optionale Rohstoffanalyse ohne Feature-Engine-Anbindung.
 - `adapters/brain_adapter.py`: Analysepersistenz und Weiterleitung.
@@ -115,7 +124,7 @@ Das lokale Control Center wird standardmäßig unter `http://127.0.0.1:8000/` be
 
 Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus und verwendet Cache-Buster sowie `defer` für lokale Skripte. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
 
-Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust.
+Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust. Servicezustände berücksichtigen inzwischen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert.
 
 ## Telegram
 
@@ -134,20 +143,16 @@ Runtime-Verzeichnisse wie `data/`, `storage/`, `runtime_logs/` und `backups/` k�
 ## Startbefehle
 
 ```powershell
-python main.py --once
-python main.py --live
-python main.py --headless
-python main.py --live --web
-python main.py --headless --web
+setup_local_env.bat
+.\.venv\Scripts\python.exe scripts\runtime_preflight.py
+.\.venv\Scripts\python.exe main.py --once
+.\.venv\Scripts\python.exe main.py --live
+.\.venv\Scripts\python.exe main.py --headless --web
 ```
 
 Lokales Control Center: `http://127.0.0.1:8000/`
 
-Auf diesem Rechner war zuletzt der gebündelte Python-Pfad verfügbar:
-
-```powershell
-& 'C:\Users\Admin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' main.py --headless --web
-```
+Die Batch-Starter erzeugen die ignorierte projektlokale `.venv` bei Bedarf, installieren `tzdata`, führen den Preflight aus und verwenden danach ausschließlich diese Umgebung. `start_pandorick_web.bat` setzt Telegram ausdrücklich auf deaktiviert und Dry-Run.
 
 ## Testbefehle
 
@@ -157,7 +162,7 @@ python -m unittest tests.test_statistics_and_storage tests.test_web_control_cent
 python -m compileall .
 ```
 
-Früher in diesem Arbeitsstand waren 195/195 Tests erfolgreich. Der jüngste vollständige Lauf am 26. Juli 2026 endete nach 243,332 Sekunden mit 194 bestandenen Tests und einem Fehler: Ein Webtest konnte sein temporäres `storage/statistics`-Verzeichnis nicht entfernen, weil der Hintergrundscanner noch schrieb (`WinError 145`). Der unmittelbar folgende isolierte Wiederholungslauf des betroffenen Tests bestand mit 1/1. Das ist als nicht-deterministische Shutdown-Race in `KNOWN_PROBLEMS.md` erfasst.
+Der vollständige Lauf am 31. Juli 2026 bestand mit 200/200 Tests in 61,863 Sekunden. Zusätzlich bestand ein nicht persistierender Live-Crypto-Diagnoselauf mit drei von drei Symbolen sowie die anschließende Verifikation von zwei Produktionszyklen. Die bekannte nicht-deterministische Storage-Shutdown-Race bleibt unabhängig davon offen.
 
 ## Bekannte Risiken
 

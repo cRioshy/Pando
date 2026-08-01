@@ -1,5 +1,196 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Funktionierenden Crypto-Stand sichern und veröffentlichen
+
+### Datum und Uhrzeit
+
+1. August 2026, 12:34 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den am 31. Juli 2026 live reparierten Crypto-Stand vor allen weiteren Architekturarbeiten vollständig sichern, den Commitumfang auf Secrets und Runtime-Daten prüfen, Tests und Livebetrieb erneut verifizieren und ausschließlich den bestehenden Branch `agent/add-market-feature-engine` veröffentlichen. Kein Merge nach `main`, keine realen Trades und keine Telegram-Nachrichten.
+
+### Durchgeführte Arbeiten
+
+- Übergabedokumentation, Arbeitsbaum, Branch und Remote erneut geprüft.
+- Alle 17 vorgesehenen Commitdateien inhaltlich abgegrenzt; keine Runtime-Verzeichnisse und keine erkannten Secrets im Commitumfang.
+- Ersten PowerShell-Backupversuch wegen fehlendem `.git/HEAD` in der ZIP-Prüfung verworfen und eindeutig als `FAILED` markiert.
+- Korrigiertes BEFORE-Backup über kontrolliertes Staging erstellt; im Staging das Windows-`Hidden`-Attribut von `.git` entfernt, damit `Compress-Archive` die Git-Metadaten einschließt.
+- Gültiges Archiv `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-01_12-20-18_BEFORE.zip` erstellt und mit .NET geöffnet, Pflichtinhalte geprüft sowie vollständig testextrahiert.
+- Runtime-Preflight, gezielte Crypto-Tests und vollständige Testsuite erfolgreich ausgeführt.
+- Zwei kontrollierte Produktionszyklen mit öffentlichen Marktdaten ausgeführt. Gesamt-Health und alle Services meldeten `OK`; Telegram blieb deaktiviert und im Dry-Run.
+- GitHub-Anmeldung für `cRioshy` außerhalb der eingeschränkten Netzwerkumgebung erfolgreich verifiziert.
+
+### Veränderte Dateien
+
+- `adapters/crypto_adapter.py`
+- `orchestrator.py`
+- `requirements.txt`
+- `start_headless.bat`
+- `start_live.bat`
+- `start_once.bat`
+- `start_pandorick_web.bat`
+- `tests/test_crypto_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `adapters/crypto_market_data_service.py`
+- `tests/test_crypto_market_data_service.py`
+- `setup_local_env.bat`
+- `scripts/runtime_preflight.py`
+
+### Ausgeführte Befehle
+
+- `git status --short`, `git diff --check`, `git diff --stat` und inhaltliche Diffprüfung.
+- Kontrollierte rekursive Staging-Kopie mit `robocopy`, anschließend `Compress-Archive`.
+- ZIP-Prüfung mit `[System.IO.Compression.ZipFile]::OpenRead()` und vollständige Testextraktion mit `Expand-Archive`.
+- `\.venv\Scripts\python.exe scripts\runtime_preflight.py`
+- `\.venv\Scripts\python.exe -m unittest tests.test_crypto_market_data_service tests.test_crypto_adapter`
+- `\.venv\Scripts\python.exe -m unittest discover -s tests`
+- `\.venv\Scripts\python.exe main.py --headless --cycles 2 --interval 1`
+- `gh auth status`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Backup: 1.144.625.985 Bytes, 602 ZIP-Einträge, `.git`, `docs` und `tests` enthalten; vollständige Testextraktion `OK`.
+- Secret-/Scope-Prüfung: 17 Commitkandidaten, 0 Runtime-Dateien, 0 Treffer der geprüften Secret-Muster, `git diff --check` ohne Fehler.
+- Runtime-Preflight: `OK`, Python 3.12.13 aus der projektlokalen `.venv`.
+- Gezielte Crypto-Tests: 10/10 bestanden in 0,446 Sekunden.
+- Gesamttests: 200/200 bestanden in 40,828 Sekunden.
+- Live-Verifikation: zwei Produktionszyklen, Health `OK`; `crypto`, `brain`, `decision_core`, `outcome_tracker`, `neurobrain_receiver`, `crypto_trade_tracker`, `stock`, `telegram` und `control_center` jeweils `OK`.
+- Telegram-Schutz: `PANDORICKKI_TELEGRAM_ENABLED=0`, `PANDORICKKI_TELEGRAM_DRY_RUN=1`.
+
+### Bekannte Fehler
+
+- Die offenen Storage-, EventBus-, WebSocket-, Fehlerjournal-, Learning- und UI-Probleme aus `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+- Die externe Legacy-Crypto-Pipeline erzeugt unter Python 3.12 DeprecationWarnings für `datetime.utcnow()`; dies beeinträchtigte die Tests und Livezyklen nicht.
+- Ein versteckter Hintergrundstart blieb in der verwendeten Ausführungsumgebung nicht aktiv; die belastbare Live-Verifikation wurde deshalb als exakt begrenzter Vordergrundlauf durchgeführt. Das ist kein nachgewiesener PandorickKi-Codefehler.
+
+### Getroffene Architekturentscheidungen
+
+- Keine neue Architekturentscheidung in dieser Sicherungsaufgabe.
+- Der interne Binance/Bitget-Marktdatenpfad und die projektlokale Runtime werden unverändert gesichert.
+- Keine realen Orders, kein Merge nach `main`, Telegram weiterhin deaktiviert beziehungsweise Dry-Run.
+
+### Nicht abgeschlossene Punkte
+
+- Commit und Push werden unmittelbar nach dieser dokumentierten Prüfung durchgeführt; der endgültige Commit- und Pushstatus wird anschließend in diesem Abschnitt ergänzt.
+- Der nächste Implementierungsschritt, Storage-Worker-Shutdown, wurde noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Die 17 geprüften Dateien explizit stagen, als zusammenhängenden Crypto-Reparaturstand committen, auf `origin/agent/add-market-feature-engine` pushen und den bestehenden Draft-PR gegen `main` verifizieren. Danach erst den Storage-Worker-Shutdown mit einem deterministischen Regressionstest bearbeiten.
+
+---
+
+## Vorherige Aufgabe: Crypto nach Dauerbetrieb wiederherstellen
+
+### Datum und Uhrzeit
+
+31. Juli 2026, 16:02 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den seit dem 27. Juli ausgefallenen Crypto-Livepfad diagnostizieren, dauerhaft reparieren, vollständig testen und den laufenden PandorickKi-Dienst kontrolliert mit der Reparatur neu starten. Keine echten Trades oder Telegram-Nachrichten aktivieren.
+
+### Durchgeführte Arbeiten
+
+- Übergabedokumentation und tatsächlichen Code erneut geprüft.
+- Laufzeit von knapp sechs Tagen, letzte Crypto-Zeitstempel, Fehlerverteilung und Serviceprojektion read-only analysiert.
+- Binance Spot-Kerzen, Futures Open Interest und Funding einzeln erfolgreich geprüft.
+- Reproduziert, dass der aktuelle verwaltete Python-Runtime das vom externen `market.py` verlangte Paket `requests` nicht enthält.
+- `CryptoMarketDataService` als internen Standardbibliotheks-Client ergänzt: Binance-Kerzen, Bitget-Fallback, Retry, optionale Futures-Daten und sichere Diagnostik.
+- CryptoAdapter vom externen `market.py` entkoppelt; externe Legacy-Analyse bleibt `persist=False` und schreibt keine Legacy-Brain-Daten.
+- Zyklus-Health korrigiert: keine Ergebnisse plus Fehler ergeben `ERROR`, Teilerfolg `DEGRADED`, fehlerfreier Erfolg `OK`.
+- `last_error_details` mit Stufe, Fehlertyp, Symbol und Provider-Versuchen in Adapter-Health und SharedState aufgenommen.
+- Projektlokale `.venv`, `setup_local_env.bat` und Runtime-Preflight eingeführt; `tzdata 2026.3` lokal installiert.
+- Alle Batch-Starter auf `.venv` und Preflight umgestellt. Webstart setzt Telegram ausdrücklich deaktiviert und Dry-Run.
+- Alten Prozess PID 16028 nach exakter Pfad-/Portprüfung gestoppt. Wegen der bekannten Shutdown-Race erschien er nach 20 Sekunden noch vorhanden, war bei der unmittelbaren Folgeprüfung jedoch beendet; keine erzwungene zweite Beendigung nötig.
+- Neue Version versteckt über den `.venv`-Launcher PID 8560 gestartet; der daraus gestartete Basisinterpreter PID 1884 besitzt den Listener auf Port 8000. Beide Prozesse stammen vom selben Startzeitpunkt und gehören zu derselben `.venv`-Ausführung.
+- Zwei vollständige Produktionszyklen beobachtet: jeweils drei erfolgreiche Cryptoanalysen; Fehlerzähler unverändert.
+
+### Veränderte Dateien
+
+- `adapters/crypto_adapter.py`
+- `orchestrator.py`
+- `requirements.txt`
+- `start_headless.bat`
+- `start_live.bat`
+- `start_once.bat`
+- `start_pandorick_web.bat`
+- `tests/test_crypto_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `adapters/crypto_market_data_service.py`
+- `tests/test_crypto_market_data_service.py`
+- `setup_local_env.bat`
+- `scripts/runtime_preflight.py`
+
+Die lokale `.venv` und die neuen Laufzeitlogs sind absichtlich durch `.gitignore` ausgeschlossen.
+
+### Ausgeführte Befehle
+
+- Lokale API-Abfragen gegen `/api/v1/system/status`, `/api/services`, `/api/crypto`, `/api/events`, `/api/errors` und `/api/statistics`.
+- Read-only HTTP-Prüfungen der öffentlichen Binance-Endpunkte.
+- Nicht persistierender Live-Diagnoselauf des reparierten CryptoAdapters für BTCUSDT, ETHUSDT und XRPUSDT.
+- `cmd /c setup_local_env.bat` und Installation aus `requirements.txt`.
+- `.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Gezielte `py_compile`- und `unittest`-Läufe.
+- Vollständiger `python -m unittest discover -s tests`-Lauf.
+- Prozess-/Portprüfung, kontrolliertes `Stop-Process` für PID 16028 und versteckter `Start-Process` für PID 8560.
+- Zwei Produktionszyklen über die lokale API überwacht und Fehlerzähler verglichen.
+- `git status -sb`, `git diff --stat`, `git diff --check`.
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Gezielte Crypto-/Orchestrator-Tests: 16/16 bestanden in 6,499 Sekunden.
+- Erster vollständiger Lauf in der neuen `.venv`: 200 Tests, drei Fehlschläge und vier Fehler wegen fehlendem `tzdata`; dies war ein echter Setupfehler und wurde nicht als grün gewertet.
+- Nach Installation von `tzdata 2026.3`: betroffene Stock-/Integrationstests 11/11 bestanden in 7,196 Sekunden.
+- Abschließende vollständige Suite: **200/200 bestanden in 61,863 Sekunden**.
+- Nicht persistierender Live-Crypto-Test: 3/3 Symbole erfolgreich, Health `healthy=true`.
+- Produktionsverifikation: Zyklen 1 und 2 jeweils `results=3`, `healthy=true`, `status=OK`; `published_results=6`.
+- Crypto-Fehlerzähler vor/nach Zyklus 2: **12.024 → 12.024**, also kein neuer Fehler.
+- Neue Analysezeiten in Zyklus 2: BTC 14:01:24 UTC, ETH 14:01:36 UTC, XRP 14:01:39 UTC.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Neue stdout-/stderr-Logs waren zum Abschluss leer; kein Startfehler.
+
+### Bekannte Fehler
+
+- `KP-012`: Der erste historische Servicefehler kann weiterhin aus der begrenzten In-Memory-Historie verschwinden; aktuelle letzte Fehlerdetails sind nun sichtbar, aber noch nicht langfristig journalisiert.
+- Storage-Worker-Shutdown-Race, Storage-Timeout und WebSocket-Fallback bleiben offen.
+- Deprecation-Warnungen zu `datetime.utcnow()` stammen weiterhin aus dem externen Legacy-Crypto-Projekt.
+
+### Getroffene Architekturentscheidungen
+
+- Marktdatenbeschaffung gehört jetzt zur PandorickKi-Integrationsschicht und hängt nicht mehr von `requests`/`pandas` im externen `market.py` ab.
+- Kerzen sind Pflichtdaten; Open Interest und Funding sind optionaler Kontext und dürfen gültige Analysen nicht stoppen.
+- Binance ist primäre Candle-Quelle, Bitget read-only Fallback. Keine privaten APIs und keine Orderendpunkte.
+- Externe Legacy-Analyse bleibt unverändert außerhalb des Repositories und wird mit `persist=False` verwendet.
+- Startumgebung ist projektlokal und vorab prüfbar; Telegram-Sicherheitswerte werden im Webstarter explizit gesetzt.
+
+### Nicht abgeschlossene Punkte
+
+- Änderungen sind lokal getestet, aber noch nicht commitet oder auf GitHub gepusht.
+- Langfristiges, größenbegrenztes Service-Fehlerjournal fehlt.
+- Die bereits bekannten Storage- und WebSocket-Probleme bleiben offen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den vollständigen Diff einschließlich der neuen Dokumentation abschließend auf unbeabsichtigte lokale Daten und Secrets prüfen. Danach nach ausdrücklicher Benutzerfreigabe einen kleinen Commit auf dem bestehenden Feature-Branch erstellen und zu `cRioshy/Pando` pushen. Technisch anschließend `KP-011` (Storage-Worker-Shutdown-Race) mit einem deterministischen Regressionstest beheben.
+
+---
+
 ## Letzte Aufgabe: Öffentliche Pando-Repo aktualisieren
 
 ### Datum und Uhrzeit
