@@ -102,6 +102,7 @@ Stand: 2. August 2026
 - Einzelwertige `CRYPTO_MARKET_DATA_UPDATED`- und `COMMODITY_MARKET_DATA_UPDATED`-Ereignisse bleiben Marktprojektionen; NeuroBrain ergänzt den aus dem Topic eindeutigen `market_type`.
 - Drei neue Adapterregressionen reproduzierten den Fehler vor dem Fix. Danach bestanden 15/15 gezielte und 231/231 vollständige Tests, `py_compile` und `git diff --check`.
 - Live wurden 152 ausschließlich neu angehängte Inboxzeilen geprüft: beide Schemagruppen, alle Pflichtfelder und der Bulk-Ausschluss waren fehlerfrei. Alle zehn Services meldeten `OK`, das Fehlerjournal blieb bei 180 und Telegram aus/Dry-Run.
+- Commit `e94c988` wurde auf `agent/fix-neurobrain-observer-schema` veröffentlicht; der gestapelte Draft-PR #14 gegen `agent/compact-neurobrain-payloads` bleibt ungemergt.
 - Bestehende Inbox- und Historyzeilen wurden weder migriert noch umgeschrieben.
 
 ### KP-R11 – Feste Temp-Dateien kollidierten bei atomaren Runtime-Schreibvorgängen

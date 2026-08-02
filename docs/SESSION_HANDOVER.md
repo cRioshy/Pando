@@ -4,7 +4,7 @@
 
 ### Datum und Uhrzeit
 
-2. August 2026, 11:12 Uhr, Europe/Berlin (`+02:00`)
+2. August 2026, 11:25 Uhr, Europe/Berlin (`+02:00`)
 
 ### Ziel der Aufgabe
 
@@ -21,6 +21,8 @@ Die als `KP-016` dokumentierte Vertragslücke reproduzierbar schließen: Nicht m
 - Vor dem Neustart die NeuroBrain-Dateigröße und den Fehlerjournalstand read-only erfasst. Den alten Prozess über `POST /api/control/stop` geordnet beendet und genau einen neuen Prozess mit NeuroBrain aktiv, Live-Crypto/Stock sowie Telegram deaktiviert/Dry-Run gestartet.
 - Zwei vollständige Produktionszyklen abgewartet und ausschließlich 152 nach dem Neustart angehängte NeuroBrain-Zeilen geprüft.
 - Vertrags-, System-, Architektur-, Problem- und Planungstexte aktualisiert. Bestehende Runtime-, History-, Lern-, Token- und Konfigurationsdateien wurden nicht gelöscht, geleert, migriert oder manuell umgeschrieben.
+- Scope und Secret-Muster vor dem Staging geprüft, die zehn vorgesehenen Dateien gezielt gestaged und Commit `e94c98828b5ae0b91ab667775c4334729fe09f74` erstellt.
+- Branch `agent/fix-neurobrain-observer-schema` nach `origin` gepusht und Draft-PR #14 gegen den direkten Vorgänger `agent/compact-neurobrain-payloads` eröffnet. Der PR ist offen, weiterhin Draft und nicht gemergt.
 
 ### Veränderte Dateien
 
@@ -49,6 +51,7 @@ Die als `KP-016` dokumentierte Vertragslücke reproduzierbar schließen: Nicht m
 - Read-only Baseline-/Liveauswertung von `data/neurobrain/inbox.jsonl`, `data/service_error_summary.json` und `/api/status`.
 - Kontrollierter Stop über `POST /api/control/stop`; versteckter Neustart mit sicheren Umgebungswerten und öffentlichen Live-Marktdaten.
 - Bytegenaue Auswertung des neu angehängten Inboxbereichs mit Topic-/Schema-, Pflichtfeld- und rekursiver Bulk-Prüfung.
+- `gh auth status`, explizites `git add`, Commit, `git push -u origin agent/fix-neurobrain-observer-schema` sowie `gh pr create --draft` und abschließendes `gh pr view`.
 
 ### Ausgeführte Tests
 
@@ -85,8 +88,16 @@ Die als `KP-016` dokumentierte Vertragslücke reproduzierbar schließen: Nicht m
 
 ### Nicht abgeschlossene Punkte
 
-- Die GitHub-Anmeldung wurde erneuert und außerhalb der isolierten Shell erfolgreich für `cRioshy` verifiziert. Veröffentlichung auf `agent/fix-neurobrain-observer-schema` und der gestapelte Draft-PR gegen `agent/compact-neurobrain-payloads` folgen unmittelbar; nicht mergen.
 - Begrenzte NeuroBrain-Queue, Überlaufregel, Batch-Schreiben und Shutdown sind noch nicht implementiert.
+
+### Veröffentlichung
+
+- Branch: `agent/fix-neurobrain-observer-schema`
+- Implementierungscommit: `e94c98828b5ae0b91ab667775c4334729fe09f74`
+- Remote: `origin` → `https://github.com/cRioshy/Pando.git`
+- Draft-PR: #14, `https://github.com/cRioshy/Pando/pull/14`
+- Basis: `agent/compact-neurobrain-payloads`
+- Status: `OPEN`, `isDraft=true`, nicht gemergt
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 

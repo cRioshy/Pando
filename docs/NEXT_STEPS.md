@@ -66,6 +66,7 @@ Stand: 2. August 2026
    - Commit `5d32bc7` veröffentlicht; gestapelter Draft-PR #13 gegen `agent/compact-decision-signal-payloads` erstellt und nicht gemergt.
    - **Liveverifikation am 1. August 2026 abgeschlossen:** drei saubere Produktionszyklen, alle zehn Services `OK`, echte Crypto-Preise, vollständige ID-Kette und keine Bulk-Felder in den geprüften neuen Zeilen.
    - **Schemaabgrenzung `KP-016` am 2. August 2026 behoben und live verifiziert:** Observer-Vertrag für Learning/Aggregate, Markt-Typ-Ergänzung für einzelwertige Preisupdates; 231/231 Tests und 152/152 neue Livezeilen ohne Verstoß.
+   - Commit `e94c988` veröffentlicht; gestapelter Draft-PR #14 gegen `agent/compact-neurobrain-payloads` erstellt und nicht gemergt.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
@@ -96,6 +97,7 @@ Stand: 2. August 2026
 
 - NeuroBrain-Schemaabgrenzung behoben: kompakter Observer-Vertrag für Learning-/Aggregatereignisse, Markt-Typ-Inferenz für einzelwertige Crypto-/Commodity-Updates.
 - 15/15 gezielte und 231/231 vollständige Tests bestanden; 152 neue Livezeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß, alle Services `OK`, Telegram aus/Dry-Run.
+- Commit `e94c988` auf `agent/fix-neurobrain-observer-schema` veröffentlicht; Draft-PR #14 bleibt offen, Draft und ungemergt.
 - Wiederkehrende `WinError 5`-Konflikte bei NeuroBrain-Status und aktiven Crypto-Trades mit einem konfliktresistenten atomaren JSON-Schreibpfad behoben.
 - Retry- und Parallelitätsregressionen, 13/13 gezielte sowie 226/226 vollständige Tests bestanden; zwei Livezyklen ohne neue Fehlerfingerprints oder Temp-Reste.
 - Vollständigen gestapelten Payloadstand kontrolliert live gestartet und drei saubere Produktionszyklen verifiziert.
