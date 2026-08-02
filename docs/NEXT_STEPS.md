@@ -78,6 +78,7 @@ Stand: 2. August 2026
    - FIFO-Queue mit Kapazität 2048, sichtbarem Drop-newest, Batchgröße 64, 250-ms-Flush, atomarem Status und vollständigem Shutdown-Drain umgesetzt.
    - 20/20 gezielte und 235/235 vollständige Tests; live 231 Zeilen in 48 Batches, null Drops/Fehler und sauberer Worker-Shutdown.
    - Ausschließlich NeuroBrain entkoppelt; der vollständige EventBus blieb unverändert.
+   - Commit `0fe5bd6` veröffentlicht; gestapelter Draft-PR #15 gegen `agent/fix-neurobrain-observer-schema` erstellt und nicht gemergt.
 
 9. **Learning-Metriken vereinheitlichen.**
    - Begriffe, Nenner und Outcome-Abdeckung offenlegen.
@@ -99,6 +100,7 @@ Stand: 2. August 2026
 
 - NeuroBrain-Datei-I/O über begrenzte FIFO-Queue und einzelnen Batch-Worker vom Publisher entkoppelt; Drop-newest, Healthmetriken und vollständiger Flush-Shutdown getestet.
 - 20/20 gezielte und 235/235 vollständige Tests; live 231 neue Zeilen in 48 Batches ohne Drops, FIFO-/Schema- oder Workerfehler. Dienst nach erfolgreichem Stop erneut sicher gestartet.
+- Commit `0fe5bd6` auf `agent/queue-neurobrain-receiver` veröffentlicht; Draft-PR #15 ist offen, Draft und ungemergt.
 - NeuroBrain-Schemaabgrenzung behoben: kompakter Observer-Vertrag für Learning-/Aggregatereignisse, Markt-Typ-Inferenz für einzelwertige Crypto-/Commodity-Updates.
 - 15/15 gezielte und 231/231 vollständige Tests bestanden; 152 neue Livezeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß, alle Services `OK`, Telegram aus/Dry-Run.
 - Commit `e94c988` auf `agent/fix-neurobrain-observer-schema` veröffentlicht; Draft-PR #14 bleibt offen, Draft und ungemergt.
@@ -106,7 +108,7 @@ Stand: 2. August 2026
 - Retry- und Parallelitätsregressionen, 13/13 gezielte sowie 226/226 vollständige Tests bestanden; zwei Livezyklen ohne neue Fehlerfingerprints oder Temp-Reste.
 - Vollständigen gestapelten Payloadstand kontrolliert live gestartet und drei saubere Produktionszyklen verifiziert.
 - Neue Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen verwenden Version 1, enthalten keine Bulk-Felder und behalten die vollständige ID-Kette.
-- Die zunächst als `KP-016` dokumentierte Live-Vertragslücke wurde am 2. August 2026 behoben; noch keine Queue-/Batch-Änderung begonnen.
+- Die zunächst als `KP-016` dokumentierte Live-Vertragslücke wurde am 2. August 2026 behoben; die darauf aufbauende Queue-/Batch-Entkopplung ist ebenfalls abgeschlossen und veröffentlicht.
 - Neue NeuroBrain-Inboxzeilen auf Version 1 umgestellt; Kopfsicht, ID-Kette, Duplikatschutz und alte Inboxzeilen erhalten.
 - 18/18 gezielte und 224/224 vollständige Tests bestanden; Commit `5d32bc7` und gestapelter Draft-PR #13 veröffentlicht.
 - Neue Decision-/Signal-Events und beide Ledger auf Version 1 umgestellt; IDs und Legacy-Eingangskompatibilität erhalten.

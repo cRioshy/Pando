@@ -4,7 +4,7 @@
 
 ### Datum und Uhrzeit
 
-2. August 2026, 11:47 Uhr, Europe/Berlin (`+02:00`)
+2. August 2026, 11:53 Uhr, Europe/Berlin (`+02:00`)
 
 ### Ziel der Aufgabe
 
@@ -26,6 +26,7 @@ Nur den langsamen NeuroBrain-Dateiconsumer vom synchronen EventBus-Publisher ent
 - Ausschließlich 231 neu angehängte Inboxzeilen auf Eindeutigkeit, FIFO-Zeitfolge, Schema-/Pflichtfelder und Bulk-Ausschluss geprüft.
 - Neuen Prozess erneut geordnet gestoppt: Status bestätigte `running=false`, `worker_running=false`, `queue_depth=0`; danach PandorickKi wieder mit identischer sicherer Konfiguration gestartet.
 - Keine bestehende Inbox-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht, geleert, migriert oder manuell umgeschrieben.
+- Implementierung und Übergabestand als Commit `0fe5bd64d366695d6c9786c1a561dc513187b37b` auf `agent/queue-neurobrain-receiver` veröffentlicht. Gestapelten Draft-PR #15 gegen `agent/fix-neurobrain-observer-schema` erstellt, als offen und Draft verifiziert und nicht gemergt.
 
 ### Veränderte Dateien
 
@@ -55,6 +56,7 @@ Nur den langsamen NeuroBrain-Dateiconsumer vom synchronen EventBus-Publisher ent
 - `.\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
 - Read-only Baselines und Auswertungen von `/api/status`, `data/neurobrain/inbox.jsonl`, `data/neurobrain/status.json` und `data/service_error_summary.json`.
 - Zweimal kontrollierter Stop über `POST /api/control/stop`; versteckte Starts mit Queueparametern, Live-Crypto/Stock und Telegram deaktiviert/Dry-Run.
+- Explizites Git-Staging, Commit `0fe5bd64d366695d6c9786c1a561dc513187b37b`, `git push -u origin agent/queue-neurobrain-receiver`, `gh pr create --draft` und abschließende PR-Prüfung mit `gh pr list`.
 
 ### Ausgeführte Tests
 
@@ -97,8 +99,15 @@ Nur den langsamen NeuroBrain-Dateiconsumer vom synchronen EventBus-Publisher ent
 
 ### Nicht abgeschlossene Punkte
 
-- Branch, Commit und gestapelter Draft-PR werden im Veröffentlichungsschritt dieser Aufgabe ergänzt; nicht mergen.
 - `_seen_event_ids`-Retention ist nicht Teil dieser Entkopplung und muss nur bei belegtem Langzeit-Speicherproblem separat geplant werden.
+
+### Veröffentlichung
+
+- Branch: `agent/queue-neurobrain-receiver`
+- Implementierungscommit: `0fe5bd64d366695d6c9786c1a561dc513187b37b`
+- Draft-PR: [#15 – Queue NeuroBrain persistence writes](https://github.com/cRioshy/Pando/pull/15)
+- Basis: `agent/fix-neurobrain-observer-schema`
+- Zustand: offen, Draft, nicht gemergt
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 

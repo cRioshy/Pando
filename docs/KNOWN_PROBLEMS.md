@@ -104,6 +104,7 @@ Stand: 2. August 2026
 - `stop()` entfernt zuerst das Abonnement, leert alle akzeptierten Einträge, joint den nicht-daemonisierten Worker und ist wiederholt sicher. Nach Rückkehr finden keine Queue-Schreibvorgänge mehr statt.
 - Vor dem Fix fehlten Queueparameter und Batch-API vollständig. Danach bestanden 20/20 gezielte sowie 235/235 vollständige Tests, `py_compile`, Runtime-Preflight und Diffprüfung.
 - Live: 231 eindeutige neue Zeilen in 48 Batches, keine FIFO-/Schemafehler, null Drops/Workerfehler; Shutdownstatus `worker_running=false`, `queue_depth=0`. Alle zehn Services `OK`, Journal unverändert 180, Telegram aus/Dry-Run.
+- Commit `0fe5bd6` wurde auf `agent/queue-neurobrain-receiver` veröffentlicht; der gestapelte Draft-PR #15 gegen `agent/fix-neurobrain-observer-schema` bleibt offen und ungemergt.
 - Bestehende NeuroBrain-Inbox- und Historyzeilen wurden weder migriert noch umgeschrieben.
 
 ### KP-R12 – NeuroBrain verwendete das Markt-Schema für nicht marktbezogene Topics
