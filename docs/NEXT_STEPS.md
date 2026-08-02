@@ -71,6 +71,7 @@ Stand: 2. August 2026
 8. **NeuroBrain gezielt entkoppeln.**
    - **Vorgelagerte Schreibkonflikte am 2. August 2026 behoben und live verifiziert:** eindeutige Temp-Dateien, Pfadsperre, begrenzter Windows-Retry und geordnete Zustandssnapshots für NeuroBrain-Status und aktive Crypto-Trades.
    - 13/13 gezielte und 226/226 vollständige Tests bestanden; zwei Produktionszyklen ohne neue Ziel-Fingerprints oder Temp-Reste.
+   - Commit `ed2a83e` auf dem bestehenden Branch veröffentlicht und Draft-PR #13 aktualisiert; nicht gemergt.
    - Vorher `KP-016` beheben: Markt- und Lifecycle-/Learning-Topics schematisch eindeutig trennen und Regressionstests ergänzen.
    - Begrenzte Queue, Überlaufregel, Batch-Schreiben, atomaren Status und sicheren Shutdown umsetzen.
    - Zunächst nur NeuroBrain entkoppeln, nicht ungeprüft den vollständigen EventBus ersetzen.

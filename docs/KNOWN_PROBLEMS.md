@@ -112,6 +112,7 @@ Stand: 2. August 2026
 - **Fix:** `atomic_json.py` verwendet eindeutige Temp-Dateien im Zielverzeichnis, eine pro aufgelöstem Zielpfad geteilte Prozesssperre, `fsync`, atomaren Replace und einen kurzen begrenzten Retry ausschließlich für transiente Berechtigungs-/Sharing-Fehler. NeuroBrain und Crypto Trade Tracker halten ihre Zustandssperre bis zum abgeschlossenen Schreiben.
 - **Tests:** Die zwei neuen Regressionstests scheiterten vor der Implementierung wegen des fehlenden Helfers. Danach bestanden Retry mit zwei simulierten `PermissionError`-Fehlern, 24 parallele Schreibvorgänge, 13/13 gezielte Tests, `py_compile` und 226/226 Gesamttests.
 - **Liveergebnis:** Nach zwei vollständigen Produktionszyklen alle zehn Services `OK`; Fehlerjournal weiterhin insgesamt 180, beide Ziel-Fingerprints unverändert, keine verwaisten Temp-Dateien, aktuelle Crypto-Preise vorhanden und Telegram aus/Dry-Run.
+- **Veröffentlichung:** Commit `ed2a83e` auf `origin/agent/compact-neurobrain-payloads`; bestehender Draft-PR #13 aktualisiert und nicht gemergt.
 - **Abgrenzung:** Bestehende Runtime- und History-Dateien wurden nicht umgeschrieben oder gelöscht. Andere atomare JSON-Schreiber bleiben zunächst unverändert und werden nur bei eigenem reproduzierbarem Befund migriert.
 
 ### KP-R10 – Outcome Tracker mischte naive und UTC-Zeitstempel

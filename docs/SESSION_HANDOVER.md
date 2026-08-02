@@ -22,6 +22,7 @@ Die im Dauerbetrieb neu aufgetretenen `WinError 5` beim atomaren Ersetzen von `d
 - Gezielte Tests, `py_compile`, vollständige Suite, Diffprüfung und Runtime-Preflight ausgeführt.
 - Fehlerjournal-Baseline erfasst, den alten Prozess über die lokale Stop-API geordnet beendet und PandorickKi mit normalem Netzwerkzugriff, Telegram deaktiviert/Dry-Run kontrolliert neu gestartet.
 - Zwei vollständige Produktionszyklen sowie beide Zieldateien, Fehlerfingerprints und mögliche Temp-Reste live geprüft.
+- Commit `ed2a83e` erstellt und auf `origin/agent/compact-neurobrain-payloads` veröffentlicht; der bestehende Draft-PR #13 wurde aktualisiert und bleibt ungemergt.
 - Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht, geleert, migriert oder manuell verändert.
 
 ### Veränderte Dateien
@@ -93,11 +94,11 @@ Die im Dauerbetrieb neu aufgetretenen `WinError 5` beim atomaren Ersetzen von `d
 
 - `KP-016` ist noch nicht implementiert behoben.
 - NeuroBrain-Queue-/Batch-Entkopplung bleibt nach `KP-016` der nächste Architekturpunkt.
-- Die aktuellen Änderungen sind zu diesem Zeitpunkt noch nicht committed oder gepusht.
+- Draft-PR #13 enthält den Fix, bleibt aber bewusst Draft und ungemergt.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den finalen Scope- und Secret-Check ausführen, nur die neun aufgeführten Quell-/Test-/Dokumentationsdateien committen und auf den bestehenden Branch `agent/compact-neurobrain-payloads` beziehungsweise Draft-PR #13 pushen. Danach `KP-016` in einem eigenen kleinen Branch/PR testgetrieben beheben, ohne bestehende NeuroBrain-Inboxzeilen umzuschreiben.
+`KP-016` in einem eigenen kleinen gestapelten Branch/PR testgetrieben beheben: Markt- und Lifecycle-/Learning-Topics eindeutig trennen, bestehende NeuroBrain-Inboxzeilen nicht umschreiben und anschließend gezielt sowie vollständig testen. Erst danach die Queue-/Batch-Entkopplung beginnen.
 
 ---
 
