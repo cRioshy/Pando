@@ -113,6 +113,7 @@ Stand: 2. August 2026
 - `AI_LEARNING_UPDATED`, Graph-Projektionen und Muster-Buckets werden nicht länger als erfolgreiche Learnings, Modellupdates oder gelernte ML-Muster ausgegeben. API und UI melden ausdrücklich `ml_training.active=false` und `model_updates=0`.
 - 239/239 Gesamttests, Syntaxprüfung, Diffprüfung und Runtime-Preflight bestanden. Live waren Report-Hit-Rate und -Abdeckung samt Bruch sichtbar; historische Aggregate zeigten wegen KP-017 korrekt `nicht vergleichbar`.
 - Nach finalem kontrolliertem Neustart meldeten Plattform und alle zehn Services `OK`, Crypto und Stock jeweils zwei Zyklen, NeuroBrain null Queue-/Drop-/Workerfehler, Telegram aus/Dry-Run und null versendete Nachrichten.
+- Commit `e09c187` wurde auf `agent/unify-learning-metrics` veröffentlicht; der gestapelte Draft-PR #16 gegen `agent/queue-neurobrain-receiver` ist offen, Draft und ungemergt.
 - Bestehende Statistik-, Learning-, Graph- und Historydaten wurden weder gelöscht noch umgeschrieben.
 
 ### KP-R13 – NeuroBrain-Datei-I/O blockierte den synchronen Publisher

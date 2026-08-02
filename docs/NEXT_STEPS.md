@@ -86,6 +86,7 @@ Stand: 2. August 2026
    - Learning Report verwendet exakte `decision_id`-Zuordnung; nicht vergleichbare historische Aggregate liefern `null` statt einer erfundenen Quote.
    - UI, Statistik und Graph kennzeichnen Learning-Updates als Projektionen und melden ausdrücklich, dass kein ML-Modell trainiert wird.
    - 239/239 Gesamttests, Syntax-, Diff- und Runtime-Prüfung bestanden; zwei Livezyklen mit allen zehn Services `OK`, Crypto-Preisen, NeuroBrain ohne Drops und Telegram aus/Dry-Run verifiziert.
+   - Commit `e09c187` veröffentlicht; gestapelter Draft-PR #16 gegen `agent/queue-neurobrain-receiver` erstellt und nicht gemergt.
 
 10. **UI härten.**
     - Idempotentes Polling, WebSocket-Reconnect, `STALE`-Heartbeats und Graph-Performance bearbeiten.
@@ -104,6 +105,7 @@ Stand: 2. August 2026
 - Learning-Metrikvertrag `pandorickki.learning-metrics` Version 1 eingeführt; Hit-Rate, Outcome-Abdeckung, Projektionszähler und fehlendes ML-Training in Report, Statistik, Graph und UI eindeutig ausgewiesen.
 - 239/239 Gesamttests bestanden; lokale Oberfläche zeigte Brüche, `nicht vergleichbar` bei inkompatiblem Aggregatscope und keine Browser-Konsolenfehler.
 - Kontrollierter Neustart mit zwei vollständigen Crypto-/Stock-Zyklen: alle zehn Services `OK`, NeuroBrain Queue/Drops/Fehler null, Telegram aus/Dry-Run und null Nachrichten.
+- Commit `e09c187` auf `agent/unify-learning-metrics` veröffentlicht; Draft-PR #16 ist offen, Draft und ungemergt.
 - Nächster Arbeitsschritt ist ausschließlich Punkt 10: UI-Lebenszyklus, WebSocket-Reconnect, idempotentes Polling, STALE-Heartbeats und Graph-Performance.
 
 - NeuroBrain-Datei-I/O über begrenzte FIFO-Queue und einzelnen Batch-Worker vom Publisher entkoppelt; Drop-newest, Healthmetriken und vollständiger Flush-Shutdown getestet.

@@ -23,6 +23,7 @@ Learning-, Outcome-, Hit-Rate-, Pattern- und Trainingsmetriken fachlich vereinhe
 - Neue Vertragsdokumentation erstellt und `AGENTS.md`, Systemzustand sowie Architekturregeln erweitert.
 - Kontrollierten Live-Neustart durchgeführt. Zwei zunächst unvollständige Startkonfigurationen wurden anhand der öffentlichen API erkannt und jeweils geordnet beendet: zuerst fehlte `PANDORICKKI_LIVE_CRYPTO=1`, danach war der falsche NeuroBrain-Schalter gesetzt. Der finale Start verwendet die tatsächlichen Namen und sichere Werte.
 - Browseroberfläche nach dem finalen Code neu geladen und die konkreten Outcome-/Trading-/Graphwerte sowie Browserkonsole geprüft.
+- Implementierung als Commit `e09c18761270de1d877b318c13781f103aa0f72e` auf `agent/unify-learning-metrics` gepusht. Draft-PR #16 gegen `agent/queue-neurobrain-receiver` erstellt und als offen, Draft sowie ungemergt verifiziert.
 
 ### Veränderte Dateien
 
@@ -106,13 +107,12 @@ Learning-, Outcome-, Hit-Rate-, Pattern- und Trainingsmetriken fachlich vereinhe
 
 ### Nicht abgeschlossene Punkte
 
-- Branch noch committen, pushen und als gestapelten Draft-PR gegen `agent/queue-neurobrain-receiver` veröffentlichen; nicht mergen.
 - UI-Härtung aus Schritt 10 bleibt vollständig offen.
 - Für KP-017 existiert noch kein gemeinsamer Rekonstruktionscursor oder Migrationsvertrag.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den geprüften Branch veröffentlichen. Danach in einem eigenen kleinen Branch zuerst WebSocket-Reconnect und genau einen idempotenten Polling-Timer testgetrieben umsetzen; dabei Stop-/Restart-Wartezeit, STALE-Heartbeats und Graph-Performance weiterhin getrennt behandeln.
+In einem eigenen kleinen Branch zuerst WebSocket-Reconnect und genau einen idempotenten Polling-Timer testgetrieben umsetzen; dabei Stop-/Restart-Wartezeit, STALE-Heartbeats und Graph-Performance weiterhin getrennt behandeln.
 
 ## Aktuelle Aufgabe: NeuroBrain über begrenzte FIFO-Queue entkoppeln
 
