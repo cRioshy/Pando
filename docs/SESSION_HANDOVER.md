@@ -1,5 +1,106 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Windows-Schreibkonflikte in NeuroBrain und Crypto Trade Tracker beheben
+
+### Datum und Uhrzeit
+
+2. August 2026, 10:41 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die im Dauerbetrieb neu aufgetretenen `WinError 5` beim atomaren Ersetzen von `data/neurobrain/status.json` und `data/crypto_active_trades.json` reproduzierbar absichern, klein reparieren, vollständig testen und kontrolliert live verifizieren. Bestehende Runtime-/History-Dateien nicht löschen oder umschreiben; Telegram und reale Orderausführung nicht aktivieren.
+
+### Durchgeführte Arbeiten
+
+- Vorgeschriebene Übergabedokumentation und tatsächliche Schreibpfade erneut geprüft.
+- Fehlerjournal read-only ausgewertet: NeuroBrain-Status-Fingerprint drei Vorkommen, Crypto-Trade-Tracker-Fingerprint drei Vorkommen; beide `os.replace()` von festen `*.tmp`-Pfaden betroffen.
+- Weitere atomare JSON-Schreiber inventarisiert und die Änderung bewusst auf die zwei aktuell betroffenen Pfade begrenzt.
+- Zwei Regressionstests zuerst angelegt und vor der Implementierung mit fehlendem `atomic_json` reproduzierbar rot ausgeführt.
+- `atomic_json.py` ergänzt: JSON-Validierung, eindeutige Same-Directory-Temp-Datei, `fsync`, atomarer Replace, pro Zielpfad geteilte In-Process-Sperre, begrenzter Retry für transiente Windows-Permission-/Sharing-Fehler und Aufräumen ausschließlich der eigenen Temp-Datei.
+- NeuroBrain-Status und aktive Crypto-Trades auf den Helfer umgestellt.
+- Beide Adapter halten ihre eigene Zustandssperre jetzt bis zum erfolgreichen Dateireplace; dadurch können ältere Snapshots keine neueren Zustände nachträglich überschreiben.
+- Gezielte Tests, `py_compile`, vollständige Suite, Diffprüfung und Runtime-Preflight ausgeführt.
+- Fehlerjournal-Baseline erfasst, den alten Prozess über die lokale Stop-API geordnet beendet und PandorickKi mit normalem Netzwerkzugriff, Telegram deaktiviert/Dry-Run kontrolliert neu gestartet.
+- Zwei vollständige Produktionszyklen sowie beide Zieldateien, Fehlerfingerprints und mögliche Temp-Reste live geprüft.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht, geleert, migriert oder manuell verändert.
+
+### Veränderte Dateien
+
+- `adapters/crypto_trade_tracker.py`
+- `adapters/neurobrain_receiver_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `atomic_json.py`
+- `tests/test_atomic_json.py`
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md` und den fünf Übergabedateien.
+- Code- und Schreibpfadinventur mit `rg` und `Get-Content`; Git-Status-/Diffprüfung.
+- Read-only Auswertung von `data/service_error_summary.json` und der lokalen `/api/status`-Sicht.
+- Roter und grüner Lauf von `.\.venv\Scripts\python.exe -m unittest tests.test_atomic_json -v` beziehungsweise der gezielten Modulsuite.
+- `.\.venv\Scripts\python.exe -m py_compile atomic_json.py adapters\neurobrain_receiver_adapter.py adapters\crypto_trade_tracker.py tests\test_atomic_json.py`.
+- `.\.venv\Scripts\python.exe -m unittest discover -s tests`.
+- `.\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Kontrollierter Stop über `POST /api/control/stop`, verdeckter Neustart mit Live-Crypto/Stock, NeuroBrain aktiv und Telegram aus/Dry-Run.
+- Zwei Livezyklen über `/api/status`, anschließender Vergleich der Journalfingerprints und Suche nach eindeutigen Temp-Dateien.
+
+### Ausgeführte Tests
+
+- Zwei neue Atomic-JSON-Regressionstests vor und nach der Implementierung.
+- 13 gezielte Atomic-/NeuroBrain-/Crypto-Trade-Tracker-Tests.
+- `py_compile` der vier geänderten beziehungsweise neuen Python-Dateien.
+- Vollständige Unittest-Suite.
+- Runtime-Preflight.
+- Zwei vollständige Produktionszyklen mit Live-Crypto und Live-Stock.
+- Livevergleich von Servicezuständen, Fehlerjournal, Zieldatei-Zeitstempeln, Temp-Resten, Crypto-Preisen und Telegram-Status.
+
+### Tatsächliche Testergebnisse
+
+- Vor dem Fix: 2/2 neue Tests erwartungsgemäß rot mit `ModuleNotFoundError: atomic_json`.
+- Nach dem Fix: Retrytest bestand nach zwei simulierten transienten `PermissionError`; Paralleltest bestand mit 24 Schreibvorgängen aus acht Threads und valider Enddatei ohne Temp-Reste.
+- Gezielte Suite: 13/13 bestanden in 0,524 Sekunden.
+- Vollständige Suite: 226/226 bestanden in 41,406 Sekunden.
+- `py_compile`, Runtime-Preflight und `git diff --check`: bestanden.
+- Live: zwei vollständige Zyklen; Plattform, Web und alle zehn Services `OK`. Crypto 6, Stock 10 publizierte Ergebnisse.
+- Abschluss-Preise: BTCUSDT `63250.0`, ETHUSDT `1868.13`, XRPUSDT `1.0792`.
+- Fehlerjournal: insgesamt unverändert 180. NeuroBrain-Fingerprint unverändert 3, letzter Zeitpunkt 1. August 22:13:29 UTC; Crypto-Trade-Tracker-Fingerprint unverändert 3, letzter Zeitpunkt 2. August 07:54:17 UTC.
+- Keine eindeutigen oder alten `*.tmp`-Reste in den beiden betroffenen Datenverzeichnissen.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Bekannte `datetime.utcnow()`-DeprecationWarnings stammen unverändert aus dem externen Legacy-Crypto-Projekt.
+
+### Bekannte Fehler
+
+- `KP-016` bleibt offen: Nicht marktbezogene NeuroBrain-Topics tragen noch das Markt-Schema, obwohl Pflichtfelder fehlen können.
+- NeuroBrain bleibt synchroner EventBus-Consumer; Queue, Batch, Überlaufregel und sicherer Shutdown sind noch nicht implementiert.
+- Andere bestehende atomare JSON-Schreiber verwenden weiterhin ihre bisherigen Temp-Strategien; ohne reproduzierbaren Fehler wurden sie in dieser kleinen Reparatur nicht pauschal verändert.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Ein kleiner gemeinsamer Atomic-JSON-Helfer kapselt künftig ausschließlich die bereits benötigte Konfliktbehandlung; keine globale Persistenzmigration ohne eigenen Testbefund.
+- Einzigartige Temp-Dateien verhindern Schreiberkollisionen. Kurze begrenzte Retries behandeln nur transiente Windows-Sperren; endgültige Fehler bleiben sichtbar und werden nicht verschluckt.
+- Adapterzustand und Dateisnapshot werden unter derselben Adapter-Sperre geordnet.
+- Keine Änderung an Inbox-/Trade-History-Formaten, realer Orderausführung oder Telegram-Sicherheitsgrenze.
+
+### Nicht abgeschlossene Punkte
+
+- `KP-016` ist noch nicht implementiert behoben.
+- NeuroBrain-Queue-/Batch-Entkopplung bleibt nach `KP-016` der nächste Architekturpunkt.
+- Die aktuellen Änderungen sind zu diesem Zeitpunkt noch nicht committed oder gepusht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den finalen Scope- und Secret-Check ausführen, nur die neun aufgeführten Quell-/Test-/Dokumentationsdateien committen und auf den bestehenden Branch `agent/compact-neurobrain-payloads` beziehungsweise Draft-PR #13 pushen. Danach `KP-016` in einem eigenen kleinen Branch/PR testgetrieben beheben, ohne bestehende NeuroBrain-Inboxzeilen umzuschreiben.
+
+---
+
 ## Aktuelle Aufgabe: Gestapelten Payloadstand kontrolliert live verifizieren
 
 ### Datum und Uhrzeit

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from atomic_json import atomic_write_json
 from event_bus import Event, EventBus
 from event_payload_contract import compact_market_payload
 from jsonl_ledger import RotatingJsonlLedger
@@ -229,15 +228,7 @@ class NeuroBrainReceiverAdapter:
                 "inbox_path": str(self.inbox_file),
                 "updated_at": datetime.now(UTC).isoformat(),
             }
-        self.status_file.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.status_file.with_suffix(self.status_file.suffix + ".tmp")
-        text = json.dumps(payload, ensure_ascii=True, indent=2)
-        json.loads(text)
-        with temporary.open("w", encoding="utf-8") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, self.status_file)
+            atomic_write_json(self.status_file, payload)
 
     def _publish(self, topic: str, payload: dict[str, Any]) -> None:
         """Publish receiver lifecycle/status events."""

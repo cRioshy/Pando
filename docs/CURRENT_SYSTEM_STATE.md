@@ -1,7 +1,11 @@
 # PandorickKi – aktueller Systemzustand
 
-Stand: 1. August 2026
+Stand: 2. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
+
+Die wiederkehrenden Windows-Schreibkonflikte am NeuroBrain-Status und an den aktiven simulierten Crypto-Trades wurden am 2. August 2026 repariert. Beide Pfade verwenden jetzt eindeutige, gleichverzeichnisige Temp-Dateien, eine pro Zielpfad geteilte In-Process-Sperre und einen kurzen begrenzten Retry für transiente `PermissionError`-/Windows-Sharing-Verstöße. Der jeweilige Adapter hält zusätzlich seine Zustandssperre bis zum erfolgreichen atomaren Replace, damit ältere Snapshots keine neueren überschreiben.
+
+Nach dem kontrollierten Neustart liefen zwei vollständige Produktionszyklen mit allen zehn Services `OK`. Crypto lieferte sechs, Stock zehn neue Ergebnisse. Die Fehlerjournal-Summe blieb bei 180; die betroffenen NeuroBrain- und Crypto-Trade-Tracker-Fingerprints blieben bei jeweils drei Vorkommen und ihren bisherigen letzten Zeitpunkten. Es entstanden keine verwaisten Temp-Dateien. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten.
 
 Der vollständige gestapelte Payloadstand wurde am 1. August 2026 kontrolliert live gestartet. Nach dem aussagekräftigen Neustart mit freigegebenem Netzwerkzugriff liefen drei vollständige Produktionszyklen: Plattform, Web und alle zehn Services meldeten `OK`; Crypto lieferte je Zyklus drei und Stock fünf Ergebnisse. BTCUSDT, ETHUSDT und XRPUSDT hatten aktuelle Preise. Seit diesem Neustart entstand kein neuer Journaleintrag; Telegram blieb `enabled=false`, `dry_run=true` und bei null versendeten Nachrichten.
 
@@ -120,6 +124,8 @@ Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract
 
 `OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert. Beim Berechnen von Laufzeiten werden historische ISO-Zeitstempel ohne Offset rückwärtskompatibel als UTC interpretiert; die gespeicherten Originalwerte werden nicht umgeschrieben.
 
+Der Crypto Trade Tracker serialisiert Zustandsänderung und aktiven JSON-Snapshot unter derselben Adapter-Sperre. Sein atomarer Schreibpfad verwendet konfliktfreie Temp-Dateien und einen begrenzten Windows-Retry; die append-only Trade-History bleibt unverändert.
+
 Der Crypto Trade Tracker bevorzugt für die Stop-Berechnung die kompakten Felder `market_context.recent_swing_low` beziehungsweise `recent_swing_high`. Vorhandene Events und History ohne diese Felder bleiben über den bisherigen Kerzenpfad in `raw_result` lesbar.
 
 ## Learning und History
@@ -129,6 +135,8 @@ Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorh
 Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
 Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Marktbezogene neue Zeilen erfüllen den Vertrag live vollständig; Lifecycle-/Learning-Zeilen werden derzeit ebenfalls mit dem Markt-Schemanamen versehen, obwohl `market_type` oder `symbol` fehlen können.
+
+Seine kleine Statusdatei wird unter der Adapter-Sperre über denselben konfliktresistenten atomaren JSON-Schreibpfad ersetzt. Die Inbox selbst bleibt append-only und wurde durch diese Reparatur nicht migriert oder umgeschrieben.
 
 Der Storage-Statistikdienst besitzt inzwischen:
 
@@ -193,7 +201,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 1. August 2026 bestand nach der kompakten NeuroBrain-Migration mit 224/224 Tests in 50,007 Sekunden. Die NeuroBrain-Tests prüfen Schema, zweistufige ID-Kette, Bulk-Ausschluss, Größenreduktion, unverändertes Quell-Event, Duplikatschutz und unveränderte alte Inboxzeilen. 18 gezielte NeuroBrain-/Vertrags-/Decision-/Brain-Tests bestanden ebenfalls.
+Der vollständige Lauf am 2. August 2026 bestand nach der atomaren Schreibreparatur mit 226/226 Tests in 41,406 Sekunden. Zwei neue Regressionstests prüfen begrenzte Wiederholung nach transientem `PermissionError`, 24 parallele Schreibvorgänge, valide Enddatei und vollständiges Aufräumen eindeutiger Temp-Dateien. 13 gezielte Atomic-/NeuroBrain-/Crypto-Trade-Tracker-Tests bestanden ebenfalls.
 
 ## Bekannte Risiken
 
@@ -213,3 +221,4 @@ Der vollständige Lauf am 1. August 2026 bestand nach der kompakten NeuroBrain-M
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
 15. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
 16. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.
+17. Der neue konfliktresistente Atomic-JSON-Helfer ist zunächst bewusst auf NeuroBrain-Status und aktive Crypto-Trades begrenzt. Andere bestehende atomare JSON-Schreiber verwenden weiterhin ihre bisherigen Implementierungen und müssen nur bei tatsächlicher Konkurrenz oder eigenem Fehlerbefund migriert werden.

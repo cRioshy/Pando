@@ -1,6 +1,6 @@
 # Bekannte Probleme
 
-Stand: 1. August 2026
+Stand: 2. August 2026
 
 ## Offen
 
@@ -103,6 +103,16 @@ Stand: 1. August 2026
 - **Nächster Fix:** Vor der Queue-/Batch-Entkopplung Topicgruppen und Schemazuständigkeit festlegen. Nicht marktbezogene Ereignisse entweder mit einem eigenen kompakten Lifecycle-Schema persistieren oder nur dann als Markt-Schema kennzeichnen, wenn alle Pflichtfelder vorhanden sind; Regressionstests für beide Gruppen ergänzen.
 
 ## Behoben oder entschärft
+
+### KP-R11 – Feste Temp-Dateien kollidierten bei atomaren Runtime-Schreibvorgängen
+
+- **Status:** behoben, getestet und am 2. August 2026 live verifiziert
+- **Beobachtung:** NeuroBrain-Status und aktive Crypto-Trades verwendeten jeweils einen festen `*.tmp`-Pfad. Im Dauerbetrieb traten `WinError 5` beim `os.replace()` auf; der Crypto-Trade-Tracker-Fingerprint erreichte drei und der NeuroBrain-Fingerprint ebenfalls drei Vorkommen.
+- **Ursache:** Parallele Schreiber konnten denselben Temp-Pfad verwenden; zusätzlich konnte ein kurzer Windows-Dateizugriff das Replace der Zieldatei blockieren. Zustandssnapshot und Dateischreiben waren nicht über dieselbe Adapter-Sperre geordnet.
+- **Fix:** `atomic_json.py` verwendet eindeutige Temp-Dateien im Zielverzeichnis, eine pro aufgelöstem Zielpfad geteilte Prozesssperre, `fsync`, atomaren Replace und einen kurzen begrenzten Retry ausschließlich für transiente Berechtigungs-/Sharing-Fehler. NeuroBrain und Crypto Trade Tracker halten ihre Zustandssperre bis zum abgeschlossenen Schreiben.
+- **Tests:** Die zwei neuen Regressionstests scheiterten vor der Implementierung wegen des fehlenden Helfers. Danach bestanden Retry mit zwei simulierten `PermissionError`-Fehlern, 24 parallele Schreibvorgänge, 13/13 gezielte Tests, `py_compile` und 226/226 Gesamttests.
+- **Liveergebnis:** Nach zwei vollständigen Produktionszyklen alle zehn Services `OK`; Fehlerjournal weiterhin insgesamt 180, beide Ziel-Fingerprints unverändert, keine verwaisten Temp-Dateien, aktuelle Crypto-Preise vorhanden und Telegram aus/Dry-Run.
+- **Abgrenzung:** Bestehende Runtime- und History-Dateien wurden nicht umgeschrieben oder gelöscht. Andere atomare JSON-Schreiber bleiben zunächst unverändert und werden nur bei eigenem reproduzierbarem Befund migriert.
 
 ### KP-R10 – Outcome Tracker mischte naive und UTC-Zeitstempel
 

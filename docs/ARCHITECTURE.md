@@ -1,6 +1,6 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 1. August 2026
+Stand: 2. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 
@@ -109,7 +109,7 @@ flowchart TD
     EVENTS --> NEURO["NeuroBrain Inbox JSONL"]
     ERRORS["Nur Fehlerereignisse"] --> ERRLOG["service_errors.jsonl, 5 MiB + max. 4 Archive"]
     ERRORS --> ERRSUM["service_error_summary.json, atomar + max. 500 Fingerprints"]
-    OPEN["Offene simulierte Trades"] --> JSON["Atomar ersetztes JSON"]
+    OPEN["Offene simulierte Trades"] --> JSON["Konfliktresistent atomar ersetztes JSON"]
     BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
     SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
     SCAN --> UNIQUE["Einmaliger Scan je aufgelöstem physischen Pfad"]
@@ -132,6 +132,8 @@ Timeout, Abbruch und einzelne verschwundene Dateien beenden nicht die Verfügbar
 Das Fehlerjournal wird vor den Adaptern an den Wildcard-Kanal des EventBus gehängt und nach deren Shutdown entfernt. Es speichert Ereignis-/Korrelations-ID, Zeit, Topic, Service, Stufe, Symbol, Provider, Fehlerart und bis zu zehn kompakte Provider-Versuche. Secrets werden anhand sensibler Schlüsselnamen und Textmustern ersetzt; rohe Payloads und Response-Bodies werden nicht persistiert. Eigene Schreibfehler werden im Journal-Health gezählt und nicht an den Publisher weitergeworfen.
 
 Der Scanner besitzt einen eigenen Lebenszyklus-Lock und einen dauerhaften `closed`-Zustand. `start_scan()` lehnt nach `close()` neue Hintergrundscans mit `CLOSED` ab; synchrone `refresh()`-Aufrufe liefern danach nur noch den letzten Snapshot. `close()` setzt das Abbruchsignal und wartet ohne willkürlichen Ein-Sekunden-Abbruch auf den aktiven Worker. Eine Sperrbarriere stellt zusätzlich sicher, dass auch ein synchron laufender Refresh beendet ist. Deshalb kann nach Rückkehr von `close()` kein Cache- oder Index-Schreibvorgang mehr stattfinden. Wiederholtes `close()` ist idempotent.
+
+`atomic_json.py` stellt für kleine, häufig ersetzte Runtime-Zustände einen konfliktresistenten Pfad bereit. Er serialisiert Schreiber auf denselben aufgelösten Zielpfad, schreibt jede Version in eine eigene Temp-Datei im Zielverzeichnis, validiert und `fsync`-t den JSON-Inhalt und ersetzt danach atomar. Transiente Windows-`PermissionError`- beziehungsweise Sharing-Verstöße werden mit kurzen begrenzten Delays erneut versucht; bei endgültigem Fehler wird nur die eigene Temp-Datei aufgeräumt und der Fehler weitergereicht. Aktuell verwenden NeuroBrain-Status und aktive Crypto-Trades diesen Helfer. Beide Adapter halten ihre Zustandssperre bis zum erfolgreichen Replace, damit Snapshot- und Dateireihenfolge übereinstimmen.
 
 ## Webarchitektur
 
@@ -163,7 +165,7 @@ Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage
 
 ## Kompakter Event-Payload-Vertrag
 
-Der noch nicht produktiv aktivierte Vertrag `pandorickki.compact-market-event` Version 1 beschreibt die kontrollierte Migration weg von vollständigen Raw Results. Seine ausführbare Referenz ist `event_payload_contract.py`; die Feldmatrix und Migrationsregeln stehen in `docs/EVENT_PAYLOAD_CONTRACT.md`.
+Der produktiv aktive Vertrag `pandorickki.compact-market-event` Version 1 beschreibt die kontrollierte Migration weg von vollständigen Raw Results. Seine ausführbare Referenz ist `event_payload_contract.py`; die Feldmatrix und Migrationsregeln stehen in `docs/EVENT_PAYLOAD_CONTRACT.md`.
 
 ```mermaid
 flowchart LR
@@ -180,7 +182,7 @@ flowchart LR
     RESULT --> PROJECT
 ```
 
-Brain verwendet die Projektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. NeuroBrain behält eine kompakte Kopfsicht und persistiert als Detailpayload nur noch Version 1. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Damit ist der dargestellte kompakte Persistenzfluss implementiert, aber noch nicht kontrolliert live neu gestartet.
+Brain verwendet die Projektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. NeuroBrain behält eine kompakte Kopfsicht und persistiert als Detailpayload nur noch Version 1. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Der dargestellte kompakte Persistenzfluss ist implementiert und kontrolliert live verifiziert; `KP-016` dokumentiert die noch offene Schemaabgrenzung nicht marktbezogener NeuroBrain-Topics.
 
 ## Crypto-Ausfall- und Fallback-Semantik
 

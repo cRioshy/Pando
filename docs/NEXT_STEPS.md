@@ -1,6 +1,6 @@
 # Nächste Schritte
 
-Stand: 1. August 2026
+Stand: 2. August 2026
 
 ## Verbindliche Reihenfolge
 
@@ -69,6 +69,8 @@ Stand: 1. August 2026
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
+   - **Vorgelagerte Schreibkonflikte am 2. August 2026 behoben und live verifiziert:** eindeutige Temp-Dateien, Pfadsperre, begrenzter Windows-Retry und geordnete Zustandssnapshots für NeuroBrain-Status und aktive Crypto-Trades.
+   - 13/13 gezielte und 226/226 vollständige Tests bestanden; zwei Produktionszyklen ohne neue Ziel-Fingerprints oder Temp-Reste.
    - Vorher `KP-016` beheben: Markt- und Lifecycle-/Learning-Topics schematisch eindeutig trennen und Regressionstests ergänzen.
    - Begrenzte Queue, Überlaufregel, Batch-Schreiben, atomaren Status und sicheren Shutdown umsetzen.
    - Zunächst nur NeuroBrain entkoppeln, nicht ungeprüft den vollständigen EventBus ersetzen.
@@ -91,6 +93,8 @@ Stand: 1. August 2026
 
 ## Zuletzt erledigt
 
+- Wiederkehrende `WinError 5`-Konflikte bei NeuroBrain-Status und aktiven Crypto-Trades mit einem konfliktresistenten atomaren JSON-Schreibpfad behoben.
+- Retry- und Parallelitätsregressionen, 13/13 gezielte sowie 226/226 vollständige Tests bestanden; zwei Livezyklen ohne neue Fehlerfingerprints oder Temp-Reste.
 - Vollständigen gestapelten Payloadstand kontrolliert live gestartet und drei saubere Produktionszyklen verifiziert.
 - Neue Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen verwenden Version 1, enthalten keine Bulk-Felder und behalten die vollständige ID-Kette.
 - Live-Vertragslücke für nicht marktbezogene NeuroBrain-Topics als `KP-016` dokumentiert; noch keine Queue-/Batch-Änderung begonnen.
