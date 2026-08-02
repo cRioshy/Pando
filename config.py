@@ -93,6 +93,7 @@ class PlatformConfig:
     cycle_interval: float = 60.0
     control_center_enabled: bool = True
     control_refresh_seconds: float = 1.0
+    service_heartbeat_stale_seconds: float = 150.0
     event_bus_max_history: int = 2000
     storage_scan_interval_seconds: float = 60.0
     storage_scan_timeout_seconds: float = 30.0
@@ -237,6 +238,10 @@ class PlatformConfig:
             cycle_interval=_env_float("PANDORICKKI_CYCLE_INTERVAL", 60.0),
             control_center_enabled=_env_bool("PANDORICKKI_CONTROL_CENTER_ENABLED", True),
             control_refresh_seconds=_env_float("PANDORICKKI_CONTROL_REFRESH", 1.0),
+            service_heartbeat_stale_seconds=_env_float(
+                "PANDORICKKI_SERVICE_HEARTBEAT_STALE_SECONDS",
+                150.0,
+            ),
             event_bus_max_history=_env_int("PANDORICKKI_EVENT_BUS_MAX_HISTORY", 2000),
             storage_scan_interval_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_INTERVAL", 60.0),
             storage_scan_timeout_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_TIMEOUT", 30.0),
@@ -298,6 +303,8 @@ class PlatformConfig:
             warnings.append("Cycle interval below 0.1 seconds; minimum runtime value is 0.1.")
         if self.control_refresh_seconds < 0.1:
             warnings.append("Control refresh below 0.1 seconds; minimum runtime value is 0.1.")
+        if self.service_heartbeat_stale_seconds < 1.0:
+            warnings.append("Service heartbeat stale threshold below 1 second; suitable only for tests.")
         if self.event_bus_max_history < 100:
             warnings.append("EventBus max history below 100; suitable only for tests.")
         if self.storage_scan_interval_seconds < 5.0:
@@ -394,6 +401,7 @@ class PlatformConfig:
             cycle_interval=self.cycle_interval,
             control_center_enabled=enabled,
             control_refresh_seconds=self.control_refresh_seconds,
+            service_heartbeat_stale_seconds=self.service_heartbeat_stale_seconds,
             event_bus_max_history=self.event_bus_max_history,
             storage_scan_interval_seconds=self.storage_scan_interval_seconds,
             storage_scan_timeout_seconds=self.storage_scan_timeout_seconds,

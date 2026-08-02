@@ -46,7 +46,7 @@ flowchart LR
 
 ## Prozess- und Lebenszyklusmodell
 
-`main.py` erzeugt den `Orchestrator` und startet abhängig von den CLI-Argumenten einen einzelnen oder kontinuierlichen Lauf. `Orchestrator.start()` startet Adapter sequentiell. Pro Zyklus werden deren `run_once()`-Methoden als AsyncIO-Tasks erstellt und mit `asyncio.gather()` gemeinsam abgewartet. Ein allgemeiner Timeout um alle Adaptertasks existiert nicht.
+`main.py` erzeugt den `Orchestrator` und startet abhängig von den CLI-Argumenten einen einzelnen oder kontinuierlichen Lauf. `Orchestrator.start()` startet Adapter sequentiell. Pro Zyklus werden deren `run_once()`-Methoden als AsyncIO-Tasks erstellt und mit `asyncio.gather()` gemeinsam abgewartet. Ein allgemeiner Timeout um alle Adaptertasks existiert nicht. Der Warteabschnitt zwischen Zyklen prüft Stop und Restart höchstens alle 100 Millisekunden. Restart stoppt und startet dieselben Adapterinstanzen im Prozess; bei aktivem Terminal-Control-Center wird dessen Live-Task ebenfalls wieder gestartet. Ein bereits laufender Adapterzyklus wird bewusst nicht hart abgebrochen.
 
 Im Webmodus erzeugt `main.py` zusätzlich `WebControlServer`. Der HTTP-Server läuft als `ThreadingHTTPServer` in einem Hintergrundthread. Periodische Webaufgaben laufen im vorhandenen AsyncIO-Loop; der Storage-Scanner verwendet zusätzlich genau einen eigenen Workerthread.
 
@@ -151,8 +151,13 @@ Der NeuroBrain-Wildcard-Handler führt keine Dateioperation mehr im Publisher-Th
 flowchart LR
     API["HTTP JSON API"] --> UI["Control Center"]
     WS["/ws/live"] --> UI
+    WS -->|"close/error"| POLL["ein Polling-Fallback"]
+    POLL -->|"Backoff-Reconnect"| WS
     STATIC["Lokale HTML/CSS/JS/Vendor-Dateien"] --> UI
     STATE["SharedState + ControlCenterAdapter"] --> API
+    STATE --> STALE["Heartbeat-Alter + STALE-Projektion"]
+    STALE --> API
+    STALE --> WS
     STATS["Analyse-/Storage-Statistik"] --> API
     GRAPH["Learning/Knowledge Graph"] --> API
     RICK["Read-only Rick API + Audit"] --> API
@@ -160,7 +165,7 @@ flowchart LR
 
 Die Web-API sanitiziert öffentliche Payloads und entfernt Secrets sowie große interne Felder. Markt-/Heartbeat-Broadcasts und Statistikupdates werden gedrosselt. Der Storage-Refresh antwortet asynchron mit HTTP `202`.
 
-Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage-Snapshots werden single-flight geladen. Lokale Skripte verwenden `defer` und Cache-Buster. Ein belastbarer WebSocket-Reconnect sowie idempotente Polling-Timer fehlen noch.
+Die Browseroberfläche verwendet WebSocket-Liveupdates und genau einen idempotenten HTTP-Polling-Fallback. Polling-Aufrufe sind single-flight. Nach `close` oder `error` startet ein begrenzter exponentieller Reconnect; Verbindungsgenerationen verhindern, dass alte Socket-Callbacks den neuen Zustand überschreiben. Storage- und Learning-Graph-Ladevorgänge sind single-flight. Graphinteraktionen werden mit `requestAnimationFrame` koalesziert; Force-Layoutpositionen werden für unveränderte Knoten-/Kantenstruktur wiederverwendet. Lokale Skripte verwenden `defer` und Cache-Buster.
 
 ## Learning- und Outcome-Metrikgrenze
 
@@ -242,4 +247,5 @@ Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturser
 - Keine zentrale Retention-Policy für den gesamten Runtime-Bestand.
 - Absolute Windows-Pfade begrenzen Portabilität.
 - Storage-Scans können trotz inkrementellem Index das Zeitlimit überschreiten.
-- Health zeigt Heartbeats, klassifiziert aber keine veralteten Services.
+- `STALE` kann nur für Services mit bekanntem Heartbeat bestimmt werden; heartbeatlose Services behalten ihren sonstigen Status.
+- Stop und Restart unterbrechen den Zyklus-Warteabschnitt, nicht einen bereits laufenden Adapterzyklus.

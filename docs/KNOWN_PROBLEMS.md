@@ -15,14 +15,6 @@ Stand: 2. August 2026
 - **Neustartprüfung:** Nach dem kontrollierten Neustart dauerte ein Produktionsscan 2,416 Sekunden, bearbeitete 106/106 Dateien und erhöhte den JSONL-Fortschritt auf 9,20 %; kein Timeout trat auf.
 - **Unabhängige Datenwarnung:** `stock_patterns.json` und dessen Backup `stock_patterns.before_json_repair_20260710_224237.json` enthalten vorhandene JSON-Syntaxfehler und halten den Gesamtstatus auf `DEGRADED`; sie wurden nicht verändert.
 
-### KP-002 – WebSocket-Fallback und Reconnect sind unvollständig
-
-- **Priorität:** hoch
-- **Status:** offen
-- **Beobachtung:** `close` startet ungeprüft ein neues Polling-Intervall, `error` setzt nur den Textstatus, Nachrichten werden ohne lokalen JSON-/Render-Fehlerpfad verarbeitet und ein Reconnect fehlt.
-- **Auswirkung:** Die Oberfläche kann „Polling“ anzeigen, ohne zuverlässig weiterzuladen, oder mehrere Polling-Timer erzeugen.
-- **Nächster Fix:** genau einen Polling-Timer verwalten, `error` und `close` idempotent behandeln, begrenzten Backoff-Reconnect ergänzen und mit Webtests absichern.
-
 ### KP-003 – Synchroner EventBus kann Publisher blockieren
 
 - **Priorität:** mittel
@@ -63,26 +55,12 @@ Stand: 2. August 2026
 - **Beobachtung:** Keine verbindliche Sortierungs-, Duplikat-, OHLC-Konsistenz-, Non-Finite- oder Mindestkerzenprüfung.
 - **Auswirkung:** Ungültige Eingangsdaten können Zwischenrechnungen und Warmup-Werte beeinflussen.
 
-### KP-008 – Heartbeats werden nicht als veraltet klassifiziert
-
-- **Priorität:** niedrig
-- **Status:** offen
-- **Beobachtung:** Zeitstempel werden angezeigt, aber es existiert keine zentrale `STALE`-Schwelle.
-
 ### KP-009 – Portabilität durch lokale Windows-Pfade eingeschränkt
 
 - **Priorität:** niedrig
 - **Status:** offen
 - **Beobachtung:** Standard- und Batchpfade verweisen teilweise auf lokale externe Projekte.
 - **Auswirkung:** Ein neuer Rechner benötigt explizite Pfadkonfiguration.
-
-### KP-013 – Web-Stop reagiert erst nach dem Zyklusintervall
-
-- **Priorität:** niedrig
-- **Status:** offen; kontrollierter Shutdown funktioniert, reagiert aber verzögert
-- **Beobachtung:** Der am 1. August 2026 gesendete `/api/control/stop`-Befehl wurde sofort akzeptiert, der Prozess beendete sich jedoch erst nach dem laufenden, nicht unterbrechbaren `asyncio.sleep(cycle_interval)` von bis zu 60 Sekunden.
-- **Auswirkung:** Die Oberfläche zeigt einen akzeptierten Stop, während Port und Prozess noch bis zum nächsten Schleifendurchlauf aktiv bleiben.
-- **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
 ### KP-017 – Historische Statistikzähler besitzen keinen gemeinsamen Outcome-Scope
 
@@ -104,6 +82,16 @@ Stand: 2. August 2026
 - **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
 
 ## Behoben oder entschärft
+
+### KP-R15 – UI-Reconnect, STALE und Lifecycle waren unvollständig
+
+- **Status:** behoben, getestet und am 2. August 2026 live verifiziert
+- Genau ein Polling-Fallback, single-flight Statusabruf, WebSocket-Reconnect mit begrenztem Backoff und Schutz vor alten Socket-Callbacks sind implementiert.
+- REST- und WebSocket-Snapshots berechnen Heartbeat-Alter und klassifizieren bekannte Heartbeats nach standardmäßig 150 Sekunden als `STALE`, ohne `ERROR`, `STOPPED` oder `DISABLED` zu überschreiben.
+- Stop und Restart unterbrechen den Zyklus-Warteabschnitt im 100-ms-Raster. Restart startet die Adapter im selben Prozess neu; die Liveprüfung meldete `APPLIED` nach rund 104 ms. Ein vollständiger Prozess-Stop gab Port 8000 in 2,326 Sekunden frei.
+- Steuerbefehle erzeugen keinen Phantom-Service mehr.
+- Der Learning Graph verwendet Frame-Koaleszierung, single-flight Laden, Hidden-Tab-Skip und wiederverwendete Layoutpositionen. 76 Knoten und 179 Kanten wurden live ohne Browserfehler dargestellt.
+- Grenze: Ein bereits laufender Adapterzyklus wird nicht hart abgebrochen. Diese sichere Semantik bleibt zu beobachten.
 
 ### KP-R14 – Learning-, Outcome- und Trainingsmetriken waren widersprüchlich benannt
 

@@ -173,6 +173,7 @@ class Orchestrator:
         max_cycles: int | None = None,
         should_pause: Callable[[], bool] | None = None,
         should_stop: Callable[[], bool] | None = None,
+        take_restart_request: Callable[[], bool] | None = None,
     ) -> HealthReport | None:
         """Run orchestration cycles until cancelled or max_cycles is reached."""
 
@@ -184,18 +185,80 @@ class Orchestrator:
         while max_cycles is None or cycles < max_cycles:
             if should_stop is not None and should_stop():
                 break
+            if take_restart_request is not None and take_restart_request():
+                await self._restart_adapters(
+                    restart_live_control=live_control,
+                    refresh_seconds=refresh_seconds,
+                )
+                continue
             if should_pause is not None and should_pause():
-                await asyncio.sleep(max(min(cycle_interval, 1.0), 0.1))
+                action = await self._wait_for_control_action(
+                    min(max(cycle_interval, 0.1), 1.0),
+                    should_stop=should_stop,
+                    take_restart_request=take_restart_request,
+                )
+                if action == "stop":
+                    break
+                if action == "restart":
+                    await self._restart_adapters(
+                        restart_live_control=live_control,
+                        refresh_seconds=refresh_seconds,
+                    )
                 continue
             last_report = await self.run_once(final_control_snapshot=final_control_snapshot)
             cycles += 1
             if max_cycles is not None and cycles >= max_cycles:
                 break
-            await asyncio.sleep(max(cycle_interval, 0.1))
+            action = await self._wait_for_control_action(
+                max(cycle_interval, 0.1),
+                should_stop=should_stop,
+                take_restart_request=take_restart_request,
+            )
+            if action == "stop":
+                break
+            if action == "restart":
+                await self._restart_adapters(
+                    restart_live_control=live_control,
+                    refresh_seconds=refresh_seconds,
+                )
         if live_control:
             await self.stop_live_control()
             await self._publish_final_control_snapshot()
         return last_report
+
+    async def _wait_for_control_action(
+        self,
+        delay: float,
+        *,
+        should_stop: Callable[[], bool] | None,
+        take_restart_request: Callable[[], bool] | None,
+    ) -> str | None:
+        """Wait interruptibly so stop and restart do not wait for the next cycle."""
+
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(delay, 0.0)
+        while True:
+            if should_stop is not None and should_stop():
+                return "stop"
+            if take_restart_request is not None and take_restart_request():
+                return "restart"
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            await asyncio.sleep(min(remaining, 0.1))
+
+    async def _restart_adapters(
+        self,
+        *,
+        restart_live_control: bool,
+        refresh_seconds: float,
+    ) -> None:
+        """Restart the existing adapter set without replacing the web process."""
+
+        await self.stop()
+        await self.start()
+        if restart_live_control:
+            await self.start_live_control(refresh_seconds=refresh_seconds)
 
     async def start_live_control(self, refresh_seconds: float = 1.0) -> None:
         """Start the ControlCenter live view as a background task."""

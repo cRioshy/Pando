@@ -15,6 +15,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from adapters.control_center_adapter import ControlCenterAdapter
@@ -23,6 +24,7 @@ from event_bus import Event
 from orchestrator import NoopAdapter, Orchestrator
 from shared_state import SharedState
 from web.api import WebControlServer
+from web.schemas import WebControlState
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -162,6 +164,7 @@ class WebControlCenterTest(unittest.TestCase):
                     self.assertIn("101 Switching Protocols", handshake)
                     initial = read_ws_frame(sock)
                     self.assertNotIn("statistics", initial["snapshot"])
+                    self.assertIn("service_heartbeat_stale_after_seconds", initial["snapshot"])
                     orchestrator.event_bus.publish(
                         Event(
                             topic="CRYPTO_ANALYSIS_FINISHED",
@@ -218,6 +221,36 @@ class WebControlCenterTest(unittest.TestCase):
         self.assertIn("outcome_coverage_percent", script)
         self.assertIn("hit_rate_denominator", script)
         self.assertIn("rateWithFraction", script)
+        self.assertIn("scheduleWebSocketReconnect", script)
+        self.assertIn("if (state.pollTimer !== null) return", script)
+        self.assertIn("window.requestAnimationFrame", script)
+        self.assertNotIn("state.pollTimer = setInterval(poll", script)
+
+    def test_restart_request_is_consumed_once(self) -> None:
+        control = WebControlState()
+        control.apply("restart", "test")
+
+        self.assertTrue(control.take_restart_request())
+        self.assertFalse(control.take_restart_request())
+        snapshot = control.snapshot()
+        self.assertFalse(snapshot["restart_requested"])
+        self.assertEqual(snapshot["last_command"]["status"], "APPLIED")
+
+    def test_old_known_heartbeat_is_marked_stale(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            orchestrator, server = self.make_server(Path(temp))
+            old = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+            snapshot = {
+                "service_status": {"crypto": "OK", "stock": "ERROR"},
+                "service_heartbeats": {"crypto": old, "stock": old},
+            }
+
+            server._apply_stale_heartbeats(snapshot)
+
+            self.assertEqual(snapshot["service_status"]["crypto"], "STALE")
+            self.assertEqual(snapshot["service_status"]["stock"], "ERROR")
+            self.assertEqual(snapshot["stale_services"], ["crypto"])
+            self.assertGreater(snapshot["service_heartbeat_age_seconds"]["crypto"], 500)
 
     def test_bad_event_does_not_stop_webserver(self) -> None:
         async def run() -> None:
@@ -257,6 +290,7 @@ class WebControlCenterTest(unittest.TestCase):
                 self.assertEqual(pause["command"]["action"], "pause")
                 self.assertTrue((temp_path / "commands.jsonl").exists())
                 self.assertFalse(server.is_local_address("192.168.0.20"))
+                self.assertNotIn("web_control_center", server.snapshot()["service_status"])
 
         asyncio.run(run())
 

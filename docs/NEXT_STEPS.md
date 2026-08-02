@@ -89,9 +89,12 @@ Stand: 2. August 2026
    - Commit `e09c187` veröffentlicht; gestapelter Draft-PR #16 gegen `agent/queue-neurobrain-receiver` erstellt und nicht gemergt.
 
 10. **UI härten.**
-    - Idempotentes Polling, WebSocket-Reconnect, `STALE`-Heartbeats und Graph-Performance bearbeiten.
-    - Control-Buttons entweder an echte Lebenszyklusaktionen koppeln oder korrekt als UI-Zustand beschriften.
-    - Stop-/Restart-Wartezeit unterbrechbar machen; aktuell wird ein akzeptierter Stop erst nach dem bis zu 60 Sekunden langen Zyklus-Sleep wirksam.
+    - **Erledigt und am 2. August 2026 live verifiziert.**
+    - Genau ein Polling-Fallback, single-flight Statusabruf und WebSocket-Reconnect mit begrenztem Backoff umgesetzt.
+    - REST- und Live-WebSocket-Snapshots liefern Heartbeat-Alter und zentrale `STALE`-Klassifikation mit konfigurierbarer 150-Sekunden-Standardschwelle.
+    - Stop/Restart unterbrechen den Zyklus-Warteabschnitt im 100-ms-Raster; Restart startet die Adapter im selben Prozess. Kein Phantom-Service durch Steuerbefehle.
+    - Learning Graph koalesziert Interaktionen per Browser-Frame, lädt single-flight, pausiert in ausgeblendeten Tabs und berechnet das Force-Layout nur bei Strukturänderung neu.
+    - 243/243 Gesamttests, JavaScript-Syntax und Diffprüfung bestanden. Live: Reconnect ohne Reload, zehn Services, Health `OK`, Restart `APPLIED` nach rund 104 ms, Prozess-Stop 2,326 s, 76 Knoten/179 Kanten, keine Browserfehler, Telegram aus/Dry-Run.
 
 ## Erst anschließend
 
@@ -101,6 +104,10 @@ Stand: 2. August 2026
 - Aufbewahrungs-/Archivkonzept und Portabilität der Legacy-Pfade separat planen, ohne bestehende History zu löschen.
 
 ## Zuletzt erledigt
+
+- UI-Härtung abgeschlossen: idempotentes Polling, Backoff-Reconnect, zentrale STALE-Projektion, echter In-Process-Restart, schneller Stop-Wartepfad und Graph-Koaleszierung.
+- 243/243 Gesamttests bestanden; Browser reconnectete nach Prozessneustart ohne Reload und zeigte zehn korrekte Services mit Heartbeat-Alter.
+- Nächster Arbeitsschritt ist der Feature-Datenqualitätsvertrag. Noch keine Umsetzung von Decision Gate oder Telegram-Kette beginnen.
 
 - Learning-Metrikvertrag `pandorickki.learning-metrics` Version 1 eingeführt; Hit-Rate, Outcome-Abdeckung, Projektionszähler und fehlendes ML-Training in Report, Statistik, Graph und UI eindeutig ausgewiesen.
 - 239/239 Gesamttests bestanden; lokale Oberfläche zeigte Brüche, `nicht vergleichbar` bei inkompatiblem Aggregatscope und keine Browser-Konsolenfehler.

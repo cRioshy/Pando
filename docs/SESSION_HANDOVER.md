@@ -1,5 +1,117 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Control-Center-UI und Lebenszyklus härten
+
+### Datum und Uhrzeit
+
+2. August 2026, 13:26 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die vereinbarte UI-Härtung vollständig umsetzen: WebSocket-Reconnect und genau einen stabilen Polling-Timer, danach zentrale `STALE`-Heartbeats, schnelle und echte Stop-/Restart-Reaktion sowie bessere Learning-Graph-Performance. Bestehende Runtime-, History-, Lern- und Konfigurationsdaten mussten unverändert bleiben; echte Trades und Telegram-Liveversand durften nicht aktiviert werden.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation vollständig gelesen und den tatsächlichen Code in Webserver, Control State, Orchestrator, Control-Center-JavaScript und Tests abgeglichen.
+- Browserstatusverwaltung um genau einen idempotenten Polling-Fallback und single-flight Statusabrufe ergänzt.
+- WebSocket-Reconnect mit begrenztem exponentiellem Backoff, Verbindungsgeneration gegen alte Callbacks, `error`-/`close`-Fallback und lokalem JSON-/Render-Fehlerpfad umgesetzt.
+- Zentrale Heartbeat-Altersberechnung in REST- und leichten WebSocket-Snapshots ergänzt. Bekannte Heartbeats werden nach standardmäßig 150 Sekunden als `STALE` klassifiziert; Schwelle über `PANDORICKKI_SERVICE_HEARTBEAT_STALE_SECONDS` konfigurierbar.
+- Orchestrator-Warteabschnitt auf 100-ms-Kontrollpunkte umgestellt. Stop kann den langen Zyklus-Sleep verlassen; Restart konsumiert die Anfrage atomar, stoppt und startet dieselben Adapterinstanzen im Prozess und startet bei Bedarf die Terminal-Liveansicht wieder.
+- Restart-Befehl erhält nach Ausführung `APPLIED` und `completed_at`.
+- Steuerereignis von `SERVICE_STATUS_CHANGED` auf `CONTROL_COMMAND_APPLIED` korrigiert, damit kein Phantom-Service `web_control_center` entsteht.
+- Learning Graph auf single-flight Laden, Skip in ausgeblendeten Tabs, `requestAnimationFrame`-Koaleszierung und Layout-Wiederverwendung bei unveränderter Knoten-/Kantenstruktur umgestellt.
+- Gezielte und vollständige Regressionstests ergänzt und ausgeführt.
+- PandorickKi mehrfach ausschließlich kontrolliert über die lokale Stop-API beendet und mit Live-Crypto, NeuroBrain-Queue, Telegram aus und Dry-Run über die projektlokale `.venv` wieder gestartet.
+- Offene Browserseite über einen vollständigen Prozessneustart hinweg beobachtet: Sie fiel zurück und verband sich ohne manuelles Reload wieder per WebSocket.
+- Echten In-Process-Restart über den sichtbaren Restart-Button ausgeführt und serverseitig bis `APPLIED` geprüft.
+- Learning Graph live geöffnet und Browserfehler geprüft.
+- Systemzustand, Architektur, bekannte Probleme und nächste Schritte auf den tatsächlich verifizierten Stand aktualisiert.
+- Den vollständigen Stand als lokalen Commit auf `agent/harden-control-center-ui` gesichert.
+
+### Veränderte Dateien
+
+- `config.py`
+- `main.py`
+- `orchestrator.py`
+- `web/api.py`
+- `web/schemas.py`
+- `web/static/control_center.js`
+- `tests/test_parallel_orchestrator.py`
+- `tests/test_web_control_center.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- Keine versionierten Dateien.
+- Ignorierte, leere Laufzeitlogs unter `runtime_logs/ui_hardening_*.stdout.log` und `runtime_logs/ui_hardening_*.stderr.log` entstanden durch die kontrollierten Hintergrundstarts.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md` sowie `docs/CURRENT_SYSTEM_STATE.md`, `docs/SESSION_HANDOVER.md`, `docs/ARCHITECTURE.md`, `docs/KNOWN_PROBLEMS.md` und `docs/NEXT_STEPS.md`.
+- Code- und Testinventur mit `rg`, `Get-Content`, `git status`, `git diff`, `git diff --check` und `node --check`.
+- Gezielte `unittest`-Läufe für `tests.test_parallel_orchestrator` und `tests.test_web_control_center`.
+- Zwei vollständige `unittest discover -s tests -p 'test_*.py'`-Abschlussläufe.
+- Dreifache isolierte Wiederholung des einmalig zeitlich ausgefallenen WebSocket-Tests.
+- Read-only HTTP-Prüfungen auf `/api/status`, `/api/health` und `/api/config/public`.
+- Kontrollierte POSTs auf `/api/control/stop` und ein sichtbarer POST über den Restart-Button.
+- Verdeckte `Start-Process`-Starts mit `.venv\Scripts\python.exe main.py --headless --web`; Telegram dabei explizit deaktiviert und Dry-Run aktiv.
+- Browser-DOM-, Graph- und Konsolenprüfung im lokalen Control Center.
+- Dateiänderungen ausschließlich über `apply_patch`.
+
+### Ausgeführte Tests
+
+- 15 gezielte Web-/Orchestrator-Regressionstests.
+- Vollständige Python-Testsuite.
+- JavaScript-Syntaxprüfung für `web/static/control_center.js`.
+- `git diff --check`.
+- Live-Reconnect über vollständigen Prozessneustart.
+- Live-In-Process-Restart über den Restart-Button.
+- Live-Graphdarstellung und Browserkonsole.
+- Live-API- und Sicherheitskonfiguration.
+
+### Tatsächliche Testergebnisse
+
+- Gezielte Tests: 15/15 bestanden.
+- Finaler vollständiger Lauf: 243/243 Tests in 43,586 Sekunden bestanden.
+- JavaScript-Syntax und `git diff --check`: bestanden.
+- In einem früheren vollständigen Lauf wartete der vorhandene WebSocket-Test einmal vergeblich auf seinen zweiten Frame. Derselbe Test bestand davor gezielt, danach dreimal isoliert und im finalen vollständigen Lauf; kein reproduzierbarer Produktfehler.
+- In-Process-Restart: `ACCEPTED` um 11:19:26.839 UTC, `APPLIED` um 11:19:26.943 UTC, rund 104 ms; WebSocket blieb verbunden und Services kehrten auf OK zurück.
+- Vollständiger kontrollierter Stop: Port 8000 nach 2,326 Sekunden frei. Der frühere bis zu 60 Sekunden lange Sleep-Block trat nicht mehr auf.
+- Reconnect: Bereits geöffnete Seite wechselte nach vollständigem Prozessneustart ohne Reload wieder auf `WebSocket`.
+- Final live: Plattform `OK`, exakt zehn Services, kein Phantom-Service, Heartbeat-Alter im WebSocket-Snapshot, Telegram `enabled=false` und `dry_run=true`.
+- Graph: 76 Knoten und 179 Kanten sichtbar; keine Browserfehler.
+- Finale Runtime-stderr-Datei: 0 Byte.
+
+### Bekannte Fehler
+
+- Ein bereits laufender Adapterzyklus wird aus Sicherheitsgründen nicht hart abgebrochen. Stop/Restart unterbrechen den Warteabschnitt; aktive externe Analysearbeit kann die vollständige Prozessbeendigung weiterhin bis zum Zyklusende verzögern.
+- Services ohne jemals beobachteten Heartbeat können nicht als `STALE` bewertet werden und behalten ihren sonstigen Status.
+- `KP-003`, `KP-004`, `KP-005`, `KP-006`, `KP-007`, `KP-009` und `KP-017` bleiben laut `docs/KNOWN_PROBLEMS.md` offen.
+- Bekannte `datetime.utcnow()`-Deprecation-Warnungen stammen weiterhin aus dem externen Legacy-Crypto-Projekt.
+
+### Getroffene Architekturentscheidungen
+
+- Polling ist ausschließlich ein singletonartiger WebSocket-Fallback, kein parallel laufender zweiter Livekanal.
+- Reconnect verwendet begrenzten Backoff; alte Socket-Callbacks dürfen den neuen Verbindungszustand nicht überschreiben.
+- `STALE` ist eine zentrale API-Projektion und nicht nur Browserkosmetik. Fehler- und Stopzustände haben Vorrang.
+- Restart ist ein echter In-Process-Adapterrestart; der Webserver bleibt erreichbar. Bereits laufende Adapterzyklen werden nicht aggressiv abgebrochen.
+- Steuerbefehle sind keine Servicezustände.
+- Graph-Layout wird durch Strukturänderungen invalidiert; reine Liveupdates und Interaktionen verwenden vorhandene Positionen und Frame-Koaleszierung.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei wurde gelöscht oder umgeschrieben. Keine reale Orderausführung und kein Telegram-Liveversand wurden aktiviert.
+
+### Nicht abgeschlossene Punkte
+
+- Der Arbeitsstand ist lokal auf `agent/harden-control-center-ui` committed. Ein GitHub-Push und Draft-PR wurden in dieser Aufgabe noch nicht ausgeführt.
+- Feature-Datenqualitätsvertrag, Decision Gate und Telegram-Kette wurden bewusst noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den lokalen UI-Härtungscommit – nur mit bestehender Veröffentlichungsfreigabe – als gestapelten Draft-PR gegen `agent/unify-learning-metrics` pushen. Erst anschließend in einem eigenen kleinen Arbeitsschritt die tatsächlichen Feature-Eingänge und Consumer inventarisieren und einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen; noch kein Decision Gate und keinen Telegram-Livepfad implementieren.
+
 ## Aktuelle Aufgabe: Learning-Metriken vereinheitlichen
 
 ### Datum und Uhrzeit

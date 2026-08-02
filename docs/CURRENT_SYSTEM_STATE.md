@@ -3,6 +3,14 @@
 Stand: 2. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Die UI-Härtung wurde am 2. August 2026 implementiert und kontrolliert live verifiziert. Der Browser verwaltet genau einen Polling-Fallback, verhindert parallele Statusabfragen und verbindet den WebSocket nach Abbrüchen mit begrenztem exponentiellem Backoff erneut. Ein laufender Browser wechselte nach einem vollständigen Prozessneustart ohne manuelles Neuladen zurück auf `WebSocket`. Fehlerhafte WebSocket-Nachrichten werden lokal abgefangen.
+
+Heartbeat-Alter und `STALE` werden zentral in REST- und leichten WebSocket-Snapshots berechnet. Die Standardgrenze beträgt 150 Sekunden und ist über `PANDORICKKI_SERVICE_HEARTBEAT_STALE_SECONDS` konfigurierbar. Nur Services mit einem bekannten Heartbeat werden bewertet; `ERROR`, `STOPPED` und `DISABLED` werden nicht durch `STALE` überschrieben.
+
+Stop- und Restart-Anforderungen unterbrechen den Warteabschnitt der Orchestratorschleife in Intervallen von höchstens 100 Millisekunden. Restart stoppt und startet die vorhandenen Adapter im selben Prozess, während der Webserver und bestehende Browserverbindungen erhalten bleiben. Die Liveprüfung setzte einen Restart in rund 104 Millisekunden auf `APPLIED`; ein vollständiger kontrollierter Prozess-Stop gab Port 8000 in 2,326 Sekunden frei. Steuerbefehle verwenden `CONTROL_COMMAND_APPLIED` und erzeugen keinen Phantom-Service mehr.
+
+Der Learning Graph koalesziert Interaktionen per `requestAnimationFrame`, lädt nur single-flight und überspringt Hintergrundloads in ausgeblendeten Tabs. Das teure Force-Layout wird nur neu berechnet, wenn sich Knoten- oder Kantenstruktur ändert. Live wurden 76 Knoten und 179 Kanten ohne Browserfehler dargestellt.
+
 Learning-, Outcome- und Graphmetriken verwenden seit dem 2. August 2026 den additiven Vertrag `pandorickki.learning-metrics` Version 1. Hit-Rate bedeutet einheitlich Wins geteilt durch Wins plus Losses; Breakeven und unbekannte Ergebnisse bleiben separate Klassen. Jede Rate liefert Zähler und Nenner. Der Learning Report ordnet geschlossene Outcomes per `decision_id` zu und weist die Outcome-Abdeckung gegenüber outcome-fähigen LONG-/SHORT-Decisions aus. Nicht vergleichbare historische Aggregatzähler liefern für die Abdeckung bewusst `null` statt einer erfundenen Quote.
 
 `AI_LEARNING_UPDATED` ist ausdrücklich ein Projektionsereignis, kein erfolgreicher Lern- oder Modellupdate. Graph-Muster sind sichtbare Muster-Buckets, keine gelernten Modellmuster. Control Center, API und Graph melden `ml_training.active=false` und `model_updates=0`; PandorickKi trainiert weiterhin kein ML-Modell. Alte API-Felder bleiben zunächst als Aliase erhalten, bestehende Statistik-, Learning- und Historydateien wurden nicht umgeschrieben.
@@ -181,7 +189,7 @@ Die Learning-Oberfläche heißt fachlich Outcome-Auswertung, zeigt Hit-Rate und 
 
 Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus, kumulativen JSONL-Indexfortschritt, geschätzte Restläufe/-zeit, die langsamste Phase sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
 
-Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust. Servicezustände berücksichtigen inzwischen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert.
+Der WebSocket-Client fällt bei `close` oder `error` auf genau einen idempotenten Polling-Timer zurück und verbindet sich mit begrenztem exponentiellem Backoff erneut. Veraltete Socket-Callbacks werden über eine Verbindungsgeneration ignoriert; erfolgreiche Verbindung beendet den Fallback-Timer. Polling ist single-flight, JSON-/Renderfehler bleiben auf die Verbindungssicht begrenzt. Servicezustände berücksichtigen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert. Bekannte Heartbeats erhalten Alter und zentrale `STALE`-Klassifikation.
 
 ## Telegram
 
@@ -219,19 +227,19 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 2. August 2026 bestand nach der Queue-Entkopplung mit 235/235 Tests in 45,092 Sekunden. 20 gezielte NeuroBrain-/Ledger-/Konfigurations-/Orchestrator-Tests bestanden; die neuen Regressionen decken Nichtblockieren, FIFO, Batchgrenzen, Drop-newest, vollständigen Shutdown-Flush, idempotenten Stop und Statusfehler-Isolation ab. `py_compile`, Runtime-Preflight und `git diff --check` bestanden ebenfalls.
+Der vollständige Lauf am 2. August 2026 bestand nach der UI-Härtung mit 243/243 Tests in 43,586 Sekunden. 15 gezielte Web-/Orchestrator-Tests bestanden. Die neuen Regressionen decken einmaliges Konsumieren von Restart, echten In-Process-Adapterrestart, unterbrechbaren Stop, zentrale STALE-Klassifikation, leichte WebSocket-Snapshots und die Frontend-Verträge für Reconnect, Timer und Frame-Koaleszierung ab. JavaScript-Syntaxprüfung und `git diff --check` bestanden ebenfalls.
 
 ## Bekannte Risiken
 
 1. Storage-Laufzeiten müssen nach dem Neustart weiter beobachtet werden; der 64-MiB-Realbenchmark blieb mit 2,135 Sekunden deutlich unter dem 30-Sekunden-Limit.
 2. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
-3. WebSocket-Reconnect und Polling-Fallback sind nicht vollständig robust.
+3. WebSocket-Reconnect und Polling-Fallback sind gehärtet; reale Netzwerksonderfälle und sehr lange aktive Adapterzyklen bleiben weiter zu beobachten.
 4. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
 5. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
 6. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
 7. Absolute Windows-Pfade begrenzen die Portabilität.
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
-9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
+9. Nur Services mit vorhandenem Heartbeat können als `STALE` klassifiziert werden; heartbeatlose Services bleiben bei ihrem sonstigen Status.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
 11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen jetzt topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.

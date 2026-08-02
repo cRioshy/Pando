@@ -1,5 +1,8 @@
 const state = {
   graphTimer: null,
+  graphLoading: false,
+  graphRenderFrame: null,
+  graphDataSignature: "",
   learningReportTimer: null,
   graphView: "list",
   layoutCacheKey: "",
@@ -11,7 +14,11 @@ const state = {
   hoveredNodeId: null,
   searchTimer: null,
   pollTimer: null,
+  pollInFlight: false,
+  reconnectTimer: null,
+  reconnectAttempt: 0,
   socket: null,
+  socketGeneration: 0,
   statistics: null,
   storageLoading: false,
   dragNodeId: null,
@@ -28,6 +35,9 @@ const GRAPH_HEIGHT = 980;
 const GRAPH_MARGIN = 70;
 const GRAPH_MIN_ZOOM = 0.25;
 const GRAPH_MAX_ZOOM = 4.0;
+const POLL_INTERVAL_MS = 1000;
+const WS_RECONNECT_BASE_MS = 750;
+const WS_RECONNECT_MAX_MS = 30000;
 const GRAPH_COLORS = {
   MARKET: "#39d5ff",
   INDICATOR: "#4f8cff",
@@ -47,6 +57,13 @@ function runtime(seconds) {
   const m = String(Math.floor((value % 3600) / 60)).padStart(2, "0");
   const s = String(value % 60).padStart(2, "0");
   return `${h}:${m}:${s}`;
+}
+
+function age(seconds) {
+  const value = Math.max(0, Math.floor(Number(seconds || 0)));
+  if (value < 60) return `${value}s`;
+  if (value < 3600) return `${Math.floor(value / 60)}m ${value % 60}s`;
+  return `${Math.floor(value / 3600)}h ${Math.floor((value % 3600) / 60)}m`;
 }
 
 function time(value) {
@@ -458,14 +475,32 @@ function renderLearningGraph(graph) {
   $("graphStatus").textContent = stats.system_status || "-";
   $("graphUpdated").textContent = time(stats.last_update);
 
-  renderLearningGraphNodes(nodes);
-  renderLearningGraphEdges(edges);
-  renderGraphLegend();
+  const signature = graphDataSignature(current);
+  const graphChanged = signature !== state.graphDataSignature;
+  if (graphChanged) {
+    state.graphDataSignature = signature;
+    renderLearningGraphNodes(nodes);
+    renderLearningGraphEdges(edges);
+    renderGraphLegend();
+  }
   if (state.selectedNodeId) {
     const selected = nodes.find((node) => node.id === state.selectedNodeId);
     renderLearningGraphDetails(selected || null);
   }
-  renderLearningGraphNetwork();
+  if (graphChanged) scheduleLearningGraphNetworkRender();
+}
+
+function graphDataSignature(graph) {
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const stats = graph.stats || {};
+  return [
+    stats.last_update || "",
+    nodes.length,
+    edges.length,
+    nodes.map((node) => node.id).join("|"),
+    edges.map((edge) => edge.id).join("|"),
+  ].join("::");
 }
 
 function renderLearningGraphNodes(nodes) {
@@ -526,7 +561,7 @@ function setLearningGraphView(view) {
     button.setAttribute("aria-pressed", String(active));
   });
   if (state.graphView === "graph") {
-    renderLearningGraphNetwork();
+    scheduleLearningGraphNetworkRender();
   }
 }
 
@@ -610,11 +645,11 @@ function renderLearningGraphNetwork() {
     group.classList.add("entering");
     group.addEventListener("mouseenter", () => {
       state.hoveredNodeId = node.id;
-      renderLearningGraphNetwork();
+      scheduleLearningGraphNetworkRender();
     });
     group.addEventListener("mouseleave", () => {
       state.hoveredNodeId = null;
-      renderLearningGraphNetwork();
+      scheduleLearningGraphNetworkRender();
     });
     group.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -665,12 +700,21 @@ function renderLearningGraphNetwork() {
   });
 }
 
+function scheduleLearningGraphNetworkRender() {
+  if (state.graphRenderFrame !== null) return;
+  state.graphRenderFrame = window.requestAnimationFrame(() => {
+    state.graphRenderFrame = null;
+    renderLearningGraphNetwork();
+  });
+}
+
 function layoutGraph(nodes, edges) {
   const cacheKey = nodes.map((node) => node.id).join("|") + "::" + edges.map((edge) => edge.id).join("|");
-  if (state.layoutCacheKey !== cacheKey) {
-    state.layoutCacheKey = cacheKey;
-    keepCurrentGraphPositions(nodes);
+  if (state.layoutCacheKey === cacheKey && state.layoutPositions.size) {
+    return new Map(state.layoutPositions);
   }
+  state.layoutCacheKey = cacheKey;
+  keepCurrentGraphPositions(nodes);
   const positions = initializeGraphPositions(nodes, edges);
   runForceSimulation(positions, nodes, edges);
   relaxGraphCollisions(positions, nodes);
@@ -994,7 +1038,7 @@ function selectLearningGraphNode(nodeId) {
   state.selectedNodeId = nodeId;
   const node = ((state.learningGraph && state.learningGraph.nodes) || []).find((item) => item.id === nodeId);
   renderLearningGraphDetails(node);
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
 }
 
 function focusLearningGraphNode(nodeId) {
@@ -1006,7 +1050,7 @@ function focusLearningGraphNode(nodeId) {
     x: position.x - GRAPH_WIDTH / (2 * state.svgZoom),
     y: position.y - GRAPH_HEIGHT / (2 * state.svgZoom),
   };
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
 }
 
 function searchLearningGraph() {
@@ -1040,8 +1084,9 @@ function resetLearningGraphView() {
   state.svgZoom = 1;
   state.layoutPositions = new Map();
   state.manualPositions = new Map();
+  state.layoutCacheKey = "";
   renderLearningGraphDetails(null);
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
   fitLearningGraphView();
 }
 
@@ -1050,7 +1095,7 @@ function fitLearningGraphView() {
   if (!positions.length) {
     state.svgPan = { x: 0, y: 0 };
     state.svgZoom = 1;
-    renderLearningGraphNetwork();
+    scheduleLearningGraphNetworkRender();
     return;
   }
   const minX = Math.min(...positions.map((point) => point.x)) - 90;
@@ -1061,7 +1106,7 @@ function fitLearningGraphView() {
   const height = Math.max(1, maxY - minY);
   state.svgZoom = clamp(Math.min(GRAPH_WIDTH / width, GRAPH_HEIGHT / height), 0.45, 1.8);
   state.svgPan = { x: minX, y: minY };
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
 }
 
 function renderGraphLegend() {
@@ -1107,13 +1152,14 @@ function startNodeDrag(event, nodeId) {
   state.selectedNodeId = nodeId;
   const point = graphPointFromEvent(event);
   state.manualPositions.set(nodeId, point);
+  state.layoutPositions.set(nodeId, point);
   const svg = $("learningGraphSvg");
   try {
     svg.setPointerCapture(event.pointerId);
   } catch (error) {
     // Pointer capture may not be available for every synthetic event.
   }
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
 }
 
 function updateNodeDrag(event) {
@@ -1123,8 +1169,9 @@ function updateNodeDrag(event) {
     x: clamp(point.x, GRAPH_MARGIN, GRAPH_WIDTH - GRAPH_MARGIN),
     y: clamp(point.y, GRAPH_MARGIN, GRAPH_HEIGHT - GRAPH_MARGIN),
   });
+  state.layoutPositions.set(state.dragNodeId, state.manualPositions.get(state.dragNodeId));
   renderLearningGraphDetails(((state.learningGraph && state.learningGraph.nodes) || []).find((node) => node.id === state.dragNodeId));
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
   return true;
 }
 
@@ -1193,9 +1240,11 @@ function render(snapshot) {
 
   const serviceStatus = snapshot.service_status || {};
   const heartbeats = snapshot.service_heartbeats || {};
+  const heartbeatAges = snapshot.service_heartbeat_age_seconds || {};
   const serviceRows = Object.keys(serviceStatus).sort().map((name) => [
     name,
-    `${serviceStatus[name]} | Heartbeat ${time(heartbeats[name])}`,
+    `${serviceStatus[name]} | Heartbeat ${time(heartbeats[name])}` +
+      (heartbeatAges[name] === undefined ? "" : ` | Alter ${age(heartbeatAges[name])}`),
   ]);
   renderRows("services", serviceRows, "Keine Services");
 
@@ -1242,10 +1291,16 @@ function render(snapshot) {
 }
 
 async function loadLearningGraph() {
-  const response = await fetch("/api/v1/learning-graph", { cache: "no-store" });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Learning graph failed");
-  renderLearningGraph(data.learning_graph);
+  if (state.graphLoading || document.hidden) return;
+  state.graphLoading = true;
+  try {
+    const response = await fetch("/api/v1/learning-graph", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Learning graph failed");
+    renderLearningGraph(data.learning_graph);
+  } finally {
+    state.graphLoading = false;
+  }
 }
 
 async function loadLearningReport() {
@@ -1272,7 +1327,7 @@ async function loadLearningGraphNode(nodeId) {
   if (!response.ok) throw new Error(data.error || "Learning graph node failed");
   state.selectedNodeId = nodeId;
   renderLearningGraphDetails(data.node);
-  renderLearningGraphNetwork();
+  scheduleLearningGraphNetworkRender();
 }
 
 async function loadStorageFolder(folderName) {
@@ -1284,36 +1339,92 @@ async function loadStorageFolder(folderName) {
 }
 
 async function poll() {
+  if (state.pollInFlight) return;
+  state.pollInFlight = true;
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
-    render(await response.json());
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Status polling failed");
+    render(data);
   } catch (error) {
     setConnection("Polling Fehler", "bad");
+  } finally {
+    state.pollInFlight = false;
   }
 }
 
+function startPolling() {
+  if (state.pollTimer !== null) return;
+  poll().catch(() => {});
+  state.pollTimer = window.setInterval(() => poll().catch(() => {}), POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (state.pollTimer === null) return;
+  window.clearInterval(state.pollTimer);
+  state.pollTimer = null;
+}
+
+function scheduleWebSocketReconnect() {
+  if (state.reconnectTimer !== null) return;
+  const exponent = Math.min(state.reconnectAttempt, 6);
+  const delay = Math.min(WS_RECONNECT_BASE_MS * (2 ** exponent), WS_RECONNECT_MAX_MS);
+  state.reconnectAttempt += 1;
+  state.reconnectTimer = window.setTimeout(() => {
+    state.reconnectTimer = null;
+    connectWebSocket();
+  }, delay);
+}
+
 function connectWebSocket() {
+  if (state.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(state.socket.readyState)) return;
+  if (state.reconnectTimer !== null) {
+    window.clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
+  }
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${protocol}://${location.host}/ws/live`);
+  const generation = state.socketGeneration + 1;
+  state.socketGeneration = generation;
+  let socket;
+  try {
+    socket = new WebSocket(`${protocol}://${location.host}/ws/live`);
+  } catch (error) {
+    startPolling();
+    scheduleWebSocketReconnect();
+    return;
+  }
   state.socket = socket;
 
   socket.addEventListener("open", () => {
+    if (generation !== state.socketGeneration) return;
+    state.reconnectAttempt = 0;
     setConnection("WebSocket", "ok");
-    if (state.pollTimer) clearInterval(state.pollTimer);
+    stopPolling();
   });
   socket.addEventListener("message", (message) => {
-    const data = JSON.parse(message.data);
-    if (data.event && data.event.topic === "STATISTICS_UPDATED" && data.payload) {
-      state.statistics = data.payload;
+    if (generation !== state.socketGeneration) return;
+    try {
+      const data = JSON.parse(message.data);
+      if (data.event && data.event.topic === "STATISTICS_UPDATED" && data.payload) {
+        state.statistics = data.payload;
+      }
+      render(data.snapshot);
+    } catch (error) {
+      setConnection("WebSocket Datenfehler", "bad");
     }
-    render(data.snapshot);
   });
   socket.addEventListener("close", () => {
+    if (generation !== state.socketGeneration) return;
+    state.socket = null;
     setConnection("Polling", "");
-    state.pollTimer = setInterval(poll, 1000);
+    startPolling();
+    scheduleWebSocketReconnect();
   });
   socket.addEventListener("error", () => {
+    if (generation !== state.socketGeneration) return;
     setConnection("Polling", "");
+    startPolling();
+    socket.close();
   });
 }
 
@@ -1406,7 +1517,7 @@ function enableGraphPanZoom() {
     const after = graphPointFromEvent(event);
     state.svgPan.x += before.x - after.x;
     state.svgPan.y += before.y - after.y;
-    renderLearningGraphNetwork();
+    scheduleLearningGraphNetworkRender();
   }, { passive: false });
   svg.addEventListener("pointerdown", (event) => {
     if (event.target.closest && event.target.closest(".graph-node")) return;
@@ -1421,7 +1532,7 @@ function enableGraphPanZoom() {
     state.svgPan.x -= (event.clientX - last.x) * scale;
     state.svgPan.y -= (event.clientY - last.y) * scale;
     last = { x: event.clientX, y: event.clientY };
-    renderLearningGraphNetwork();
+    scheduleLearningGraphNetworkRender();
   });
   svg.addEventListener("pointerup", (event) => {
     if (stopNodeDrag(event)) return;
@@ -1443,7 +1554,7 @@ function enableGraphPanZoom() {
       state.selectedNodeId = null;
       state.hoveredNodeId = null;
       renderLearningGraphDetails(null);
-      renderLearningGraphNetwork();
+      scheduleLearningGraphNetworkRender();
     }
   });
 }
@@ -1472,8 +1583,8 @@ function enableGraphResize() {
   });
 }
 
+startPolling();
 connectWebSocket();
-poll();
 loadStatistics().catch(() => {});
 enableGraphPanZoom();
 enableLearningGraphSearch();
