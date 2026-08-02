@@ -27,6 +27,8 @@ Die vereinbarte UI-Härtung vollständig umsetzen: WebSocket-Reconnect und genau
 - Learning Graph live geöffnet und Browserfehler geprüft.
 - Systemzustand, Architektur, bekannte Probleme und nächste Schritte auf den tatsächlich verifizierten Stand aktualisiert.
 - Den vollständigen Stand als lokalen Commit auf `agent/harden-control-center-ui` gesichert.
+- Implementierungscommit `2f779e9dbc9068f188ce661dc3e4e86d184284ab` zu `origin/agent/harden-control-center-ui` gepusht.
+- Draft-PR #17 gegen `agent/unify-learning-metrics` erstellt; ausdrücklich nicht gemergt.
 
 ### Veränderte Dateien
 
@@ -105,12 +107,11 @@ Die vereinbarte UI-Härtung vollständig umsetzen: WebSocket-Reconnect und genau
 
 ### Nicht abgeschlossene Punkte
 
-- Der Arbeitsstand ist lokal auf `agent/harden-control-center-ui` committed. Ein GitHub-Push und Draft-PR wurden in dieser Aufgabe noch nicht ausgeführt.
 - Feature-Datenqualitätsvertrag, Decision Gate und Telegram-Kette wurden bewusst noch nicht begonnen.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den lokalen UI-Härtungscommit – nur mit bestehender Veröffentlichungsfreigabe – als gestapelten Draft-PR gegen `agent/unify-learning-metrics` pushen. Erst anschließend in einem eigenen kleinen Arbeitsschritt die tatsächlichen Feature-Eingänge und Consumer inventarisieren und einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen; noch kein Decision Gate und keinen Telegram-Livepfad implementieren.
+In einem eigenen kleinen Arbeitsschritt die tatsächlichen Feature-Eingänge und Consumer inventarisieren und einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen; noch kein Decision Gate und keinen Telegram-Livepfad implementieren.
 
 ## Aktuelle Aufgabe: Learning-Metriken vereinheitlichen
 

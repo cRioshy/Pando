@@ -95,6 +95,7 @@ Stand: 2. August 2026
     - Stop/Restart unterbrechen den Zyklus-Warteabschnitt im 100-ms-Raster; Restart startet die Adapter im selben Prozess. Kein Phantom-Service durch Steuerbefehle.
     - Learning Graph koalesziert Interaktionen per Browser-Frame, lädt single-flight, pausiert in ausgeblendeten Tabs und berechnet das Force-Layout nur bei Strukturänderung neu.
     - 243/243 Gesamttests, JavaScript-Syntax und Diffprüfung bestanden. Live: Reconnect ohne Reload, zehn Services, Health `OK`, Restart `APPLIED` nach rund 104 ms, Prozess-Stop 2,326 s, 76 Knoten/179 Kanten, keine Browserfehler, Telegram aus/Dry-Run.
+    - Commit `2f779e9` veröffentlicht; gestapelter Draft-PR #17 gegen `agent/unify-learning-metrics` erstellt und nicht gemergt.
 
 ## Erst anschließend
 
@@ -107,6 +108,7 @@ Stand: 2. August 2026
 
 - UI-Härtung abgeschlossen: idempotentes Polling, Backoff-Reconnect, zentrale STALE-Projektion, echter In-Process-Restart, schneller Stop-Wartepfad und Graph-Koaleszierung.
 - 243/243 Gesamttests bestanden; Browser reconnectete nach Prozessneustart ohne Reload und zeigte zehn korrekte Services mit Heartbeat-Alter.
+- Commit `2f779e9` auf `agent/harden-control-center-ui` veröffentlicht; Draft-PR #17 ist offen, Draft und ungemergt.
 - Nächster Arbeitsschritt ist der Feature-Datenqualitätsvertrag. Noch keine Umsetzung von Decision Gate oder Telegram-Kette beginnen.
 
 - Learning-Metrikvertrag `pandorickki.learning-metrics` Version 1 eingeführt; Hit-Rate, Outcome-Abdeckung, Projektionszähler und fehlendes ML-Training in Report, Statistik, Graph und UI eindeutig ausgewiesen.
