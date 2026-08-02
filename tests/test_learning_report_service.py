@@ -147,6 +147,31 @@ class LearningReportServiceTest(unittest.TestCase):
             self.assertTrue(cache_file.exists())
             self.assertEqual(cached["summary"]["decisions"], 0)
 
+    def test_legacy_cache_without_metric_contract_is_rebuilt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            brain_events_dir = root / "brain_events"
+            brain_events_dir.mkdir()
+            cache_file = root / "learning_report_cache.json"
+            cache_file.write_text(
+                json.dumps({"summary": {"decisions": 999}, "cache": {"status": "fresh"}}),
+                encoding="utf-8",
+            )
+            service = LearningReportService(
+                LearningReportPaths(
+                    stock_decisions=root / "stock_decisions.json",
+                    stock_logs=root / "stock_logs.json",
+                    brain_events_file=root / "brain_events.jsonl",
+                    brain_events_dir=brain_events_dir,
+                    cache_file=cache_file,
+                )
+            )
+
+            pending = service.report_cached()
+
+            self.assertEqual(pending["cache"]["status"], "building")
+            self.assertNotEqual(pending["summary"]["decisions"], 999)
+
     def test_report_prefers_decision_id_outcomes_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -290,6 +315,17 @@ class LearningReportServiceTest(unittest.TestCase):
             self.assertEqual(report["summary"]["learning_events_with_outcome"], 3)
             self.assertEqual(report["summary"]["outcome_source"], "decision_id_trade_outcomes")
             self.assertEqual(report["summary"]["hit_rate"], 66.67)
+            self.assertEqual(report["summary"]["hit_rate_numerator"], 2)
+            self.assertEqual(report["summary"]["hit_rate_denominator"], 3)
+            self.assertEqual(report["summary"]["outcome_eligible_decisions"], 3)
+            self.assertEqual(report["summary"]["matched_outcomes"], 3)
+            self.assertEqual(report["summary"]["outcome_coverage_percent"], 100.0)
+            self.assertEqual(report["learning_metrics"]["schema_name"], "pandorickki.learning-metrics")
+            self.assertEqual(report["learning_metrics"]["outcomes"]["matched"], 3)
+            self.assertFalse(report["learning_metrics"]["ml_training"]["active"])
+            self.assertEqual(report["learning_metrics"]["ml_training"]["model_updates"], 0)
+            self.assertEqual(report["evaluation_score"], report["learning_score"])
+            self.assertTrue(any("ML-Modelltraining" in note for note in report["metric_notes"]))
             self.assertEqual(report["summary"]["average_profit_simulation"], 0.4667)
             self.assertNotIn(
                 "Decision-Anzahl und Outcome-Anzahl sind nicht deckungsgleich; Trefferquote wird aus Stock-Learning-Logs berechnet.",

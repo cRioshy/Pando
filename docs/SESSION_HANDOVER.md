@@ -1,5 +1,119 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Learning-Metriken vereinheitlichen
+
+### Datum und Uhrzeit
+
+2. August 2026, 12:33 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Learning-, Outcome-, Hit-Rate-, Pattern- und Trainingsmetriken fachlich vereinheitlichen. Begriffe und Nenner offenlegen, eine belastbare Outcome-Abdeckung bereitstellen, Projektionen klar von echtem ML-Training trennen, bestehende API-Leser kompatibel halten und den Stand testgetrieben sowie live prüfen. Keine bestehenden History-, Statistik- oder Lerndaten verändern und weder echte Trades noch Telegram-Versand aktivieren.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, tatsächliche Repository-Struktur, Decision-/Outcome-Ledger, Learning Report, persistente Statistikrekonstruktion, Learning Graph und Control-Center-Renderer geprüft.
+- Den ausführbaren Vertrag `pandorickki.learning-metrics` Version 1 eingeführt. Hit-Rate ist einheitlich `wins / (wins + losses)`; Breakeven und Unknown sind ausgeschlossen und separat sichtbar. Jede Rate liefert Zähler und Nenner.
+- Outcome-Abdeckung als geschlossene, per `decision_id` zugeordnete Outcomes geteilt durch outcome-fähige LONG-/SHORT-Decisions desselben Scopes definiert.
+- Learning Report auf exakte ID-Zuordnung umgestellt. Ein alter Report-Cache ohne Vertrag wird beim normalen Lesen verworfen und neu aufgebaut; die Datei wird nicht aktiv gelöscht.
+- Persistente Trading-Statistik auf denselben Hit-Rate-Nenner umgestellt. Bei historisch inkompatiblen Zählerständen wird keine Quote erfunden, sondern `null` mit `outcome_coverage_scope_consistent=false` geliefert.
+- `AI_LEARNING_UPDATED` als Projektionsereignis ausgewiesen. `successful_learnings` und `learned_patterns` werden nicht mehr aus Eventzählern erfunden; ML-Status ist `active=false`, Modellupdates sind null beziehungsweise 0 gemäß Vertrag.
+- Learning Graph trennt Muster-Buckets, heutige Projektionen im geladenen Fenster und kumulative Learning-Update-Events.
+- Control Center in „Outcome-Auswertung“ umbenannt und um Brüche, Outcome-Abdeckung, `nicht vergleichbar` sowie sichtbaren Hinweis „Kein ML-Training aktiv“ ergänzt.
+- Neue Vertragsdokumentation erstellt und `AGENTS.md`, Systemzustand sowie Architekturregeln erweitert.
+- Kontrollierten Live-Neustart durchgeführt. Zwei zunächst unvollständige Startkonfigurationen wurden anhand der öffentlichen API erkannt und jeweils geordnet beendet: zuerst fehlte `PANDORICKKI_LIVE_CRYPTO=1`, danach war der falsche NeuroBrain-Schalter gesetzt. Der finale Start verwendet die tatsächlichen Namen und sichere Werte.
+- Browseroberfläche nach dem finalen Code neu geladen und die konkreten Outcome-/Trading-/Graphwerte sowie Browserkonsole geprüft.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `learning_graph/graph_builder.py`
+- `learning_graph/graph_models.py`
+- `learning_graph/graph_sanitizer.py`
+- `learning_graph/graph_service.py`
+- `tests/test_learning_graph_phase3.py`
+- `tests/test_learning_report_service.py`
+- `tests/test_statistics_and_storage.py`
+- `tests/test_web_control_center.py`
+- `web/learning_report_service.py`
+- `web/statistics_service.py`
+- `web/static/control_center.html`
+- `web/static/control_center.js`
+
+### Neue Dateien
+
+- `learning_metrics_contract.py`
+- `tests/test_learning_metrics_contract.py`
+- `docs/LEARNING_METRICS_CONTRACT.md`
+- Ignorierte Laufzeitlogs `runtime_logs/web_learning_metrics_2026-08-02_12-28-59_stdout.log` und `runtime_logs/web_learning_metrics_2026-08-02_12-28-59_stderr.log`; beide waren bei Abschluss 0 Byte.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md` und den fünf vorgeschriebenen Übergabedokumenten; danach Code-, Routen-, Ledger-, Statistik-, Graph-, UI- und Testinventur mit `rg`, `Get-Content` und `git`.
+- Gezielte Unittests vor und nach Implementierung, `py_compile`, `git diff --check` und vollständige Test-Discovery.
+- Read-only Python-Auswertung der vorhandenen Decision-, Outcome-, Statistik- und Graphdaten.
+- HTTP-Prüfungen auf `/api/status`, `/api/config/public`, `/api/statistics`, `/api/learning-report` und `/api/v1/learning-graph/stats`.
+- Drei kontrollierte POSTs auf `/api/control/stop`; alle Prozesse beendeten sich regulär nach dem laufenden Zyklusintervall, ohne harten Prozessabbruch.
+- `\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Verdeckte `Start-Process`-Starts über die projektlokale `.venv`; final mit Live-Crypto, NeuroBrain-Queue, Telegram aus und Dry-Run.
+- Lokales Control Center im In-App-Browser neu geladen, gezielte DOM-Werte und Browserkonsole gelesen.
+
+### Ausgeführte Tests
+
+- 7 gezielte Learning-Report-/Vertragstests nach der Cache-Schemaergänzung.
+- Syntaxprüfung der sieben geänderten Python-Produktionsmodule.
+- `git diff --check`.
+- Vollständige `unittest`-Suite.
+- Runtime-Preflight.
+- Kontrollierter Stop/Start und zwei vollständige Livezyklen.
+- Live-API-, Crypto-, Stock-, NeuroBrain-, Telegram-, Report-, Statistik- und Graphprüfung.
+- Sichtprüfung der relevanten UI-Felder und Browserkonsole.
+
+### Tatsächliche Testergebnisse
+
+- Gezielte Tests: 7/7 bestanden.
+- Vollständige Suite: 239/239 Tests in 51,814 Sekunden bestanden.
+- `py_compile`, `git diff --check` und Runtime-Preflight: bestanden; Python 3.12.13 aus der projektlokalen `.venv`.
+- Finaler Livebetrieb: Plattform und alle zehn Services `OK`, Session-`error_count=0`; Crypto und Stock jeweils zwei vollständige Zyklen, Crypto drei Ergebnisse pro Zyklus und aktuelle Preise für BTCUSDT, ETHUSDT und XRPUSDT.
+- NeuroBrain: Worker aktiv, Queue-Tiefe 0, Drops 0, fehlgeschlagene Events 0.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Learning Report: Cache `fresh`, Schema Version 1, live zuletzt Hit-Rate 16,67 % (`14/84`) und Outcome-Abdeckung 19,37 % (`165/852`), kein ML-Training.
+- Historische Trading-Aggregate: Hit-Rate 48,21 % (`2135/4429`); Outcome-Abdeckung korrekt `null`, weil der persistente Decision-/Outcome-Scope nicht konsistent ist.
+- Learning Graph: 42 Muster-Buckets, 728 heutige Projektionsdatensätze im geladenen Fenster, 36.231 kumulative Learning-Update-Events, `ml_training_active=false`, `model_updates=0`.
+- Browser: Outcome-Hit-Rate und -Abdeckung mit Bruch, ML-Training „Nein“, Trading-Abdeckung „nicht vergleichbar“, Muster-Buckets/Projektionen korrekt benannt; 0 Warnungen und 0 Fehler in der Browserkonsole.
+- Finale Runtime-stdout/-stderr: jeweils 0 Byte.
+
+### Bekannte Fehler
+
+- Neu dokumentiert als `KP-017`: Historische persistente Decision- und Outcome-Gesamtzähler stammen nicht garantiert aus demselben Rekonstruktionsscope. Version 1 verhindert eine falsche Abdeckungsquote; der ID-basierte Learning Report bleibt die verlässliche Sicht.
+- `KP-002`: WebSocket-Reconnect und idempotentes Polling fehlen weiterhin.
+- `KP-008`: Stale-Heartbeats werden weiterhin nicht klassifiziert.
+- `KP-013`: Ein akzeptierter Stop benötigt weiterhin bis zum Ende des maximal 60 Sekunden langen Zyklus-Sleeps.
+- `KP-003`: Andere synchrone EventBus-Consumer können weiterhin blockieren; NeuroBrain selbst ist bereits entkoppelt.
+
+### Getroffene Architekturentscheidungen
+
+- Ein zentraler, additiver Version-1-Vertrag ist die einzige Definition der öffentlichen Learning-/Outcome-Raten.
+- Hit-Rate schließt Breakeven und Unknown aus; deren Zähler bleiben sichtbar.
+- Outcome-Abdeckung wird nur bei nachgewiesen gleichem Scope berechnet. `null` ist fachlich korrekter als eine scheinpräzise Quote.
+- Projektionsereignisse und Graph-Buckets belegen kein ML-Training. Alte Feldnamen bleiben nur als rückwärtskompatible Aliase bestehen.
+- Bestehende History und persistente Statistiken werden nicht still migriert, zurückgesetzt oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Branch noch committen, pushen und als gestapelten Draft-PR gegen `agent/queue-neurobrain-receiver` veröffentlichen; nicht mergen.
+- UI-Härtung aus Schritt 10 bleibt vollständig offen.
+- Für KP-017 existiert noch kein gemeinsamer Rekonstruktionscursor oder Migrationsvertrag.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den geprüften Branch veröffentlichen. Danach in einem eigenen kleinen Branch zuerst WebSocket-Reconnect und genau einen idempotenten Polling-Timer testgetrieben umsetzen; dabei Stop-/Restart-Wartezeit, STALE-Heartbeats und Graph-Performance weiterhin getrennt behandeln.
+
 ## Aktuelle Aufgabe: NeuroBrain über begrenzte FIFO-Queue entkoppeln
 
 ### Datum und Uhrzeit

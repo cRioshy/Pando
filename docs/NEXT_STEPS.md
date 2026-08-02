@@ -81,8 +81,11 @@ Stand: 2. August 2026
    - Commit `0fe5bd6` veröffentlicht; gestapelter Draft-PR #15 gegen `agent/fix-neurobrain-observer-schema` erstellt und nicht gemergt.
 
 9. **Learning-Metriken vereinheitlichen.**
-   - Begriffe, Nenner und Outcome-Abdeckung offenlegen.
-   - Hit-Rate und Trading-Statistik voneinander abgrenzen und fehlendes ML-Training klar kennzeichnen.
+   - **Erledigt am 2. August 2026.**
+   - Vertrag Version 1 mit eindeutigen Begriffen, expliziten Zählern/Nennern, einheitlicher Hit-Rate und scope-geprüfter Outcome-Abdeckung umgesetzt.
+   - Learning Report verwendet exakte `decision_id`-Zuordnung; nicht vergleichbare historische Aggregate liefern `null` statt einer erfundenen Quote.
+   - UI, Statistik und Graph kennzeichnen Learning-Updates als Projektionen und melden ausdrücklich, dass kein ML-Modell trainiert wird.
+   - 239/239 Gesamttests, Syntax-, Diff- und Runtime-Prüfung bestanden; zwei Livezyklen mit allen zehn Services `OK`, Crypto-Preisen, NeuroBrain ohne Drops und Telegram aus/Dry-Run verifiziert.
 
 10. **UI härten.**
     - Idempotentes Polling, WebSocket-Reconnect, `STALE`-Heartbeats und Graph-Performance bearbeiten.
@@ -97,6 +100,11 @@ Stand: 2. August 2026
 - Aufbewahrungs-/Archivkonzept und Portabilität der Legacy-Pfade separat planen, ohne bestehende History zu löschen.
 
 ## Zuletzt erledigt
+
+- Learning-Metrikvertrag `pandorickki.learning-metrics` Version 1 eingeführt; Hit-Rate, Outcome-Abdeckung, Projektionszähler und fehlendes ML-Training in Report, Statistik, Graph und UI eindeutig ausgewiesen.
+- 239/239 Gesamttests bestanden; lokale Oberfläche zeigte Brüche, `nicht vergleichbar` bei inkompatiblem Aggregatscope und keine Browser-Konsolenfehler.
+- Kontrollierter Neustart mit zwei vollständigen Crypto-/Stock-Zyklen: alle zehn Services `OK`, NeuroBrain Queue/Drops/Fehler null, Telegram aus/Dry-Run und null Nachrichten.
+- Nächster Arbeitsschritt ist ausschließlich Punkt 10: UI-Lebenszyklus, WebSocket-Reconnect, idempotentes Polling, STALE-Heartbeats und Graph-Performance.
 
 - NeuroBrain-Datei-I/O über begrenzte FIFO-Queue und einzelnen Batch-Worker vom Publisher entkoppelt; Drop-newest, Healthmetriken und vollständiger Flush-Shutdown getestet.
 - 20/20 gezielte und 235/235 vollständige Tests; live 231 neue Zeilen in 48 Batches ohne Drops, FIFO-/Schema- oder Workerfehler. Dienst nach erfolgreichem Stop erneut sicher gestartet.

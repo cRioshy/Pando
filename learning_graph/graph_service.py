@@ -127,7 +127,7 @@ class LearningGraphService:
         if total is not None:
             stats["analyses_processed"] = max(int(stats.get("analyses_processed") or 0), total)
         if learnings is not None:
-            stats["new_learnings_today"] = max(int(stats.get("new_learnings_today") or 0), learnings)
+            stats["learning_update_events_total"] = learnings
         return graph
 
     def _safe_int(self, value: Any) -> int | None:

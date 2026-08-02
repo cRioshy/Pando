@@ -204,6 +204,44 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(snapshot["trading"]["average_outcome_profit_percent"], 2.5)
             self.assertEqual(snapshot["trading"]["average_holding_seconds"], 300.0)
 
+    def test_trading_metrics_separate_hit_rate_from_breakeven_and_learning_updates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            service = AnalysisStatisticsService(Path(temp) / "system_statistics.json")
+            for index, direction in enumerate(("LONG", "SHORT", "HOLD")):
+                service.apply_event(
+                    Event(
+                        topic="DECISION_CREATED",
+                        source="core",
+                        payload={"payload": {"direction": direction}},
+                        created_at=f"2026-08-02T10:00:0{index}+00:00",
+                    )
+                )
+            for index, (event_id, result) in enumerate((("w", "WIN"), ("l", "LOSS"), ("b", "BREAKEVEN"))):
+                service.apply_event(
+                    Event(
+                        topic="SIMULATED_TRADE_CLOSED",
+                        source="outcome_tracker",
+                        payload={"payload": {"decision_id": event_id, "result_type": result}},
+                        event_id=event_id,
+                        created_at=f"2026-08-02T10:01:0{index}+00:00",
+                    )
+                )
+            service.apply_event(Event(topic="AI_LEARNING_UPDATED", source="brain", payload={}))
+
+            trading = service.snapshot()["trading"]
+            metrics = trading["learning_metrics"]
+
+            self.assertEqual(trading["hit_rate"], 50.0)
+            self.assertEqual(metrics["decisions"]["total"], 3)
+            self.assertEqual(metrics["decisions"]["outcome_eligible"], 2)
+            self.assertEqual(metrics["outcomes"]["closed"], 3)
+            self.assertEqual(metrics["rates"]["hit_rate_denominator"], 2)
+            self.assertIsNone(metrics["rates"]["outcome_coverage_percent"])
+            self.assertEqual(metrics["learning"]["update_events"], 1)
+            self.assertIsNone(trading["learned_patterns"])
+            self.assertIsNone(trading["successful_learnings"])
+            self.assertFalse(metrics["ml_training"]["active"])
+
     def test_outcome_reconstruction_uses_trade_outcomes_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

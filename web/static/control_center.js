@@ -150,6 +150,9 @@ function renderStatistics(statistics) {
   const analyses = (statistics && statistics.analyses) || {};
   const developer = (statistics && statistics.developer) || {};
   const trading = (statistics && statistics.trading) || {};
+  const tradingMetrics = trading.learning_metrics || {};
+  const tradingRates = tradingMetrics.rates || {};
+  const tradingLearning = tradingMetrics.learning || {};
 
   setText("tradeAnalysesTotal", trading.analyses_total || 0);
   setText("tradeFinalLong", trading.final_long || 0);
@@ -157,8 +160,24 @@ function renderStatistics(statistics) {
   setText("tradeFinalHold", trading.final_hold || 0);
   setText("tradeWatchlist", trading.watchlist || 0);
   setText("tradeActiveMarkets", trading.active_markets ?? 0);
-  setText("tradeLearnedPatterns", trading.learned_patterns ?? "-");
-  setText("tradeHitRate", trading.hit_rate === null || trading.hit_rate === undefined ? "-" : percent(trading.hit_rate));
+  setText("tradeLearnedPatterns", tradingLearning.patterns_learned ?? "-");
+  const tradingHitRate = tradingRates.hit_rate_percent ?? trading.hit_rate;
+  setText(
+    "tradeHitRate",
+    tradingHitRate === null || tradingHitRate === undefined
+      ? "-"
+      : rateWithFraction(tradingHitRate, tradingRates.hit_rate_numerator, tradingRates.hit_rate_denominator)
+  );
+  setText(
+    "tradeOutcomeCoverage",
+    tradingRates.outcome_coverage_percent === null || tradingRates.outcome_coverage_percent === undefined
+      ? "nicht vergleichbar"
+      : rateWithFraction(
+          tradingRates.outcome_coverage_percent,
+          tradingRates.outcome_coverage_numerator,
+          tradingRates.outcome_coverage_denominator
+        )
+  );
   setText("tradeSimOpen", trading.simulated_open_trades ?? 0);
   setText("tradeSimClosed", trading.simulated_closed_trades ?? 0);
   setText("tradeSimWins", trading.simulated_wins ?? 0);
@@ -175,7 +194,7 @@ function renderStatistics(statistics) {
       ? "-"
       : runtime(trading.average_holding_seconds)
   );
-  setText("tradeSuccessfulLearnings", trading.successful_learnings || 0);
+  setText("tradeSuccessfulLearnings", tradingLearning.update_events ?? trading.learning_update_events ?? 0);
   setText("tradeAvgConfidence", trading.average_confidence === null || trading.average_confidence === undefined ? "-" : percent(trading.average_confidence));
   setText(
     "tradeAvgAnalysisTime",
@@ -216,6 +235,14 @@ function metric(value, suffix = "") {
   return `${Number(value).toFixed(2)}${suffix}`;
 }
 
+function rateWithFraction(value, numerator, denominator) {
+  if (value === null || value === undefined || typeof value !== "number") return "-";
+  const fraction = Number.isFinite(Number(numerator)) && Number.isFinite(Number(denominator))
+    ? ` (${Number(numerator)}/${Number(denominator)})`
+    : "";
+  return `${percent(value)}${fraction}`;
+}
+
 function renderTableRows(bodyId, rows, columns, emptyText = "Nicht genuegend Daten") {
   const body = $(bodyId);
   if (!body) return;
@@ -240,18 +267,37 @@ function renderTableRows(bodyId, rows, columns, emptyText = "Nicht genuegend Dat
 function renderLearningReport(report) {
   if (!report) return;
   const summary = report.summary || {};
-  const score = report.learning_score || {};
+  const learningMetrics = report.learning_metrics || {};
+  const learningRates = learningMetrics.rates || {};
+  const mlTraining = learningMetrics.ml_training || {};
+  const score = report.evaluation_score || report.learning_score || {};
   const progress = report.progress || {};
 
   setText("learningScore", score.score === undefined ? "-" : `${Number(score.score).toFixed(1)} / 100`);
-  setText("learningHitRate", typeof summary.hit_rate === "number" ? percent(summary.hit_rate) : summary.hit_rate);
+  setText(
+    "learningHitRate",
+    typeof summary.hit_rate === "number"
+      ? rateWithFraction(summary.hit_rate, summary.hit_rate_numerator, summary.hit_rate_denominator)
+      : summary.hit_rate
+  );
+  setText(
+    "learningOutcomeCoverage",
+    typeof learningRates.outcome_coverage_percent === "number"
+      ? rateWithFraction(
+          learningRates.outcome_coverage_percent,
+          learningRates.outcome_coverage_numerator,
+          learningRates.outcome_coverage_denominator
+        )
+      : "-"
+  );
+  setText("learningMlTraining", mlTraining.active ? "aktiv" : "Nein");
   setText("learningTrend", progress.verdict || "-");
   setText("learningConfidence", typeof summary.average_confidence === "number" ? percent(summary.average_confidence) : summary.average_confidence);
   setText(
     "learningProfit",
     typeof summary.average_profit_simulation === "number" ? percent(summary.average_profit_simulation) : summary.average_profit_simulation
   );
-  setText("learningOutcomes", summary.learning_events_with_outcome ?? "-");
+  setText("learningOutcomes", summary.matched_outcomes ?? summary.learning_events_with_outcome ?? "-");
   setText("learningDecisions", summary.decisions ?? "-");
   setText("learningReportUpdated", time(report.generated_at));
 
@@ -291,6 +337,7 @@ function renderLearningReport(report) {
   ]);
 
   const notes = [];
+  (report.metric_notes || []).forEach((item) => notes.push(["Definition", item]));
   (report.warnings || []).forEach((item) => notes.push(["Warnung", item]));
   (report.recommendations || []).slice(0, 6).forEach((item) => notes.push(["Empfehlung", item]));
   renderRows("learningReportNotes", notes, "Keine Hinweise");
@@ -405,8 +452,8 @@ function renderLearningGraph(graph) {
   $("graphNodeCount").textContent = stats.visible_nodes ?? nodes.length;
   $("graphEdgeCount").textContent = stats.visible_edges ?? edges.length;
   $("graphAnalyses").textContent = stats.analyses_processed ?? 0;
-  $("graphPatterns").textContent = stats.patterns_recognized ?? 0;
-  $("graphLearningsToday").textContent = stats.new_learnings_today ?? 0;
+  $("graphPatterns").textContent = stats.pattern_buckets ?? stats.patterns_recognized ?? 0;
+  $("graphLearningsToday").textContent = stats.learning_projection_records_today ?? stats.new_learnings_today ?? 0;
   $("graphMarkets").textContent = stats.active_markets ?? 0;
   $("graphStatus").textContent = stats.system_status || "-";
   $("graphUpdated").textContent = time(stats.last_update);

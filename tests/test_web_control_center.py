@@ -210,7 +210,14 @@ class WebControlCenterTest(unittest.TestCase):
         self.assertIn("live_event_snapshot()", routes)
         self.assertNotIn('"snapshot": self.server.app.snapshot()', routes)
         self.assertIn('id="storageTotals"', page)
-        self.assertIn("storage-scanner-metrics-v1", page)
+        self.assertIn("learning-metrics-v1", page)
+        self.assertIn("Outcome-Abdeckung", page)
+        self.assertIn("Kein ML-Training aktiv", page)
+        self.assertIn("Muster-Buckets", page)
+        self.assertIn("Learning-Update-Events", page)
+        self.assertIn("outcome_coverage_percent", script)
+        self.assertIn("hit_rate_denominator", script)
+        self.assertIn("rateWithFraction", script)
 
     def test_bad_event_does_not_stop_webserver(self) -> None:
         async def run() -> None:

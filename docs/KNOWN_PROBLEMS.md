@@ -84,6 +84,15 @@ Stand: 2. August 2026
 - **Auswirkung:** Die Oberfläche zeigt einen akzeptierten Stop, während Port und Prozess noch bis zum nächsten Schleifendurchlauf aktiv bleiben.
 - **Nächster Fix:** Im späteren UI-/Lebenszyklus-Schritt das Intervall über ein Abbruchereignis unterbrechbar machen und Stop-/Restart-Bedeutung eindeutig testen; bis dahin nicht voreilig hart beenden.
 
+### KP-017 – Historische Statistikzähler besitzen keinen gemeinsamen Outcome-Scope
+
+- **Priorität:** mittel
+- **Status:** offen; falsche Quote wird seit dem 2. August 2026 verhindert
+- **Beobachtung:** Die persistente Statistik rekonstruiert finale LONG-/SHORT-Decisions und geschlossene Outcomes aus historisch unterschiedlich begrenzten Quellen. Der Outcome-Zähler kann deshalb größer als der passende Decision-Zähler sein.
+- **Auswirkung:** Aus den Gesamtzählern lässt sich keine belastbare Outcome-Abdeckung berechnen. Version 1 liefert dafür bewusst `null`, `outcome_coverage_scope_consistent=false` und die UI zeigt `nicht vergleichbar`.
+- **Verlässliche Sicht:** Der Learning Report lädt Decisions und Outcomes in einem gemeinsamen Fenster und ordnet sie exakt per `decision_id` zu; dort ist die Abdeckung berechenbar.
+- **Nächster Fix:** Später eine gemeinsame, versionierte Scope-/Cursor-Identität für Statistikrekonstruktion entwerfen. Bestehende Statistik- und Historydateien nicht zurücksetzen oder migrieren, bevor ein getesteter Migrationsvertrag vorliegt.
+
 ### KP-015 – Vollständige Raw Results vergrößern Event-Ledger
 
 - **Priorität:** hoch
@@ -95,6 +104,16 @@ Stand: 2. August 2026
 - **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
 
 ## Behoben oder entschärft
+
+### KP-R14 – Learning-, Outcome- und Trainingsmetriken waren widersprüchlich benannt
+
+- **Status:** behoben, getestet und am 2. August 2026 live verifiziert
+- Der Vertrag `pandorickki.learning-metrics` Version 1 vereinheitlicht Hit-Rate als Wins geteilt durch Wins plus Losses und liefert für jede Rate Zähler und Nenner. Breakeven und unbekannte Outcomes bleiben separate Klassen.
+- Der Learning Report ordnet Outcomes exakt per `decision_id` zu und zeigt eine scope-konsistente Outcome-Abdeckung. Alte Cachedateien ohne Vertrag werden beim normalen Lesen neu aufgebaut, nicht gelöscht.
+- `AI_LEARNING_UPDATED`, Graph-Projektionen und Muster-Buckets werden nicht länger als erfolgreiche Learnings, Modellupdates oder gelernte ML-Muster ausgegeben. API und UI melden ausdrücklich `ml_training.active=false` und `model_updates=0`.
+- 239/239 Gesamttests, Syntaxprüfung, Diffprüfung und Runtime-Preflight bestanden. Live waren Report-Hit-Rate und -Abdeckung samt Bruch sichtbar; historische Aggregate zeigten wegen KP-017 korrekt `nicht vergleichbar`.
+- Nach finalem kontrolliertem Neustart meldeten Plattform und alle zehn Services `OK`, Crypto und Stock jeweils zwei Zyklen, NeuroBrain null Queue-/Drop-/Workerfehler, Telegram aus/Dry-Run und null versendete Nachrichten.
+- Bestehende Statistik-, Learning-, Graph- und Historydaten wurden weder gelöscht noch umgeschrieben.
 
 ### KP-R13 – NeuroBrain-Datei-I/O blockierte den synchronen Publisher
 

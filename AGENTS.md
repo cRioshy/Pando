@@ -16,6 +16,8 @@ Danach muss Codex die tatsächliche Repository-Struktur und die für die Aufgabe
 
 Vor Änderungen an Markt-, Brain-, Decision-, Signal- oder NeuroBrain-Payloads muss zusätzlich `docs/EVENT_PAYLOAD_CONTRACT.md` gelesen und gegen die tatsächlichen Consumer geprüft werden.
 
+Vor Änderungen an Learning-, Outcome-, Hit-Rate-, Pattern- oder Trainingsmetriken muss zusätzlich `docs/LEARNING_METRICS_CONTRACT.md` gelesen und gegen die tatsächlichen Produzenten, Ledger und UI-Nenner geprüft werden.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.

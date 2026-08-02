@@ -3,6 +3,12 @@
 Stand: 2. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Learning-, Outcome- und Graphmetriken verwenden seit dem 2. August 2026 den additiven Vertrag `pandorickki.learning-metrics` Version 1. Hit-Rate bedeutet einheitlich Wins geteilt durch Wins plus Losses; Breakeven und unbekannte Ergebnisse bleiben separate Klassen. Jede Rate liefert Zähler und Nenner. Der Learning Report ordnet geschlossene Outcomes per `decision_id` zu und weist die Outcome-Abdeckung gegenüber outcome-fähigen LONG-/SHORT-Decisions aus. Nicht vergleichbare historische Aggregatzähler liefern für die Abdeckung bewusst `null` statt einer erfundenen Quote.
+
+`AI_LEARNING_UPDATED` ist ausdrücklich ein Projektionsereignis, kein erfolgreicher Lern- oder Modellupdate. Graph-Muster sind sichtbare Muster-Buckets, keine gelernten Modellmuster. Control Center, API und Graph melden `ml_training.active=false` und `model_updates=0`; PandorickKi trainiert weiterhin kein ML-Modell. Alte API-Felder bleiben zunächst als Aliase erhalten, bestehende Statistik-, Learning- und Historydateien wurden nicht umgeschrieben.
+
+Die finale Liveprüfung vom 2. August 2026 zeigte Plattform und alle zehn Services `OK`. Nach zwei Crypto- und Stockzyklen lagen aktuelle BTCUSDT-, ETHUSDT- und XRPUSDT-Preise vor; NeuroBrain hatte Queue-Tiefe, Drops und Fehler jeweils null. Der Learning Report lieferte die Version-1-Metriken mit expliziten Brüchen, während die historischen Trading-Aggregate ihre wegen unterschiedlicher Rekonstruktionsscopes nicht berechenbare Abdeckung korrekt als `null` ausgaben. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten.
+
 NeuroBrain ist seit dem 2. August 2026 vom synchronen Datei-I/O im EventBus-Publisher entkoppelt. Der Publisher erstellt nur noch die kompakte Projektion und reiht sie per `put_nowait` in eine FIFO-Queue mit Standardkapazität 2048 ein. Ein einzelner Worker schreibt bis zu 64 Einträge pro Batch mit einem `fsync` je aktivem Dateichunk und aktualisiert anschließend den atomaren Status. Bei voller Queue wird ausschließlich das neueste Ereignis abgelehnt und dauerhaft sichtbar gezählt; es gibt kein stilles Überschreiben älterer Einträge. `stop()` nimmt zuerst das Abonnement weg und kehrt erst zurück, wenn alle akzeptierten Einträge verarbeitet sind.
 
 Die Liveprüfung verarbeitete 231 neue, eindeutige Inboxzeilen in 48 Batches ohne FIFO-, Schema- oder Bulk-Verstoß. Queue-Tiefe, Drops, Ledger-/Status-/Benachrichtigungsfehler blieben null. Der kontrollierte Stop hinterließ `running=false`, `worker_running=false` und `queue_depth=0`; anschließend wurde PandorickKi wieder mit Queue-Worker, Telegram aus und Dry-Run gestartet. Alle zehn Services waren `OK`, Crypto lieferte sechs und Stock zehn Ergebnisse, das Fehlerjournal blieb bei 180.
@@ -138,6 +144,10 @@ Der Crypto Trade Tracker bevorzugt für die Stop-Berechnung die kompakten Felder
 
 Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorhandene Historien. `AI_LEARNING_UPDATED` bezeichnet derzeit ein Daten-/Projektionsereignis, kein Training oder Update eines ML-Modells. Die Graphdienste unter `learning_graph/` liefern sanitizierte Nodes, Edges, Cluster und Übersichten für API und Browser.
 
+Der ausführbare Learning-Metrikvertrag liegt in `learning_metrics_contract.py`, die Feld- und Nennerdefinition in `docs/LEARNING_METRICS_CONTRACT.md`. Der Report lädt begrenzte aktuelle Decision-/Outcome-Fenster, ordnet exakte Outcomes per `decision_id` zu und zeigt Zähler/Nenner sowie Outcome-Abdeckung. Persistente Trading-Aggregate verwenden denselben Hit-Rate-Nenner; ihre Abdeckung bleibt `null`, wenn historisch rekonstruierte Decision- und Outcome-Zähler nicht denselben Scope belegen. `successful_learnings` und `learned_patterns` werden nicht mehr aus Projektionszählern erfunden.
+
+Der Learning Graph unterscheidet `pattern_buckets`, `learning_projection_records_today` und kumulative `learning_update_events_total`. Die ersten beiden beziehen sich auf das geladene Graph-Fenster; keiner dieser Werte ist ein Modelltrainingsergebnis.
+
 Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
 Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1 des passenden Vertrags. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Analysis-, Brain-, Decision-, Signal-, Trade- und einzelwertige Marktupdates verwenden den Marktvertrag. `AI_LEARNING_UPDATED` und das aggregierte Aktien-Update verwenden den Observer-Vertrag ohne künstlichen singulären Marktbezug. Persistiert wird über einen einzelnen begrenzten FIFO-Worker; Queue-, Batch-, Drop- und Fehlerzähler sind in Health, Heartbeat und Statusdatei sichtbar.
@@ -166,6 +176,8 @@ Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Ein alter Cache ohne get
 ## Control Center
 
 Das lokale Control Center wird standardmäßig unter `http://127.0.0.1:8000/` bereitgestellt. Es zeigt Health, Services, Märkte, Brain, Signals, Statistiken, Speicher, Learning Report und Graphen. HTTP-Endpunkte liefern read-only Sichten; `/api/statistics/storage/refresh` startet einen Hintergrundscan und antwortet mit HTTP `202 Accepted`.
+
+Die Learning-Oberfläche heißt fachlich Outcome-Auswertung, zeigt Hit-Rate und Outcome-Abdeckung einschließlich Zähler/Nenner und kennzeichnet sichtbar, dass kein ML-Training aktiv ist. Trading-Statistik, Outcome-Auswertung und Graph verwenden getrennte Scope-Bezeichnungen; nicht vergleichbare Aggregate erscheinen als `nicht vergleichbar`.
 
 Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus, kumulativen JSONL-Indexfortschritt, geschätzte Restläufe/-zeit, die langsamste Phase sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
 

@@ -128,6 +128,10 @@ class LearningGraphPhase3Test(unittest.TestCase):
             self.assertIn("edges", graph)
             self.assertIn("stats", graph)
             self.assertGreater(graph["stats"]["visible_nodes"], 0)
+            self.assertIn("pattern_buckets", graph["stats"])
+            self.assertIn("learning_projection_records_today", graph["stats"])
+            self.assertFalse(graph["stats"]["ml_training_active"])
+            self.assertEqual(graph["stats"]["model_updates"], 0)
 
     def test_no_internal_formulas_or_paths_in_graph(self) -> None:
         graph = GraphBuilder().build([sample_record()])

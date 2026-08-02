@@ -38,7 +38,9 @@ flowchart LR
     HM --> CC
     CC --> WEB["ThreadingHTTPServer + WebSocket + Browser UI"]
     LEDGER["JSON/JSONL/SQLite-Historie"] --> ST["Statistik, Reports und Graphprojektion"]
+    ST --> LM["Learning-Metrikvertrag v1: explizite Nenner, kein ML-Training"]
     ST --> CACHE["Persistenter Storage-/Report-Cache"]
+    LM --> WEB
     CACHE --> WEB
 ```
 
@@ -99,6 +101,7 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `TelegramAdapter` | Dry-Run oder optionaler Nachrichtenversand | Zwingende finale Decision-Freigabe |
 | `ControlCenterAdapter` | Kompakte Event-/Statussicht | Stale-Heartbeat-Klassifikation |
 | `ServiceErrorJournal` | Versionierte Projektion von Fehlerereignissen, Secret-Filter, begrenzte Rotation, persistente Erst-/Letztbeobachtung | Vollständige Payload-Ablage, zentrale Retention aller anderen Ledger |
+| `learning_metrics_contract.py` | Einheitliche Outcome-/Hit-Rate-/Abdeckungsprojektion mit expliziten Zählern und Nennern | ML-Training, Modellbewertung oder Musterlernen |
 
 ## Persistenzarchitektur
 
@@ -158,6 +161,26 @@ flowchart LR
 Die Web-API sanitiziert öffentliche Payloads und entfernt Secrets sowie große interne Felder. Markt-/Heartbeat-Broadcasts und Statistikupdates werden gedrosselt. Der Storage-Refresh antwortet asynchron mit HTTP `202`.
 
 Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage-Snapshots werden single-flight geladen. Lokale Skripte verwenden `defer` und Cache-Buster. Ein belastbarer WebSocket-Reconnect sowie idempotente Polling-Timer fehlen noch.
+
+## Learning- und Outcome-Metrikgrenze
+
+```mermaid
+flowchart LR
+    DEC["Finale Decisions im betrachteten Scope"] --> ELIGIBLE["Outcome-faehig: LONG/SHORT"]
+    OUT["Geschlossene simulierte Outcomes"] --> MATCH["decision_id-Zuordnung"]
+    MATCH --> CLASS["Win / Loss / Breakeven / Unknown"]
+    CLASS --> HIT["Hit-Rate = Wins / (Wins + Losses)"]
+    ELIGIBLE --> COVERAGE["Outcome-Abdeckung = zugeordnet / outcome-faehig"]
+    MATCH --> COVERAGE
+    UPDATE["AI_LEARNING_UPDATED"] --> PROJECTION["Learning-Update-Event"]
+    PROJECTION -. "kein Trainingsnachweis" .-> NOML["ml_training.active = false"]
+    GRAPH["Graph Pattern Nodes"] --> BUCKETS["Muster-Buckets"]
+    BUCKETS -. "kein gelerntes Modellmuster" .-> NOML
+```
+
+`learning_metrics_contract.py` ist die ausführbare Version-1-Referenz. Report und Trading-Statistik verwenden denselben Hit-Rate-Nenner; Breakeven und unbekannte Outcomes werden separat ausgewiesen. Der Report darf Outcome-Abdeckung nur aus per `decision_id` zugeordneten Outcomes und Decisions desselben geladenen Fensters berechnen. Historische Aggregatzähler liefern keine Abdeckung, wenn ihr Rekonstruktionsscope nicht übereinstimmt. Alle öffentlichen Raten enthalten Zähler und Nenner.
+
+Der Graph benennt beobachtete Kategorien als `pattern_buckets` und Datensätze im geladenen Tagesfenster als `learning_projection_records_today`. Der kumulative Wert `learning_update_events_total` bleibt davon getrennt. Keine dieser Projektionen belegt Modelltraining; Version 1 veröffentlicht deshalb `ml_training_active=false` und `model_updates=0`.
 
 ## Sicherheitsgrenzen
 

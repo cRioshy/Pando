@@ -21,6 +21,7 @@ from uuid import uuid4
 from brain_event_store import BrainEventReader
 from config import PlatformConfig
 from event_bus import Event
+from learning_metrics_contract import build_learning_metrics
 
 
 STATISTICS_UPDATED = "STATISTICS_UPDATED"
@@ -339,7 +340,6 @@ class AnalysisStatisticsService:
             self._count_outcome_record_unlocked(event.topic, data)
         elif event.topic == "AI_LEARNING_UPDATED":
             self.counters["learning_updates"] += 1
-            self.professional_counters["successful_learnings"] += 1
         elif event.topic == "SYSTEM_ERROR" or event.topic.endswith("_SERVICE_ERROR"):
             self.counters["error_count"] += 1
             self._count_error_unlocked(event, data, service_error=True)
@@ -462,6 +462,18 @@ class AnalysisStatisticsService:
             self.professional_counters["simulated_trades_opened"] - self.professional_counters["simulated_trades_closed"],
             0,
         )
+        learning_metrics = build_learning_metrics(
+            decisions_total=self.professional_counters["final_decisions"],
+            outcome_eligible_decisions=self.professional_counters["final_long"] + self.professional_counters["final_short"],
+            matched_outcomes=closed,
+            wins=wins,
+            losses=self.professional_counters["simulated_losses"],
+            breakeven=self.professional_counters["simulated_breakeven"],
+            unknown=self.professional_counters["simulated_unknown"],
+            learning_update_events=self.counters["learning_updates"],
+            matching_method="aggregate_persistent_counters",
+        )
+        rates = learning_metrics["rates"]
         return {
             "analyses_total": self.counters["total_analyses"],
             "final_long": self.professional_counters["final_long"],
@@ -469,8 +481,11 @@ class AnalysisStatisticsService:
             "final_hold": self.professional_counters["final_hold"],
             "watchlist": self.professional_counters["watchlist"],
             "active_markets": None,
-            "learned_patterns": self.professional_counters["learned_patterns"],
-            "hit_rate": round(wins / closed * 100, 2) if closed else None,
+            "learned_patterns": None,
+            "hit_rate": rates["hit_rate_percent"],
+            "hit_rate_numerator": rates["hit_rate_numerator"],
+            "hit_rate_denominator": rates["hit_rate_denominator"],
+            "outcome_coverage_percent": rates["outcome_coverage_percent"],
             "simulated_open_trades": open_simulated,
             "simulated_closed_trades": closed,
             "simulated_wins": wins,
@@ -490,7 +505,9 @@ class AnalysisStatisticsService:
             )
             if holding_count
             else None,
-            "successful_learnings": self.professional_counters["successful_learnings"],
+            "successful_learnings": None,
+            "learning_update_events": self.counters["learning_updates"],
+            "learning_metrics": learning_metrics,
             "average_confidence": round(self.professional_counters["confidence_total"] / confidence_count / 100, 2)
             if confidence_count
             else None,

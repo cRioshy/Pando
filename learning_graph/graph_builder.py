@@ -106,12 +106,16 @@ class GraphBuilder:
             edge for edge in edge_dicts if edge.get("source") in allowed_node_ids and edge.get("target") in allowed_node_ids
         ][-max(0, edge_limit):]
 
+        pattern_buckets = sum(1 for node in node_dicts if node.get("type") == "PATTERN")
+        projection_records_today = self._count_today(records)
         stats = GraphStats(
             visible_nodes=len(node_dicts),
             visible_edges=len(edge_dicts),
             analyses_processed=len(records),
-            patterns_recognized=sum(1 for node in node_dicts if node.get("type") == "PATTERN"),
-            new_learnings_today=self._count_today(records),
+            patterns_recognized=pattern_buckets,
+            new_learnings_today=projection_records_today,
+            pattern_buckets=pattern_buckets,
+            learning_projection_records_today=projection_records_today,
             active_markets=sum(1 for node in node_dicts if node.get("type") == "MARKET"),
             last_update=latest_timestamp,
             system_status=system_status,
