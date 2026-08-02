@@ -9,8 +9,12 @@ from event_payload_contract import (
     CONTRACT_VERSION,
     FORBIDDEN_FIELDS,
     LEGACY_FIELD_REPLACEMENTS,
+    OBSERVER_CONTRACT_NAME,
+    OBSERVER_CONTRACT_VERSION,
     compact_market_payload,
+    compact_observer_payload,
     contract_errors,
+    observer_contract_errors,
 )
 
 
@@ -109,6 +113,38 @@ class CompactEventPayloadContractTests(unittest.TestCase):
                 "learning_graph:raw_result.result": "public_result",
             },
         )
+
+    def test_projects_learning_update_to_compact_observer_payload(self) -> None:
+        compact = compact_observer_payload(
+            {
+                "event_type": "AI_LEARNING_UPDATED",
+                "payload": {
+                    "status": "updated",
+                    "updates": 17,
+                    "memory_size": 17,
+                    "last_symbol": "BTCUSDT",
+                    "symbols": ["BTCUSDT", {"raw_result": "drop nested bulk"}],
+                    "raw_result": {"drop": True},
+                },
+            }
+        )
+
+        self.assertEqual(compact["schema_name"], OBSERVER_CONTRACT_NAME)
+        self.assertEqual(compact["schema_version"], OBSERVER_CONTRACT_VERSION)
+        self.assertEqual(compact["event_type"], "AI_LEARNING_UPDATED")
+        self.assertEqual(compact["updates"], 17)
+        self.assertEqual(observer_contract_errors(compact), [])
+        self.assertNotIn("raw_result", json.dumps(compact))
+
+    def test_observer_validator_requires_event_type(self) -> None:
+        errors = observer_contract_errors(
+            {
+                "schema_name": OBSERVER_CONTRACT_NAME,
+                "schema_version": OBSERVER_CONTRACT_VERSION,
+            }
+        )
+
+        self.assertEqual(errors, ["missing required field: event_type"])
 
 
 if __name__ == "__main__":

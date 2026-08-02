@@ -65,14 +65,14 @@ Stand: 2. August 2026
    - 18/18 gezielte und 224/224 vollständige Tests bestanden.
    - Commit `5d32bc7` veröffentlicht; gestapelter Draft-PR #13 gegen `agent/compact-decision-signal-payloads` erstellt und nicht gemergt.
    - **Liveverifikation am 1. August 2026 abgeschlossen:** drei saubere Produktionszyklen, alle zehn Services `OK`, echte Crypto-Preise, vollständige ID-Kette und keine Bulk-Felder in den geprüften neuen Zeilen.
-   - Offene Vertragslücke `KP-016`: Nicht marktbezogene NeuroBrain-Topics tragen derzeit ebenfalls das Markt-Schema, obwohl Pflichtfelder fehlen können.
+   - **Schemaabgrenzung `KP-016` am 2. August 2026 behoben und live verifiziert:** Observer-Vertrag für Learning/Aggregate, Markt-Typ-Ergänzung für einzelwertige Preisupdates; 231/231 Tests und 152/152 neue Livezeilen ohne Verstoß.
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
    - **Vorgelagerte Schreibkonflikte am 2. August 2026 behoben und live verifiziert:** eindeutige Temp-Dateien, Pfadsperre, begrenzter Windows-Retry und geordnete Zustandssnapshots für NeuroBrain-Status und aktive Crypto-Trades.
    - 13/13 gezielte und 226/226 vollständige Tests bestanden; zwei Produktionszyklen ohne neue Ziel-Fingerprints oder Temp-Reste.
    - Commit `ed2a83e` auf dem bestehenden Branch veröffentlicht und Draft-PR #13 aktualisiert; nicht gemergt.
-   - Vorher `KP-016` beheben: Markt- und Lifecycle-/Learning-Topics schematisch eindeutig trennen und Regressionstests ergänzen.
+   - **Voraussetzung `KP-016` erledigt:** Markt- und Observer-Topics sind eindeutig getrennt und getestet.
    - Begrenzte Queue, Überlaufregel, Batch-Schreiben, atomaren Status und sicheren Shutdown umsetzen.
    - Zunächst nur NeuroBrain entkoppeln, nicht ungeprüft den vollständigen EventBus ersetzen.
 
@@ -94,11 +94,13 @@ Stand: 2. August 2026
 
 ## Zuletzt erledigt
 
+- NeuroBrain-Schemaabgrenzung behoben: kompakter Observer-Vertrag für Learning-/Aggregatereignisse, Markt-Typ-Inferenz für einzelwertige Crypto-/Commodity-Updates.
+- 15/15 gezielte und 231/231 vollständige Tests bestanden; 152 neue Livezeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß, alle Services `OK`, Telegram aus/Dry-Run.
 - Wiederkehrende `WinError 5`-Konflikte bei NeuroBrain-Status und aktiven Crypto-Trades mit einem konfliktresistenten atomaren JSON-Schreibpfad behoben.
 - Retry- und Parallelitätsregressionen, 13/13 gezielte sowie 226/226 vollständige Tests bestanden; zwei Livezyklen ohne neue Fehlerfingerprints oder Temp-Reste.
 - Vollständigen gestapelten Payloadstand kontrolliert live gestartet und drei saubere Produktionszyklen verifiziert.
 - Neue Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen verwenden Version 1, enthalten keine Bulk-Felder und behalten die vollständige ID-Kette.
-- Live-Vertragslücke für nicht marktbezogene NeuroBrain-Topics als `KP-016` dokumentiert; noch keine Queue-/Batch-Änderung begonnen.
+- Die zunächst als `KP-016` dokumentierte Live-Vertragslücke wurde am 2. August 2026 behoben; noch keine Queue-/Batch-Änderung begonnen.
 - Neue NeuroBrain-Inboxzeilen auf Version 1 umgestellt; Kopfsicht, ID-Kette, Duplikatschutz und alte Inboxzeilen erhalten.
 - 18/18 gezielte und 224/224 vollständige Tests bestanden; Commit `5d32bc7` und gestapelter Draft-PR #13 veröffentlicht.
 - Neue Decision-/Signal-Events und beide Ledger auf Version 1 umgestellt; IDs und Legacy-Eingangskompatibilität erhalten.

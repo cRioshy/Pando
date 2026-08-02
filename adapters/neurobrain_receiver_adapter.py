@@ -10,7 +10,7 @@ from typing import Any
 
 from atomic_json import atomic_write_json
 from event_bus import Event, EventBus
-from event_payload_contract import compact_market_payload
+from event_payload_contract import compact_market_payload, compact_observer_payload
 from jsonl_ledger import RotatingJsonlLedger
 
 
@@ -37,6 +37,12 @@ DEFAULT_NEUROBRAIN_TOPICS = frozenset(
         "AI_LEARNING_UPDATED",
     }
 )
+
+OBSERVER_TOPICS = frozenset({"AI_LEARNING_UPDATED", "STOCK_MARKET_DATA_UPDATED"})
+MARKET_TYPE_BY_TOPIC = {
+    "CRYPTO_MARKET_DATA_UPDATED": "crypto",
+    "COMMODITY_MARKET_DATA_UPDATED": "commodity",
+}
 
 
 @dataclass
@@ -192,7 +198,16 @@ class NeuroBrainReceiverAdapter:
         """Convert an EventBus event to a stable NeuroBrain inbox record."""
 
         payload = event.payload if isinstance(event.payload, dict) else {"raw_payload": event.payload}
-        compact_payload = compact_market_payload(payload)
+        if event.topic in OBSERVER_TOPICS:
+            observer_source = payload
+            if not isinstance(payload.get("event_type"), str):
+                observer_source = {"event_type": event.topic, "payload": payload}
+            compact_payload = compact_observer_payload(observer_source)
+        else:
+            compact_payload = compact_market_payload(payload)
+            inferred_market_type = MARKET_TYPE_BY_TOPIC.get(event.topic)
+            if inferred_market_type and not compact_payload.get("market_type"):
+                compact_payload["market_type"] = inferred_market_type
         return {
             "received_at": datetime.now(UTC).isoformat(),
             "source_event_id": event.event_id,

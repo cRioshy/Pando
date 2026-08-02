@@ -93,16 +93,16 @@ Stand: 2. August 2026
 - **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1. Tracker und Graph bevorzugen die kompakten Ersatzfelder; vier Regressionstests sichern Priorität und Legacy-Kompatibilität.
 - **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
 
-### KP-016 – NeuroBrain verwendet das Markt-Schema für nicht marktbezogene Topics
-
-- **Priorität:** hoch
-- **Status:** offen; live reproduziert am 1. August 2026
-- **Beobachtung:** Neue NeuroBrain-Inboxzeilen für `AI_LEARNING_UPDATED` sowie einzelne reine Market-Data-Topics tragen `pandorickki.compact-market-event` Version 1, obwohl `market_type` oder `symbol` fehlen. Im geprüften neuen Bereich waren 18 von 94 Zeilen nach `contract_errors()` formal ungültig; alle geprüften eigentlichen Markt-, Brain-, Decision- und Signalzeilen waren gültig.
-- **Auswirkung:** Downstream-Leser dürfen sich bei jeder NeuroBrain-Zeile derzeit nicht allein aufgrund des Schemanamens auf die Pflichtfelder verlassen.
-- **Abgrenzung:** Die Zeilen enthalten keine verbotenen Bulk-Felder, die zweistufige Event-/Quell-ID bleibt erhalten und der laufende Dienst bleibt gesund. Bestehende Inboxzeilen wurden nicht verändert.
-- **Nächster Fix:** Vor der Queue-/Batch-Entkopplung Topicgruppen und Schemazuständigkeit festlegen. Nicht marktbezogene Ereignisse entweder mit einem eigenen kompakten Lifecycle-Schema persistieren oder nur dann als Markt-Schema kennzeichnen, wenn alle Pflichtfelder vorhanden sind; Regressionstests für beide Gruppen ergänzen.
-
 ## Behoben oder entschärft
+
+### KP-R12 – NeuroBrain verwendete das Markt-Schema für nicht marktbezogene Topics
+
+- **Status:** behoben, getestet und am 2. August 2026 live verifiziert
+- `AI_LEARNING_UPDATED` und das aggregierte `STOCK_MARKET_DATA_UPDATED` verwenden für neue Inboxzeilen `pandorickki.compact-observer-event` Version 1. Der Vertrag verlangt `event_type`, erhält die benötigten Zähler-/Learning-Felder und verbietet rekursiv dieselben Bulk-Felder wie der Marktvertrag.
+- Einzelwertige `CRYPTO_MARKET_DATA_UPDATED`- und `COMMODITY_MARKET_DATA_UPDATED`-Ereignisse bleiben Marktprojektionen; NeuroBrain ergänzt den aus dem Topic eindeutigen `market_type`.
+- Drei neue Adapterregressionen reproduzierten den Fehler vor dem Fix. Danach bestanden 15/15 gezielte und 231/231 vollständige Tests, `py_compile` und `git diff --check`.
+- Live wurden 152 ausschließlich neu angehängte Inboxzeilen geprüft: beide Schemagruppen, alle Pflichtfelder und der Bulk-Ausschluss waren fehlerfrei. Alle zehn Services meldeten `OK`, das Fehlerjournal blieb bei 180 und Telegram aus/Dry-Run.
+- Bestehende Inbox- und Historyzeilen wurden weder migriert noch umgeschrieben.
 
 ### KP-R11 – Feste Temp-Dateien kollidierten bei atomaren Runtime-Schreibvorgängen
 

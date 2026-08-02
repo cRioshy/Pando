@@ -106,7 +106,10 @@ flowchart TD
     EVENTS --> DEC["Decision JSONL, größenrotiert"]
     EVENTS --> SIG["Signal JSONL, größenrotiert"]
     EVENTS --> OUT["Outcome JSONL, größenrotiert"]
-    EVENTS --> NEURO["NeuroBrain Inbox JSONL"]
+    EVENTS --> MP["Kompakte Marktprojektion v1"]
+    EVENTS --> OP["Kompakte Observer-Projektion v1"]
+    MP --> NEURO["NeuroBrain Inbox JSONL"]
+    OP --> NEURO
     ERRORS["Nur Fehlerereignisse"] --> ERRLOG["service_errors.jsonl, 5 MiB + max. 4 Archive"]
     ERRORS --> ERRSUM["service_error_summary.json, atomar + max. 500 Fingerprints"]
     OPEN["Offene simulierte Trades"] --> JSON["Konfliktresistent atomar ersetztes JSON"]
@@ -165,7 +168,7 @@ Die Browseroberfläche verwendet WebSocket-Liveupdates und HTTP-Polling. Storage
 
 ## Kompakter Event-Payload-Vertrag
 
-Der produktiv aktive Vertrag `pandorickki.compact-market-event` Version 1 beschreibt die kontrollierte Migration weg von vollständigen Raw Results. Seine ausführbare Referenz ist `event_payload_contract.py`; die Feldmatrix und Migrationsregeln stehen in `docs/EVENT_PAYLOAD_CONTRACT.md`.
+Die produktiv aktiven Verträge `pandorickki.compact-market-event` und `pandorickki.compact-observer-event`, jeweils Version 1, beschreiben die kontrollierte Migration weg von vollständigen Raw Results. Ihre ausführbare Referenz ist `event_payload_contract.py`; Feldmatrix, Topiczuordnung und Migrationsregeln stehen in `docs/EVENT_PAYLOAD_CONTRACT.md`.
 
 ```mermaid
 flowchart LR
@@ -175,14 +178,16 @@ flowchart LR
     PROJECT --> TRACKERS["Trade- und Outcome-Tracker"]
     PROJECT --> UI["Control Center / Telegram Dry-Run"]
     PROJECT --> LEARNING["Learning Graph"]
-    PROJECT --> NEURO["NeuroBrain-Inbox"]
+    PROJECT --> NEURO["Marktbezogene NeuroBrain-Zeilen"]
+    OBSERVER["Learning-/Aggregat-Events"] --> OPROJECT["Kompakte Observer-Projektion v1"]
+    OPROJECT --> NEUROOBS["Observer-NeuroBrain-Zeilen"]
     LEGACY -. "nur während Migration" .-> SWING["Kerzen zu recent_swing_low/high verdichten"]
     LEGACY -. "nur während Migration" .-> RESULT["raw result label zu public_result"]
     SWING --> PROJECT
     RESULT --> PROJECT
 ```
 
-Brain verwendet die Projektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. NeuroBrain behält eine kompakte Kopfsicht und persistiert als Detailpayload nur noch Version 1. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Der dargestellte kompakte Persistenzfluss ist implementiert und kontrolliert live verifiziert; `KP-016` dokumentiert die noch offene Schemaabgrenzung nicht marktbezogener NeuroBrain-Topics.
+Brain verwendet die Marktprojektion als aktive Eingangsgrenze für neue History und `BRAIN_DECISION_RECEIVED`; Decision Core verwendet sie für neue Decision-/Signal-Events und beide Ledger. NeuroBrain behält eine kompakte Kopfsicht und wählt sein Detailpayload topicbasiert: Learning und aggregierte Aktienupdates verwenden den Observer-Vertrag, einzelwertige Crypto-/Commodity-Updates sowie Analysis-, Brain-, Decision-, Signal- und Trade-Topics den Marktvertrag. Der Crypto Trade Tracker liest `market_context.recent_swing_low/high` und der Learning Graph `public_result` jeweils bevorzugt. Bestehende Payloads und History bleiben über die bisherigen Raw-Lesepfade verfügbar und werden nicht umgeschrieben. Beide NeuroBrain-Schemata sind kontrolliert live verifiziert.
 
 ## Crypto-Ausfall- und Fallback-Semantik
 

@@ -20,6 +20,113 @@ from orchestrator import Orchestrator
 
 
 class NeuroBrainReceiverAdapterTest(unittest.TestCase):
+    def test_receiver_uses_observer_schema_for_learning_updates(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                adapter = NeuroBrainReceiverAdapter(
+                    bus,
+                    inbox_file=root / "inbox.jsonl",
+                    status_file=root / "status.json",
+                )
+                await adapter.start()
+                bus.publish(
+                    Event(
+                        topic="AI_LEARNING_UPDATED",
+                        source="brain",
+                        payload={
+                            "event_type": "AI_LEARNING_UPDATED",
+                            "payload": {
+                                "status": "updated",
+                                "updates": 17,
+                                "memory_size": 17,
+                                "last_symbol": "BTCUSDT",
+                                "last_direction": "LONG",
+                                "last_confidence": 72.5,
+                                "last_update_at": "2026-08-02T09:00:00+00:00",
+                                "raw_result": {"must": "not survive"},
+                            },
+                        },
+                    )
+                )
+                await adapter.stop()
+
+                record = json.loads((root / "inbox.jsonl").read_text(encoding="utf-8"))
+                payload = record["payload"]
+                self.assertEqual(payload["schema_name"], "pandorickki.compact-observer-event")
+                self.assertEqual(payload["schema_version"], 1)
+                self.assertEqual(payload["event_type"], "AI_LEARNING_UPDATED")
+                self.assertEqual(payload["status"], "updated")
+                self.assertEqual(payload["updates"], 17)
+                self.assertEqual(payload["memory_size"], 17)
+                self.assertEqual(payload["last_symbol"], "BTCUSDT")
+                self.assertEqual(payload["last_direction"], "LONG")
+                self.assertEqual(payload["last_confidence"], 72.5)
+                self.assertNotIn("raw_result", json.dumps(payload))
+
+        asyncio.run(run())
+
+    def test_receiver_uses_observer_schema_for_aggregate_stock_update(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                adapter = NeuroBrainReceiverAdapter(
+                    bus,
+                    inbox_file=root / "inbox.jsonl",
+                    status_file=root / "status.json",
+                )
+                await adapter.start()
+                bus.publish(
+                    Event(
+                        topic="STOCK_MARKET_DATA_UPDATED",
+                        source="stock",
+                        payload={"count": 2, "symbols": ["AAPL", "MSFT"]},
+                    )
+                )
+                await adapter.stop()
+
+                record = json.loads((root / "inbox.jsonl").read_text(encoding="utf-8"))
+                payload = record["payload"]
+                self.assertEqual(payload["schema_name"], "pandorickki.compact-observer-event")
+                self.assertEqual(payload["event_type"], "STOCK_MARKET_DATA_UPDATED")
+                self.assertEqual(payload["count"], 2)
+                self.assertEqual(payload["symbols"], ["AAPL", "MSFT"])
+                self.assertNotIn("market_type", payload)
+                self.assertNotIn("symbol", payload)
+
+        asyncio.run(run())
+
+    def test_receiver_infers_market_type_for_single_crypto_market_update(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                adapter = NeuroBrainReceiverAdapter(
+                    bus,
+                    inbox_file=root / "inbox.jsonl",
+                    status_file=root / "status.json",
+                )
+                await adapter.start()
+                bus.publish(
+                    Event(
+                        topic="CRYPTO_MARKET_DATA_UPDATED",
+                        source="crypto",
+                        payload={"symbol": "BTCUSDT", "timeframe": "15m", "price": 65000.0},
+                    )
+                )
+                await adapter.stop()
+
+                record = json.loads((root / "inbox.jsonl").read_text(encoding="utf-8"))
+                payload = record["payload"]
+                self.assertEqual(payload["schema_name"], CONTRACT_NAME)
+                self.assertEqual(payload["market_type"], "crypto")
+                self.assertEqual(payload["symbol"], "BTCUSDT")
+                self.assertEqual(contract_errors(payload), [])
+
+        asyncio.run(run())
+
     def test_receiver_stores_allowed_events_without_changing_source_event(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:

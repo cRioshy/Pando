@@ -3,6 +3,8 @@
 Stand: 2. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
 
+Die NeuroBrain-Schemaabgrenzung wurde am 2. August 2026 korrigiert. Neue Learning- und aggregierte Aktien-Update-Zeilen verwenden `pandorickki.compact-observer-event` Version 1; einzelne Crypto-/Commodity-Preisupdates bleiben Markt-Ereignisse und erhalten ihren eindeutigen Markt-Typ aus dem Topic. Nach dem kontrollierten Neustart waren 152 ausschließlich neu angehängte Inboxzeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß. Zwei Produktionszyklen lieferten Crypto 6 und Stock 10 Ergebnisse; alle zehn Services waren `OK`, das Fehlerjournal blieb bei 180 und Telegram bei `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
 Die wiederkehrenden Windows-Schreibkonflikte am NeuroBrain-Status und an den aktiven simulierten Crypto-Trades wurden am 2. August 2026 repariert. Beide Pfade verwenden jetzt eindeutige, gleichverzeichnisige Temp-Dateien, eine pro Zielpfad geteilte In-Process-Sperre und einen kurzen begrenzten Retry für transiente `PermissionError`-/Windows-Sharing-Verstöße. Der jeweilige Adapter hält zusätzlich seine Zustandssperre bis zum erfolgreichen atomaren Replace, damit ältere Snapshots keine neueren überschreiben.
 
 Nach dem kontrollierten Neustart liefen zwei vollständige Produktionszyklen mit allen zehn Services `OK`. Crypto lieferte sechs, Stock zehn neue Ergebnisse. Die Fehlerjournal-Summe blieb bei 180; die betroffenen NeuroBrain- und Crypto-Trade-Tracker-Fingerprints blieben bei jeweils drei Vorkommen und ihren bisherigen letzten Zeitpunkten. Es entstanden keine verwaisten Temp-Dateien. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten.
@@ -134,7 +136,7 @@ Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorh
 
 Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
 
-Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Marktbezogene neue Zeilen erfüllen den Vertrag live vollständig; Lifecycle-/Learning-Zeilen werden derzeit ebenfalls mit dem Markt-Schemanamen versehen, obwohl `market_type` oder `symbol` fehlen können.
+Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1 des passenden Vertrags. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Analysis-, Brain-, Decision-, Signal-, Trade- und einzelwertige Marktupdates verwenden den Marktvertrag. `AI_LEARNING_UPDATED` und das aggregierte Aktien-Update verwenden den Observer-Vertrag ohne künstlichen singulären Marktbezug.
 
 Seine kleine Statusdatei wird unter der Adapter-Sperre über denselben konfliktresistenten atomaren JSON-Schreibpfad ersetzt. Die Inbox selbst bleibt append-only und wurde durch diese Reparatur nicht migriert oder umgeschrieben.
 
@@ -201,7 +203,7 @@ python -m unittest tests.test_service_error_journal tests.test_config tests.test
 python -m compileall .
 ```
 
-Der vollständige Lauf am 2. August 2026 bestand nach der atomaren Schreibreparatur mit 226/226 Tests in 41,406 Sekunden. Zwei neue Regressionstests prüfen begrenzte Wiederholung nach transientem `PermissionError`, 24 parallele Schreibvorgänge, valide Enddatei und vollständiges Aufräumen eindeutiger Temp-Dateien. 13 gezielte Atomic-/NeuroBrain-/Crypto-Trade-Tracker-Tests bestanden ebenfalls.
+Der vollständige Lauf am 2. August 2026 bestand nach der Schemaabgrenzung mit 231/231 Tests in 43,563 Sekunden. 15 gezielte Vertrags-/NeuroBrain-Tests bestanden; die neuen Regressionen decken Learning-, aggregierte Aktien- und einzelwertige Crypto-Updates ab. `py_compile` und `git diff --check` bestanden ebenfalls.
 
 ## Bekannte Risiken
 
@@ -215,7 +217,7 @@ Der vollständige Lauf am 2. August 2026 bestand nach der atomaren Schreibrepara
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
 10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain kennzeichnet jedoch auch nicht marktbezogene Lifecycle-/Learning-Zeilen als Markt-Schema Version 1, obwohl dort Pflichtfelder fehlen können. Vor Queue-/Batch-Arbeiten muss deren Schema- beziehungsweise Topic-Vertrag geklärt und getestet werden. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen.
+11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen jetzt topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
 12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
 13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
 14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.

@@ -1,5 +1,99 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: NeuroBrain-Markt- und Observer-Schemata eindeutig trennen
+
+### Datum und Uhrzeit
+
+2. August 2026, 11:12 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die als `KP-016` dokumentierte Vertragslücke reproduzierbar schließen: Nicht marktbezogene Learning-/Aggregatereignisse dürfen nicht länger den Marktvertrag vortäuschen; einzelwertige Preisupdates müssen den Marktvertrag vollständig erfüllen. Bestehende Inbox-/Historyzeilen unverändert lassen, vollständig testen und kontrolliert live verifizieren.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, ausführbaren Payloadvertrag, tatsächlichen NeuroBrain-Consumer und die Produzenten aller betroffenen Topics geprüft.
+- Tatsächliche Semantik abgegrenzt: `AI_LEARNING_UPDATED` ist ein Learning-Status; `STOCK_MARKET_DATA_UPDATED` ist ein Aggregat; Crypto-/Commodity-Market-Updates sind einzelne Symbolereignisse.
+- Drei Adapterregressionen vor dem Fix ergänzt und die zwei falschen Schemanamen sowie den fehlenden Crypto-Markt-Typ reproduziert.
+- `pandorickki.compact-observer-event` Version 1 samt Projektion und Validator ergänzt. Pflicht ist `event_type`; kleine Status-, Zähler-, Symbolsammlungs- und Learning-Felder bleiben erhalten; Bulk-Felder bleiben rekursiv verboten.
+- NeuroBrain ordnet Learning und das Aktienaggregat explizit dem Observer-Vertrag zu. Einzelwertige Crypto-/Commodity-Updates bleiben Marktprojektionen und erhalten ihren Topic-eindeutigen Markt-Typ. Übrige Analysis-/Brain-/Decision-/Signal-/Trade-Topics bleiben unverändert Marktprojektionen.
+- Gezielte und vollständige Tests, Syntaxprüfung und Diffprüfung ausgeführt.
+- Vor dem Neustart die NeuroBrain-Dateigröße und den Fehlerjournalstand read-only erfasst. Den alten Prozess über `POST /api/control/stop` geordnet beendet und genau einen neuen Prozess mit NeuroBrain aktiv, Live-Crypto/Stock sowie Telegram deaktiviert/Dry-Run gestartet.
+- Zwei vollständige Produktionszyklen abgewartet und ausschließlich 152 nach dem Neustart angehängte NeuroBrain-Zeilen geprüft.
+- Vertrags-, System-, Architektur-, Problem- und Planungstexte aktualisiert. Bestehende Runtime-, History-, Lern-, Token- und Konfigurationsdateien wurden nicht gelöscht, geleert, migriert oder manuell umgeschrieben.
+
+### Veränderte Dateien
+
+- `adapters/neurobrain_receiver_adapter.py`
+- `event_payload_contract.py`
+- `tests/test_event_payload_contract.py`
+- `tests/test_neurobrain_receiver_adapter.py`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code-/Producer-/Topicinventur mit `rg`, `Get-Content`, Git-Status und Git-Diff.
+- Roter und grüner Lauf von `.\.venv\Scripts\python.exe -m unittest tests.test_neurobrain_receiver_adapter -v`.
+- `.\.venv\Scripts\python.exe -m unittest tests.test_event_payload_contract tests.test_neurobrain_receiver_adapter -v`.
+- `.\.venv\Scripts\python.exe -m py_compile ...`, `git diff --check` und `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`.
+- Read-only Baseline-/Liveauswertung von `data/neurobrain/inbox.jsonl`, `data/service_error_summary.json` und `/api/status`.
+- Kontrollierter Stop über `POST /api/control/stop`; versteckter Neustart mit sicheren Umgebungswerten und öffentlichen Live-Marktdaten.
+- Bytegenaue Auswertung des neu angehängten Inboxbereichs mit Topic-/Schema-, Pflichtfeld- und rekursiver Bulk-Prüfung.
+
+### Ausgeführte Tests
+
+- Drei neue NeuroBrain-Adapterregressionen für Learning, Aktienaggregat und einzelwertiges Crypto-Update.
+- Zwei Observer-Vertragstests für Projektion, rekursiven Bulk-Ausschluss und Pflichtfeldvalidierung.
+- 15 gezielte Vertrags-/NeuroBrain-Tests.
+- `py_compile` der vier geänderten Python-/Testdateien.
+- Vollständige Unittest-Suite.
+- Zwei vollständige Live-Produktionszyklen und Validierung aller nach Neustart angehängten NeuroBrain-Zeilen.
+
+### Tatsächliche Testergebnisse
+
+- Vor dem Fix: NeuroBrain-Suite erwartungsgemäß rot mit zwei falschen Markt-Schemanamen und fehlendem `market_type` beim Crypto-Update.
+- Nach dem Fix: 15/15 gezielte Tests bestanden in 0,419 Sekunden.
+- Vollständige Suite: 231/231 Tests bestanden in 43,563 Sekunden.
+- `py_compile` und `git diff --check`: bestanden.
+- Live: Crypto 2 Zyklen/6 Ergebnisse, Stock 2 Zyklen/10 Ergebnisse; alle zehn Services und das Fehlerjournal `OK`.
+- 152 ausschließlich neue Inboxzeilen geprüft: 18 Observer-Zeilen und 134 Markt-Zeilen, null Schema-, Versions-, Pflichtfeld- oder Bulk-Verstöße.
+- Observer-Beispiele: 16 Learning-Zeilen mit erhaltenen Status-/Zählerfeldern und zwei Aktienaggregate mit `count`/`symbols`. Crypto-Market-Updates trugen `market_type=crypto` und ein Symbol.
+- Fehlerjournal unverändert bei 180 Ereignissen, `failed_writes=0`; Telegram `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+### Bekannte Fehler
+
+- `KP-016` ist behoben. Vorhandene alte Inboxzeilen behalten bewusst ihre historische Schemaform.
+- NeuroBrain bleibt ein synchroner EventBus-Consumer; Queue, Batch, Überlaufregel und sicherer Queue-Shutdown fehlen weiterhin.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Schemazuständigkeit wird explizit aus der fachlichen Topicsemantik abgeleitet und nicht heuristisch aus zufällig vorhandenen Feldern.
+- Learning-/Aggregatereignisse erhalten einen eigenen kleinen Observer-Vertrag statt künstlicher `market_type`-/`symbol`-Werte.
+- Nur bei tatsächlich einzelwertigen Crypto-/Commodity-Preisupdates wird der Topic-eindeutige Markt-Typ ergänzt.
+- Beide Verträge teilen den rekursiven Bulk-Ausschluss. Die NeuroBrain-Kopfsicht und append-only History bleiben kompatibel und unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Die GitHub-Anmeldung wurde erneuert und außerhalb der isolierten Shell erfolgreich für `cRioshy` verifiziert. Veröffentlichung auf `agent/fix-neurobrain-observer-schema` und der gestapelte Draft-PR gegen `agent/compact-neurobrain-payloads` folgen unmittelbar; nicht mergen.
+- Begrenzte NeuroBrain-Queue, Überlaufregel, Batch-Schreiben und Shutdown sind noch nicht implementiert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Auf einem weiteren kleinen gestapelten Branch zuerst das gewünschte Queue-Verhalten vertraglich festlegen und mit Last-/Shutdown-Regressionen absichern: maximale Kapazität, Verhalten bei voller Queue, Reihenfolge, Batchgröße, Flush beim Stop und sichtbar gezählte Verluste. Danach ausschließlich den langsamen NeuroBrain-Consumer vom synchronen EventBus entkoppeln; den übrigen EventBus nicht umbauen.
+
+---
+
 ## Aktuelle Aufgabe: Windows-Schreibkonflikte in NeuroBrain und Crypto Trade Tracker beheben
 
 ### Datum und Uhrzeit

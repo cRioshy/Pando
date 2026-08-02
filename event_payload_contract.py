@@ -1,9 +1,4 @@
-"""Versioned compact payload contract for PandorickKi market events.
-
-The helpers in this module are deliberately not wired into the running event
-pipeline yet.  They define and exercise the migration target without changing
-the payloads consumed by production services.
-"""
+"""Versioned compact payload contracts for persisted PandorickKi events."""
 
 from __future__ import annotations
 
@@ -13,8 +8,11 @@ from typing import Any, Mapping
 
 CONTRACT_NAME = "pandorickki.compact-market-event"
 CONTRACT_VERSION = 1
+OBSERVER_CONTRACT_NAME = "pandorickki.compact-observer-event"
+OBSERVER_CONTRACT_VERSION = 1
 
 REQUIRED_FIELDS = frozenset({"schema_name", "schema_version", "market_type", "symbol"})
+OBSERVER_REQUIRED_FIELDS = frozenset({"schema_name", "schema_version", "event_type"})
 FORBIDDEN_FIELDS = frozenset({"raw_result", "features", "market_data_diagnostics", "candles"})
 
 # These are verified legacy reads in the current code. They are migration
@@ -158,6 +156,25 @@ _PASSTHROUGH_FIELDS = (
     "reason",
 )
 
+_OBSERVER_PASSTHROUGH_FIELDS = (
+    "event_type",
+    "source_event_id",
+    "correlation_id",
+    "status",
+    "count",
+    "symbols",
+    "updates",
+    "memory_size",
+    "last_symbol",
+    "last_direction",
+    "last_confidence",
+    "last_update_at",
+    "source_timestamp",
+    "received_at",
+    "created_at",
+    "reason",
+)
+
 
 def compact_market_payload(value: Mapping[str, Any]) -> dict[str, Any]:
     """Project a current or legacy event payload onto contract version 1.
@@ -210,6 +227,44 @@ def contract_errors(payload: Mapping[str, Any]) -> list[str]:
     if payload.get("schema_name") != CONTRACT_NAME:
         errors.append("unexpected schema_name")
     if payload.get("schema_version") != CONTRACT_VERSION:
+        errors.append("unsupported schema_version")
+    forbidden = _find_forbidden(payload)
+    if forbidden:
+        errors.append(f"forbidden fields present: {', '.join(sorted(forbidden))}")
+    return errors
+
+
+def compact_observer_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Project a lifecycle, learning or aggregate event onto observer version 1."""
+
+    outer = dict(value)
+    nested = outer.get("payload")
+    data = dict(nested) if isinstance(nested, Mapping) else outer
+    result: dict[str, Any] = {
+        "schema_name": OBSERVER_CONTRACT_NAME,
+        "schema_version": OBSERVER_CONTRACT_VERSION,
+    }
+    for field in _OBSERVER_PASSTHROUGH_FIELDS:
+        selected = data.get(field)
+        if selected is None and field in {"event_type", "correlation_id"}:
+            selected = outer.get(field)
+        if selected is None and field == "source_event_id":
+            selected = data.get("source_event_id") or outer.get("event_id")
+        if selected is not None:
+            result[field] = _without_forbidden(selected)
+    return result
+
+
+def observer_contract_errors(payload: Mapping[str, Any]) -> list[str]:
+    """Return structural observer-contract violations for one projection."""
+
+    errors = [
+        f"missing required field: {field}"
+        for field in sorted(OBSERVER_REQUIRED_FIELDS - payload.keys())
+    ]
+    if payload.get("schema_name") != OBSERVER_CONTRACT_NAME:
+        errors.append("unexpected schema_name")
+    if payload.get("schema_version") != OBSERVER_CONTRACT_VERSION:
         errors.append("unsupported schema_version")
     forbidden = _find_forbidden(payload)
     if forbidden:

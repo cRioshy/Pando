@@ -1,18 +1,19 @@
 # Vertrag für kompakte Event-Payloads
 
-Stand: 1. August 2026
+Stand: 2. August 2026
 
-Vertragsname: `pandorickki.compact-market-event`
+Vertragsnamen:
 
-Version: `1`
+- `pandorickki.compact-market-event`, Version `1`
+- `pandorickki.compact-observer-event`, Version `1`
 
 ## Zweck und aktueller Status
 
-Dieser Vertrag ist das getestete Ziel für die schrittweise Verkleinerung der Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain, Decision-/Signal-Events und Ledger sowie neue NeuroBrain-Inboxzeilen verwenden Version 1 inzwischen aktiv. Bestehende Events und History-Dateien bleiben unverändert.
+Diese Verträge sind die getestete Persistenzgrenze für Brain-, Decision-, Signal- und NeuroBrain-Ereignisse. Brain, Decision-/Signal-Events und Ledger sowie neue NeuroBrain-Inboxzeilen verwenden Version 1 inzwischen aktiv. Bestehende Events und History-Dateien bleiben unverändert.
 
-Die kontrollierte Liveprüfung am 1. August 2026 bestätigte Schema, IDs und Bulk-Ausschluss für alle neu geprüften Markt-Payloads. Sie zeigte zugleich eine offene Abgrenzung: NeuroBrain verwendet die Projektion auch für Lifecycle-/Learning-Themen und reine Market-Data-Updates. Solche Ereignisse besitzen fachlich nicht immer `market_type` oder `symbol` und erfüllen deshalb trotz Schemaname Version 1 nicht immer die unten genannten Pflichtfelder. Bis zur Korrektur gelten diese Zeilen nicht als vertragskonforme Markt-Payloads.
+Die am 2. August 2026 behobene Abgrenzung unterscheidet fachlich einzelne Marktereignisse von Learning-/Aggregatereignissen. `AI_LEARNING_UPDATED` und das aggregierte `STOCK_MARKET_DATA_UPDATED` verwenden in neuen NeuroBrain-Zeilen den Observer-Vertrag. Einzelwertige Crypto-/Commodity-Preisupdates bleiben Markt-Payloads; NeuroBrain ergänzt ihren aus dem Topic eindeutigen `market_type`. Eine kontrollierte Liveprüfung validierte 152 neue Zeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß.
 
-Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_payload()` akzeptiert sowohl den heutigen EventBus-Umschlag als auch eine flache Payload, erzeugt Schema-Metadaten und kopiert nur ausdrücklich zugelassene Felder.
+Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_payload()` und `compact_observer_payload()` akzeptieren sowohl einen EventBus-Umschlag als auch eine flache Payload, erzeugen Schema-Metadaten und kopieren nur ausdrücklich zugelassene Felder.
 
 ## Tatsächliche Produzenten
 
@@ -35,7 +36,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | Control Center | kompakte Anzeige-, Preis-, Status- und Tradefelder | projiziert bereits auf eine kleine Sicht |
 | Telegram | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis und optionale Tradefelder | bleibt deaktiviert beziehungsweise Dry-Run |
 | Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
-| NeuroBrain | Topic, Quelle, IDs, Markt, Symbol, Richtung, Wahrscheinlichkeit und Zeitstempel | behält seine kleine Kopfsicht und speichert daneben nur noch die kompakte Version-1-Projektion; nicht marktbezogene Topics müssen noch von diesem Marktvertrag getrennt werden |
+| NeuroBrain | Topic, Quelle, IDs sowie je Schema Markt-/Symbol- oder Learning-/Aggregatfelder | behält seine kleine Kopfsicht und speichert daneben die topicbasiert passende kompakte Version-1-Projektion |
 
 ## Version 1
 
@@ -57,6 +58,22 @@ Verboten sind in jeder Verschachtelung:
 
 `facts`, `indicators` und `risk` bleiben strukturierte, von ihren Producern begrenzte Sichten. Die Projektion entfernt daraus ebenfalls verbotene Bulk-Felder. Secrets oder fremde Rohantworten gehören grundsätzlich nicht in den Vertrag.
 
+## Observer Version 1
+
+Pflichtfelder:
+
+- `schema_name`
+- `schema_version`
+- `event_type`
+
+Der Observer-Vertrag ist für kompakte Ereignisse ohne singulären Markt-/Symbolbezug bestimmt. Er erhält bei Verfügbarkeit IDs, Status, Zähler, Symbolsammlungen sowie die kleinen Learning-Felder `updates`, `memory_size`, `last_symbol`, `last_direction`, `last_confidence` und `last_update_at`. Die vier verbotenen Bulk-Felder gelten unverändert und rekursiv.
+
+| Topicgruppe | Schema |
+|---|---|
+| `AI_LEARNING_UPDATED`, aggregiertes `STOCK_MARKET_DATA_UPDATED` | `pandorickki.compact-observer-event` v1 |
+| einzelwertige Crypto-/Commodity-Market-Updates | `pandorickki.compact-market-event` v1, Markt-Typ aus Topic ergänzt |
+| Analysis-, Brain-, Decision-, Signal- und simulierte Trade-Topics | `pandorickki.compact-market-event` v1 |
+
 ## Ersatz für heutige Raw-Abhängigkeiten
 
 | Heutiger Zugriff | Kompakter Ersatz | Migration |
@@ -71,7 +88,7 @@ Die Referenzprojektion berechnet die beiden Swing-Werte ausschließlich für die
 1. Consumer für `schema_name`/`schema_version` und die beiden Ersatzfelder vorbereiten. Die Ersatzfeld-Priorität für Tracker und Graph ist umgesetzt; die Schemaannahme erfolgt erst beim Producer-Wechsel.
 2. Brain auf die Projektion umstellen. Dieser Schritt ist für neue Brain-Datensätze und Folgeevents umgesetzt.
 3. Decision-/Signal-Producer auf die Projektion umstellen. Dieser Schritt ist für neue Events und Ledgerdatensätze umgesetzt.
-4. NeuroBrain darf nur die Projektion persistieren; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten. Dieser Schritt ist für neue Inboxzeilen umgesetzt.
+4. NeuroBrain persistiert je Topic nur die passende Markt- oder Observer-Projektion; seine vorhandene kompakte Kopfsicht und IDs bleiben erhalten. Dieser Schritt ist für neue Inboxzeilen umgesetzt.
 5. Bestehende JSONL-History wird weder geändert noch gelöscht. Leser behalten einen Legacy-Pfad für alte Datensätze.
 6. Unbekannte Schema-Hauptversionen werden nicht stillschweigend als kompatibel behandelt.
 7. Keine reale Order- oder Telegram-Freigabe ist Bestandteil dieses Vertrags.
