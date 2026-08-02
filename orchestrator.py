@@ -264,6 +264,15 @@ class Orchestrator:
                 "cycles",
                 "published_results",
                 "test_mode",
+                "queue_depth",
+                "queue_capacity",
+                "batch_size",
+                "batches_written",
+                "dropped_events",
+                "failed_events",
+                "status_write_failures",
+                "notification_failures",
+                "worker_running",
             }
         }
         self.shared_state.update_service(
@@ -400,6 +409,9 @@ class Orchestrator:
                         inbox_file=self.config.neurobrain_inbox_file,
                         status_file=self.config.neurobrain_status_file,
                         ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+                        queue_capacity=self.config.neurobrain_queue_capacity,
+                        batch_size=self.config.neurobrain_batch_size,
+                        flush_interval_seconds=self.config.neurobrain_flush_interval_seconds,
                     )
                 ]
                 if self.config.neurobrain_receiver_enabled

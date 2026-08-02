@@ -35,6 +35,9 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_SERVICE_ERROR_ROTATION_BYTES": "1048576",
                 "PANDORICKKI_SERVICE_ERROR_MAX_ARCHIVES": "2",
                 "PANDORICKKI_SERVICE_ERROR_MAX_SUMMARY_ENTRIES": "25",
+                "PANDORICKKI_NEUROBRAIN_QUEUE_CAPACITY": "321",
+                "PANDORICKKI_NEUROBRAIN_BATCH_SIZE": "17",
+                "PANDORICKKI_NEUROBRAIN_FLUSH_INTERVAL": "0.125",
                 "PANDORICKKI_TELEGRAM_ENABLED": "1",
                 "PANDORICKKI_TELEGRAM_DRY_RUN": "1",
                 "PANDORICKKI_SIMULATED_OPEN_TRADES_FILE": "C:/tmp/pandorickki-data/open_trades.json",
@@ -64,6 +67,9 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.service_error_rotation_bytes, 1048576)
         self.assertEqual(config.service_error_max_archives, 2)
         self.assertEqual(config.service_error_max_summary_entries, 25)
+        self.assertEqual(config.neurobrain_queue_capacity, 321)
+        self.assertEqual(config.neurobrain_batch_size, 17)
+        self.assertEqual(config.neurobrain_flush_interval_seconds, 0.125)
         self.assertTrue(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
         self.assertEqual(config.simulated_open_trades_file, Path("C:/tmp/pandorickki-data/open_trades.json"))
@@ -93,6 +99,9 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
         self.assertTrue(config.service_error_journal_enabled)
+        self.assertEqual(config.neurobrain_queue_capacity, 2048)
+        self.assertEqual(config.neurobrain_batch_size, 64)
+        self.assertEqual(config.neurobrain_flush_interval_seconds, 0.25)
 
     def test_custom_data_dir_derives_error_journal_paths(self) -> None:
         config = PlatformConfig(data_dir=Path("C:/tmp/custom-pandorickki-data"))

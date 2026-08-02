@@ -70,12 +70,14 @@ Stand: 2. August 2026
    - Bestehende History unverändert lesbar lassen.
 
 8. **NeuroBrain gezielt entkoppeln.**
+   - **Erledigt und am 2. August 2026 live verifiziert.**
    - **Vorgelagerte Schreibkonflikte am 2. August 2026 behoben und live verifiziert:** eindeutige Temp-Dateien, Pfadsperre, begrenzter Windows-Retry und geordnete Zustandssnapshots für NeuroBrain-Status und aktive Crypto-Trades.
    - 13/13 gezielte und 226/226 vollständige Tests bestanden; zwei Produktionszyklen ohne neue Ziel-Fingerprints oder Temp-Reste.
    - Commit `ed2a83e` auf dem bestehenden Branch veröffentlicht und Draft-PR #13 aktualisiert; nicht gemergt.
    - **Voraussetzung `KP-016` erledigt:** Markt- und Observer-Topics sind eindeutig getrennt und getestet.
-   - Begrenzte Queue, Überlaufregel, Batch-Schreiben, atomaren Status und sicheren Shutdown umsetzen.
-   - Zunächst nur NeuroBrain entkoppeln, nicht ungeprüft den vollständigen EventBus ersetzen.
+   - FIFO-Queue mit Kapazität 2048, sichtbarem Drop-newest, Batchgröße 64, 250-ms-Flush, atomarem Status und vollständigem Shutdown-Drain umgesetzt.
+   - 20/20 gezielte und 235/235 vollständige Tests; live 231 Zeilen in 48 Batches, null Drops/Fehler und sauberer Worker-Shutdown.
+   - Ausschließlich NeuroBrain entkoppelt; der vollständige EventBus blieb unverändert.
 
 9. **Learning-Metriken vereinheitlichen.**
    - Begriffe, Nenner und Outcome-Abdeckung offenlegen.
@@ -95,6 +97,8 @@ Stand: 2. August 2026
 
 ## Zuletzt erledigt
 
+- NeuroBrain-Datei-I/O über begrenzte FIFO-Queue und einzelnen Batch-Worker vom Publisher entkoppelt; Drop-newest, Healthmetriken und vollständiger Flush-Shutdown getestet.
+- 20/20 gezielte und 235/235 vollständige Tests; live 231 neue Zeilen in 48 Batches ohne Drops, FIFO-/Schema- oder Workerfehler. Dienst nach erfolgreichem Stop erneut sicher gestartet.
 - NeuroBrain-Schemaabgrenzung behoben: kompakter Observer-Vertrag für Learning-/Aggregatereignisse, Markt-Typ-Inferenz für einzelwertige Crypto-/Commodity-Updates.
 - 15/15 gezielte und 231/231 vollständige Tests bestanden; 152 neue Livezeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß, alle Services `OK`, Telegram aus/Dry-Run.
 - Commit `e94c988` auf `agent/fix-neurobrain-observer-schema` veröffentlicht; Draft-PR #14 bleibt offen, Draft und ungemergt.

@@ -29,7 +29,8 @@ Stand: 2. August 2026
 - **Status:** offen
 - **Beobachtung:** Handler werden synchron im veröffentlichenden Thread ausgeführt.
 - **Auswirkung:** Langsame Datei-, Statistik- oder Netzwerkhandler verzögern Produzenten und nachfolgende Handler.
-- **Hinweis:** Eine Entkopplung ist eine Architekturänderung und benötigt eigene Freigabe und Reihenfolgeverträge.
+- **Entschärfung:** NeuroBrain-Datei- und Status-I/O wurde am 2. August 2026 über eine begrenzte FIFO-Queue und einen einzelnen Batch-Worker entkoppelt. Andere Handler bleiben synchron.
+- **Nächster Fix:** verbleibende langsame Consumer anhand realer Messungen identifizieren und nur bei Befund gezielt entkoppeln; nicht ungeprüft den vollständigen EventBus ersetzen.
 
 ### KP-004 – Brain und Decision Core besitzen kein unabhängiges Freigabe-Gate
 
@@ -94,6 +95,16 @@ Stand: 2. August 2026
 - **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
 
 ## Behoben oder entschärft
+
+### KP-R13 – NeuroBrain-Datei-I/O blockierte den synchronen Publisher
+
+- **Status:** behoben, getestet und am 2. August 2026 live verifiziert
+- Der EventBus-Handler projiziert und reiht nur noch per `put_nowait` ein. Ein einzelner FIFO-Worker schreibt standardmäßig maximal 64 Datensätze je Batch aus einer Queue mit Kapazität 2048.
+- Bei Überlauf wird ausschließlich das neueste Ereignis abgelehnt; `dropped_events`, Queue-Tiefe, Batchzähler sowie Ledger-, Status- und Benachrichtigungsfehler sind sichtbar und beeinflussen Health.
+- `stop()` entfernt zuerst das Abonnement, leert alle akzeptierten Einträge, joint den nicht-daemonisierten Worker und ist wiederholt sicher. Nach Rückkehr finden keine Queue-Schreibvorgänge mehr statt.
+- Vor dem Fix fehlten Queueparameter und Batch-API vollständig. Danach bestanden 20/20 gezielte sowie 235/235 vollständige Tests, `py_compile`, Runtime-Preflight und Diffprüfung.
+- Live: 231 eindeutige neue Zeilen in 48 Batches, keine FIFO-/Schemafehler, null Drops/Workerfehler; Shutdownstatus `worker_running=false`, `queue_depth=0`. Alle zehn Services `OK`, Journal unverändert 180, Telegram aus/Dry-Run.
+- Bestehende NeuroBrain-Inbox- und Historyzeilen wurden weder migriert noch umgeschrieben.
 
 ### KP-R12 – NeuroBrain verwendete das Markt-Schema für nicht marktbezogene Topics
 

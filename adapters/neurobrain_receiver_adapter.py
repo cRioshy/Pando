@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import RLock
+from queue import Empty, Full, Queue
+from threading import Event as ThreadEvent
+from threading import RLock, Thread
+from time import monotonic
 from typing import Any
 
 from atomic_json import atomic_write_json
@@ -55,6 +59,13 @@ class NeuroBrainReceiverStatus:
     received_events: int = 0
     ignored_events: int = 0
     duplicate_events: int = 0
+    dropped_events: int = 0
+    failed_events: int = 0
+    status_write_failures: int = 0
+    notification_failures: int = 0
+    batches_written: int = 0
+    last_batch_size: int = 0
+    worker_running: bool = False
     last_topic: str | None = None
     last_symbol: str | None = None
     last_error: str | None = None
@@ -82,12 +93,22 @@ class NeuroBrainReceiverAdapter:
         status_file: Path,
         allowed_topics: set[str] | frozenset[str] | None = None,
         ledger_rotation_bytes: int = 128 * 1024 * 1024,
+        queue_capacity: int = 2048,
+        batch_size: int = 64,
+        flush_interval_seconds: float = 0.25,
     ) -> None:
         self.event_bus = event_bus
         self.inbox_file = inbox_file
         self.status_file = status_file
         self.allowed_topics = frozenset(allowed_topics or DEFAULT_NEUROBRAIN_TOPICS)
         self.ledger = RotatingJsonlLedger(inbox_file, max_bytes=ledger_rotation_bytes)
+        self.queue_capacity = max(int(queue_capacity), 1)
+        self.batch_size = max(int(batch_size), 1)
+        self.flush_interval_seconds = max(float(flush_interval_seconds), 0.01)
+        self._queue: Queue[dict[str, Any]] = Queue(maxsize=self.queue_capacity)
+        self._stop_worker = ThreadEvent()
+        self._worker: Thread | None = None
+        self._accepting = False
         self.status = NeuroBrainReceiverStatus(
             inbox_path=str(inbox_file),
             status_path=str(status_file),
@@ -99,26 +120,65 @@ class NeuroBrainReceiverAdapter:
     async def start(self) -> None:
         """Start receiving selected EventBus events."""
 
+        with self._lock:
+            if self.status.running:
+                return
+            self._stop_worker.clear()
+            self._accepting = True
+            self.status.running = True
+            self.status.worker_running = True
+            self.status.healthy = self._is_healthy_locked()
+            if self.status.healthy:
+                self.status.last_error = None
+            self._worker = Thread(
+                target=self._worker_loop,
+                name="pandorickki:neurobrain-writer",
+                daemon=False,
+            )
+            worker = self._worker
+        worker.start()
         if not self._subscribed:
             self.event_bus.subscribe("*", self._handle_event)
             self._subscribed = True
-        with self._lock:
-            self.status.running = True
-            self.status.healthy = True
-            self.status.last_error = None
         self._write_status()
-        self._publish(NEUROBRAIN_RECEIVER_STARTED, {"status": "started", "mode": "read_only"})
+        self._publish(
+            NEUROBRAIN_RECEIVER_STARTED,
+            {
+                "status": "started",
+                "mode": "read_only_queued",
+                "queue_capacity": self.queue_capacity,
+                "batch_size": self.batch_size,
+            },
+        )
 
     async def stop(self) -> None:
         """Stop receiving events and persist the latest status."""
 
+        with self._lock:
+            if not self.status.running and self._worker is None and not self._subscribed:
+                return
         if self._subscribed:
             self.event_bus.unsubscribe("*", self._handle_event)
             self._subscribed = False
         with self._lock:
+            self._accepting = False
+            worker = self._worker
+        self._stop_worker.set()
+        if worker is not None and worker.is_alive():
+            await asyncio.to_thread(worker.join)
+        with self._lock:
             self.status.running = False
+            self.status.worker_running = False
+            self._worker = None
         self._write_status()
-        self._publish(NEUROBRAIN_RECEIVER_STOPPED, {"status": "stopped"})
+        self._publish(
+            NEUROBRAIN_RECEIVER_STOPPED,
+            {
+                "status": "stopped",
+                "queue_depth": self._queue.qsize(),
+                "dropped_events": self.status.dropped_events,
+            },
+        )
 
     async def run_once(self) -> list[Event]:
         """Emit a lightweight heartbeat; event capture happens in callbacks."""
@@ -129,6 +189,14 @@ class NeuroBrainReceiverAdapter:
                 "received_events": self.status.received_events,
                 "ignored_events": self.status.ignored_events,
                 "duplicate_events": self.status.duplicate_events,
+                "dropped_events": self.status.dropped_events,
+                "failed_events": self.status.failed_events,
+                "status_write_failures": self.status.status_write_failures,
+                "notification_failures": self.status.notification_failures,
+                "queue_depth": self._queue.qsize(),
+                "queue_capacity": self.queue_capacity,
+                "batches_written": self.status.batches_written,
+                "worker_running": self.status.worker_running,
                 "last_topic": self.status.last_topic,
             }
         return [Event(topic=NEUROBRAIN_RECEIVER_HEARTBEAT, source=self.name, payload=payload)]
@@ -144,6 +212,16 @@ class NeuroBrainReceiverAdapter:
                 "received_events": self.status.received_events,
                 "ignored_events": self.status.ignored_events,
                 "duplicate_events": self.status.duplicate_events,
+                "dropped_events": self.status.dropped_events,
+                "failed_events": self.status.failed_events,
+                "status_write_failures": self.status.status_write_failures,
+                "notification_failures": self.status.notification_failures,
+                "queue_depth": self._queue.qsize(),
+                "queue_capacity": self.queue_capacity,
+                "batch_size": self.batch_size,
+                "batches_written": self.status.batches_written,
+                "last_batch_size": self.status.last_batch_size,
+                "worker_running": self.status.worker_running,
                 "last_topic": self.status.last_topic,
                 "last_symbol": self.status.last_symbol,
                 "last_error": self.status.last_error,
@@ -161,38 +239,100 @@ class NeuroBrainReceiverAdapter:
             return
 
         with self._lock:
+            if not self._accepting:
+                self.status.ignored_events += 1
+                return
             if event.event_id in self._seen_event_ids:
                 self.status.duplicate_events += 1
                 return
+            try:
+                record = self._to_record(event)
+            except Exception as exc:
+                self.status.failed_events += 1
+                self.status.healthy = False
+                self.status.last_error = f"projection failed: {exc}"
+                return
+            try:
+                self._queue.put_nowait(record)
+            except Full:
+                self.status.dropped_events += 1
+                self.status.healthy = False
+                self.status.last_error = f"queue full; newest event dropped: {event.topic}"
+                return
             self._seen_event_ids.add(event.event_id)
 
+    def _worker_loop(self) -> None:
+        """Drain accepted records in FIFO batches until shutdown is complete."""
+
         try:
-            record = self._to_record(event)
-            self.ledger.append(record)
+            while not self._stop_worker.is_set() or not self._queue.empty():
+                try:
+                    first = self._queue.get(timeout=self.flush_interval_seconds)
+                except Empty:
+                    continue
+                batch = [first]
+                deadline = monotonic() + self.flush_interval_seconds
+                while len(batch) < self.batch_size:
+                    try:
+                        if self._stop_worker.is_set():
+                            batch.append(self._queue.get_nowait())
+                        else:
+                            remaining = deadline - monotonic()
+                            if remaining <= 0:
+                                break
+                            batch.append(self._queue.get(timeout=remaining))
+                    except Empty:
+                        break
+                try:
+                    self._persist_batch(batch)
+                finally:
+                    for _ in batch:
+                        self._queue.task_done()
+        finally:
             with self._lock:
-                self.status.received_events += 1
-                self.status.last_topic = event.topic
-                self.status.last_symbol = record.get("symbol")
-                self.status.last_event_at = record["received_at"]
-                self.status.healthy = True
-                self.status.last_error = None
-            self._write_status()
-            self._publish(
-                NEUROBRAIN_EVENT_RECEIVED,
-                {
-                    "source_event_id": event.event_id,
-                    "topic": event.topic,
-                    "symbol": record.get("symbol"),
-                    "market_type": record.get("market_type"),
-                    "received_events": self.status.received_events,
-                },
-            )
+                self.status.worker_running = False
+
+    def _persist_batch(self, batch: list[dict[str, Any]]) -> None:
+        """Persist one accepted FIFO batch and publish compact receipts."""
+
+        try:
+            self.ledger.append_many(batch)
         except Exception as exc:
             with self._lock:
+                self.status.failed_events += len(batch)
                 self.status.healthy = False
                 self.status.last_error = str(exc)
-            self._write_status()
-            self._publish(NEUROBRAIN_RECEIVER_ERROR, {"error": str(exc), "topic": event.topic})
+            self._write_status_from_worker()
+            self._publish_worker_event(
+                NEUROBRAIN_RECEIVER_ERROR,
+                {"error": str(exc), "topic": batch[0].get("topic"), "batch_size": len(batch)},
+            )
+            return
+
+        with self._lock:
+            first_received = self.status.received_events + 1
+            self.status.received_events += len(batch)
+            self.status.batches_written += 1
+            self.status.last_batch_size = len(batch)
+            last = batch[-1]
+            self.status.last_topic = last.get("topic")
+            self.status.last_symbol = last.get("symbol")
+            self.status.last_event_at = last["received_at"]
+            self.status.healthy = self._is_healthy_locked()
+            if self.status.healthy:
+                self.status.last_error = None
+        self._write_status_from_worker()
+        for index, record in enumerate(batch):
+            self._publish_worker_event(
+                NEUROBRAIN_EVENT_RECEIVED,
+                {
+                    "source_event_id": record["source_event_id"],
+                    "topic": record["topic"],
+                    "symbol": record.get("symbol"),
+                    "market_type": record.get("market_type"),
+                    "received_events": first_received + index,
+                },
+            )
 
     def _to_record(self, event: Event) -> dict[str, Any]:
         """Convert an EventBus event to a stable NeuroBrain inbox record."""
@@ -236,6 +376,16 @@ class NeuroBrainReceiverAdapter:
                 "received_events": self.status.received_events,
                 "ignored_events": self.status.ignored_events,
                 "duplicate_events": self.status.duplicate_events,
+                "dropped_events": self.status.dropped_events,
+                "failed_events": self.status.failed_events,
+                "status_write_failures": self.status.status_write_failures,
+                "notification_failures": self.status.notification_failures,
+                "queue_depth": self._queue.qsize(),
+                "queue_capacity": self.queue_capacity,
+                "batch_size": self.batch_size,
+                "batches_written": self.status.batches_written,
+                "last_batch_size": self.status.last_batch_size,
+                "worker_running": self.status.worker_running,
                 "last_topic": self.status.last_topic,
                 "last_symbol": self.status.last_symbol,
                 "last_error": self.status.last_error,
@@ -244,6 +394,44 @@ class NeuroBrainReceiverAdapter:
                 "updated_at": datetime.now(UTC).isoformat(),
             }
             atomic_write_json(self.status_file, payload)
+
+    def _write_status_from_worker(self) -> None:
+        """Keep a transient status-file failure from terminating the writer."""
+
+        try:
+            self._write_status()
+        except Exception as exc:
+            with self._lock:
+                self.status.status_write_failures += 1
+                self.status.healthy = False
+                self.status.last_error = f"status write failed: {exc}"
+            self._publish_worker_event(
+                NEUROBRAIN_RECEIVER_ERROR,
+                {"error": str(exc), "stage": "status_write"},
+            )
+
+    def _publish_worker_event(self, topic: str, payload: dict[str, Any]) -> None:
+        """Keep receipt subscribers from terminating the persistence worker."""
+
+        try:
+            self._publish(topic, payload)
+        except Exception as exc:
+            with self._lock:
+                self.status.notification_failures += 1
+                self.status.healthy = False
+                self.status.last_error = f"notification failed: {exc}"
+
+    def _is_healthy_locked(self) -> bool:
+        """Return whether the current session has persisted without loss/failure."""
+
+        return not any(
+            (
+                self.status.dropped_events,
+                self.status.failed_events,
+                self.status.status_write_failures,
+                self.status.notification_failures,
+            )
+        )
 
     def _publish(self, topic: str, payload: dict[str, Any]) -> None:
         """Publish receiver lifecycle/status events."""

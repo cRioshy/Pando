@@ -1,5 +1,111 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: NeuroBrain über begrenzte FIFO-Queue entkoppeln
+
+### Datum und Uhrzeit
+
+2. August 2026, 11:47 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nur den langsamen NeuroBrain-Dateiconsumer vom synchronen EventBus-Publisher entkoppeln. Kapazität, Überlauf, Reihenfolge, Batch-Schreiben, Fehlerzustände und Shutdown eindeutig definieren, testgetrieben implementieren und live verifizieren. Den allgemeinen EventBus nicht umbauen und bestehende Inbox-/Historydaten nicht verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, Payloadvertrag, NeuroBrain-Adapter, EventBus, RotatingJsonlLedger, Orchestrator-Lebenszyklus, Konfiguration und tatsächliche Subscriber geprüft.
+- Vertrag festgelegt: FIFO, Standardkapazität 2048, Drop-newest bei Überlauf, Standardbatch 64, maximal 250 Millisekunden Flush-Wartezeit, ein nicht-daemonisierter Writer und vollständiger Drain vor Rückkehr von `stop()`.
+- Regressionstests vor der Implementierung ergänzt. Sie scheiterten erwartungsgemäß wegen fehlender Queueparameter, Batch-API und Konfiguration; der idempotente Stoptest reproduzierte zusätzlich ein doppeltes Stop-Ereignis.
+- NeuroBrain-Wildcard-Handler auf kompakte Projektion plus thread-sicheres `put_nowait` begrenzt. Datei-, `fsync`-, Status- und Receipt-Arbeiten in einen einzelnen Worker verschoben.
+- Sichtbare Metriken für Queue-Tiefe/-Kapazität, Drops, fehlgeschlagene Events, Status-/Benachrichtigungsfehler, Batchanzahl/-größe und Workerzustand in Health, Heartbeat, Service-Details und Statusdatei ergänzt.
+- Überlauf lehnt nur den neuesten Eintrag ab; bereits akzeptierte FIFO-Einträge werden nicht überschrieben. Abgelehnte IDs werden nicht als Duplikat reserviert.
+- Worker gegen Ledger-, Status- und Receipt-Fehler isoliert. Statusfehler beenden die Queue-Abarbeitung nicht.
+- `RotatingJsonlLedger.append_many()` ergänzt: geordnete Batchzeilen, Rotation zwischen Dateichunks und ein Flush/`fsync` je aktivem Chunk. `append()` verwendet denselben Pfad.
+- Queueparameter über `PlatformConfig`, Umgebungsvariablen und Orchestrator verdrahtet.
+- Gezielte Tests, vollständige Suite, Syntaxprüfung, Diffprüfung und Runtime-Preflight ausgeführt.
+- Laufenden Dienst geordnet gestoppt, Queue-Version mit NeuroBrain und öffentlichen Live-Marktdaten sowie Telegram aus/Dry-Run gestartet und mehrere Zyklen geprüft.
+- Ausschließlich 231 neu angehängte Inboxzeilen auf Eindeutigkeit, FIFO-Zeitfolge, Schema-/Pflichtfelder und Bulk-Ausschluss geprüft.
+- Neuen Prozess erneut geordnet gestoppt: Status bestätigte `running=false`, `worker_running=false`, `queue_depth=0`; danach PandorickKi wieder mit identischer sicherer Konfiguration gestartet.
+- Keine bestehende Inbox-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht, geleert, migriert oder manuell umgeschrieben.
+
+### Veränderte Dateien
+
+- `adapters/neurobrain_receiver_adapter.py`
+- `config.py`
+- `jsonl_ledger.py`
+- `orchestrator.py`
+- `tests/test_config.py`
+- `tests/test_neurobrain_receiver_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `tests/test_jsonl_ledger.py`
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen von `AGENTS.md`, den fünf Übergabedateien und `docs/EVENT_PAYLOAD_CONTRACT.md`.
+- Code-/Lifecycle-/Subscriberinventur mit `rg`, `Get-Content`, Git-Status und Git-Diff.
+- Rote und grüne Läufe der NeuroBrain-/Ledger-/Konfigurationstests.
+- `.\.venv\Scripts\python.exe -m unittest tests.test_neurobrain_receiver_adapter tests.test_jsonl_ledger tests.test_config tests.test_parallel_orchestrator -v`.
+- `.\.venv\Scripts\python.exe -m py_compile ...`, `git diff --check` und `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`.
+- `.\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Read-only Baselines und Auswertungen von `/api/status`, `data/neurobrain/inbox.jsonl`, `data/neurobrain/status.json` und `data/service_error_summary.json`.
+- Zweimal kontrollierter Stop über `POST /api/control/stop`; versteckte Starts mit Queueparametern, Live-Crypto/Stock und Telegram deaktiviert/Dry-Run.
+
+### Ausgeführte Tests
+
+- Publisher-Latenz bei künstlich langsamem Ledger.
+- FIFO-Reihenfolge und Batchobergrenze.
+- Deterministischer Queue-Überlauf mit Drop-newest.
+- Vollständiger Flush aller akzeptierten Einträge vor `stop()`-Rückkehr und keine Annahme danach.
+- Idempotenter wiederholter Stop.
+- Statusschreibfehler-Isolation ohne Workerabbruch.
+- Batch-Ledger mit fünf geordneten Zeilen und genau einem `fsync`.
+- Konfigurationsdefaults, Umgebungswerte und Orchestratorverdrahtung.
+- 20 gezielte Tests, vollständige Suite, `py_compile`, Preflight und Diffprüfung.
+- Livezyklen, 231 neue Inboxzeilen und echter Queue-Worker-Shutdown.
+
+### Tatsächliche Testergebnisse
+
+- Vor der Implementierung: vier erwartete Fehler wegen fehlender Queueparameter, `append_many()` und Konfigurationsfelder; separater Stoptest rot mit zwei statt einem Stop-Ereignis.
+- Nach der Implementierung: 20/20 gezielte Tests bestanden in 1,493 Sekunden.
+- Vollständige Suite: 235/235 Tests bestanden in 45,092 Sekunden.
+- `py_compile`, `git diff --check` und Runtime-Preflight: bestanden.
+- Live vor Shutdown: alle zehn Services und Fehlerjournal `OK`; Crypto 2 Zyklen/6 Ergebnisse, Stock 2 Zyklen/10 Ergebnisse; Telegram `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- NeuroBrain: 231 neue eindeutige Zeilen, 48 Batches, Queue-Tiefe 0, Drops 0, fehlgeschlagene Events 0, Statusfehler 0, Benachrichtigungsfehler 0, Worker aktiv.
+- 231/231 neue Zeilen ohne FIFO-, Schema-, Pflichtfeld- oder Bulk-Verstoß.
+- Fehlerjournal unverändert bei 180 Ereignissen und `failed_writes=0`.
+- Live-Shutdown: `running=false`, `worker_running=false`, `queue_depth=0`, 231 Events vollständig persistiert. Anschließender Neustart erfolgreich; NeuroBrain wieder `OK`, Queue leer und Worker aktiv.
+
+### Bekannte Fehler
+
+- Der allgemeine EventBus bleibt synchron. NeuroBrain-I/O ist entkoppelt; andere langsame Subscriber können Publisher weiterhin blockieren (`KP-003`).
+- Die bestehende In-Memory-Menge `_seen_event_ids` ist weiterhin nicht dauerhaft beziehungsweise größenbegrenzt; in einer einzelnen sehr langen Laufzeit kann sie wachsen.
+- Die übrigen offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Gezielt nur NeuroBrain entkoppelt; keine globale EventBus- oder Produceränderung.
+- Drop-newest schützt Reihenfolge und Bestand aller bereits akzeptierten Ereignisse. Jeder Drop bleibt als Healthfehler sichtbar.
+- Ein einzelner Writer garantiert FIFO ohne zusätzliche Sequenzkoordination. Batch-Schreiben reduziert `fsync`-Aufwand, ohne das append-only Ledgerformat zu ändern.
+- Ein akzeptiertes Ereignis wird beim Stop nicht verworfen; der nicht-daemonisierte Thread wird ohne willkürlichen Timeout vollständig gejoint.
+- Status- und Receipt-Probleme dürfen den Persistenzworker nicht beenden. Ledgerfehler bleiben als fehlgeschlagene Ereignisse sichtbar.
+
+### Nicht abgeschlossene Punkte
+
+- Branch, Commit und gestapelter Draft-PR werden im Veröffentlichungsschritt dieser Aufgabe ergänzt; nicht mergen.
+- `_seen_event_ids`-Retention ist nicht Teil dieser Entkopplung und muss nur bei belegtem Langzeit-Speicherproblem separat geplant werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Learning-Metriken vereinheitlichen: zuerst alle Produzenten und UI-Nenner für Decisions, Outcomes, Learnings, Patterns, Hit-Rate und Trading-Ergebnis inventarisieren. Danach einen gemeinsamen Begriff-/Nennervertrag festlegen, Outcome-Abdeckung sichtbar machen und klar kennzeichnen, dass aktuell kein ML-Modell trainiert wird. Noch keine Telegram- oder Decision-Gate-Änderung beginnen.
+
+---
+
 ## Aktuelle Aufgabe: NeuroBrain-Markt- und Observer-Schemata eindeutig trennen
 
 ### Datum und Uhrzeit

@@ -26,7 +26,9 @@ flowchart LR
     EB --> OT["OutcomeTracker: Simulation"]
     EB --> CT["CryptoTradeTracker: Simulation"]
     EB --> TG["Telegram: Dry-Run oder optionaler Versand"]
-    EB --> NB["NeuroBrainReceiver: lokale read-only Inbox"]
+    EB --> NQ["NeuroBrain FIFO-Queue: 2048, drop newest"]
+    NQ --> NW["Ein Writer: Batch bis 64"]
+    NW --> NB["NeuroBrainReceiver: lokale read-only Inbox"]
     EB --> CC["ControlCenterAdapter"]
     EB --> EJ["ServiceErrorJournal: kompakt und secret-gefiltert"]
     EJ --> EF["Begrenzte JSONL-Archive + atomare Zusammenfassung"]
@@ -93,7 +95,7 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
 | `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |
 | `CryptoTradeTracker` | Simulierte Crypto-Trades | Reale Orders |
-| `NeuroBrainReceiverAdapter` | Read-only Datei-Inbox und Duplikatschutz | Rückkanal in Decision Core |
+| `NeuroBrainReceiverAdapter` | Read-only Datei-Inbox, Duplikatschutz, begrenzte FIFO-Queue, Batch-Writer und Flush-Shutdown | Rückkanal in Decision Core |
 | `TelegramAdapter` | Dry-Run oder optionaler Nachrichtenversand | Zwingende finale Decision-Freigabe |
 | `ControlCenterAdapter` | Kompakte Event-/Statussicht | Stale-Heartbeat-Klassifikation |
 | `ServiceErrorJournal` | Versionierte Projektion von Fehlerereignissen, Secret-Filter, begrenzte Rotation, persistente Erst-/Letztbeobachtung | Vollständige Payload-Ablage, zentrale Retention aller anderen Ledger |
@@ -137,6 +139,8 @@ Das Fehlerjournal wird vor den Adaptern an den Wildcard-Kanal des EventBus gehä
 Der Scanner besitzt einen eigenen Lebenszyklus-Lock und einen dauerhaften `closed`-Zustand. `start_scan()` lehnt nach `close()` neue Hintergrundscans mit `CLOSED` ab; synchrone `refresh()`-Aufrufe liefern danach nur noch den letzten Snapshot. `close()` setzt das Abbruchsignal und wartet ohne willkürlichen Ein-Sekunden-Abbruch auf den aktiven Worker. Eine Sperrbarriere stellt zusätzlich sicher, dass auch ein synchron laufender Refresh beendet ist. Deshalb kann nach Rückkehr von `close()` kein Cache- oder Index-Schreibvorgang mehr stattfinden. Wiederholtes `close()` ist idempotent.
 
 `atomic_json.py` stellt für kleine, häufig ersetzte Runtime-Zustände einen konfliktresistenten Pfad bereit. Er serialisiert Schreiber auf denselben aufgelösten Zielpfad, schreibt jede Version in eine eigene Temp-Datei im Zielverzeichnis, validiert und `fsync`-t den JSON-Inhalt und ersetzt danach atomar. Transiente Windows-`PermissionError`- beziehungsweise Sharing-Verstöße werden mit kurzen begrenzten Delays erneut versucht; bei endgültigem Fehler wird nur die eigene Temp-Datei aufgeräumt und der Fehler weitergereicht. Aktuell verwenden NeuroBrain-Status und aktive Crypto-Trades diesen Helfer. Beide Adapter halten ihre Zustandssperre bis zum erfolgreichen Replace, damit Snapshot- und Dateireihenfolge übereinstimmen.
+
+Der NeuroBrain-Wildcard-Handler führt keine Dateioperation mehr im Publisher-Thread aus. Er prüft Topic und Duplikat, erstellt die kompakte Projektion und verwendet `put_nowait`. Die Queue ist standardmäßig auf 2048 Einträge begrenzt; bei Überlauf bleibt die bereits akzeptierte FIFO-Reihenfolge erhalten und nur das neueste Ereignis wird mit `dropped_events` abgelehnt. Ein nicht-daemonisierter Worker sammelt bis zu 64 Einträge beziehungsweise 250 Millisekunden und schreibt sie geordnet über `RotatingJsonlLedger.append_many()`. Status- und Receipt-Fehler beenden den Worker nicht. Beim Shutdown wird zuerst abonniertes Neugeschäft gestoppt, danach die Queue vollständig geleert und der Thread gejoint; nach Rückkehr kann kein Queue-Schreibvorgang mehr laufen.
 
 ## Webarchitektur
 
@@ -208,7 +212,7 @@ Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturser
 
 ## Bekannte Architekturgrenzen
 
-- Synchroner EventBus ohne Backpressure.
+- Synchroner EventBus ohne allgemeine Backpressure; ausschließlich der NeuroBrain-Dateiconsumer ist inzwischen über eine eigene begrenzte Queue entkoppelt.
 - Kein allgemeiner Timeout um jeden Adapterzyklus.
 - Kein fachlich unabhängiges Decision-Gate.
 - Telegram liegt nicht strikt hinter finalen Decisions.

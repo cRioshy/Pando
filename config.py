@@ -78,6 +78,9 @@ class PlatformConfig:
     neurobrain_receiver_enabled: bool = False
     neurobrain_inbox_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "inbox.jsonl"
     neurobrain_status_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
+    neurobrain_queue_capacity: int = 2048
+    neurobrain_batch_size: int = 64
+    neurobrain_flush_interval_seconds: float = 0.25
     live_crypto: bool = False
     crypto_live_price_display: bool = False
     crypto_symbols: list[str] = field(default_factory=lambda: ["BTCUSDT", "ETHUSDT", "XRPUSDT"])
@@ -210,6 +213,12 @@ class PlatformConfig:
                 "PANDORICKKI_NEUROBRAIN_STATUS_FILE",
                 data_dir / "neurobrain" / "status.json",
             ),
+            neurobrain_queue_capacity=_env_int("PANDORICKKI_NEUROBRAIN_QUEUE_CAPACITY", 2048),
+            neurobrain_batch_size=_env_int("PANDORICKKI_NEUROBRAIN_BATCH_SIZE", 64),
+            neurobrain_flush_interval_seconds=_env_float(
+                "PANDORICKKI_NEUROBRAIN_FLUSH_INTERVAL",
+                0.25,
+            ),
             live_crypto=_env_bool("PANDORICKKI_LIVE_CRYPTO", False),
             crypto_live_price_display=_env_bool("PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY", False),
             crypto_symbols=_env_list(
@@ -313,6 +322,12 @@ class PlatformConfig:
             warnings.append("Service error summary entry limit below 10; suitable only for tests.")
         if self.neurobrain_receiver_enabled:
             warnings.append("NeuroBrain receiver is enabled in read-only event mirror mode.")
+        if self.neurobrain_queue_capacity < 1:
+            warnings.append("NeuroBrain queue capacity below 1; runtime clamps it to 1.")
+        if self.neurobrain_batch_size < 1:
+            warnings.append("NeuroBrain batch size below 1; runtime clamps it to 1.")
+        if self.neurobrain_flush_interval_seconds <= 0:
+            warnings.append("NeuroBrain flush interval is not positive; runtime uses 0.01 seconds.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -364,6 +379,9 @@ class PlatformConfig:
             neurobrain_receiver_enabled=self.neurobrain_receiver_enabled,
             neurobrain_inbox_file=self.neurobrain_inbox_file,
             neurobrain_status_file=self.neurobrain_status_file,
+            neurobrain_queue_capacity=self.neurobrain_queue_capacity,
+            neurobrain_batch_size=self.neurobrain_batch_size,
+            neurobrain_flush_interval_seconds=self.neurobrain_flush_interval_seconds,
             live_crypto=self.live_crypto,
             crypto_live_price_display=self.crypto_live_price_display,
             crypto_symbols=list(self.crypto_symbols),

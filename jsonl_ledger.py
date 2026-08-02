@@ -28,15 +28,42 @@ class RotatingJsonlLedger:
     def append(self, record: dict[str, Any]) -> Path:
         """Append one record and return the file that received it."""
 
-        line = json.dumps(record, ensure_ascii=True) + "\n"
+        return self.append_many([record])
+
+    def append_many(self, records: list[dict[str, Any]]) -> Path:
+        """Append an ordered batch with one flush/fsync per active-file chunk."""
+
+        lines = [json.dumps(record, ensure_ascii=True) + "\n" for record in records]
+        if not lines:
+            return self.path
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self._rotate_if_needed(len(line.encode("utf-8")))
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(line)
-                handle.flush()
-                os.fsync(handle.fileno())
+            try:
+                current_size = self.path.stat().st_size
+            except OSError:
+                current_size = 0
+            pending: list[str] = []
+            for line in lines:
+                incoming_bytes = len(line.encode("utf-8"))
+                if current_size and current_size + incoming_bytes > self.max_bytes:
+                    self._write_lines(pending)
+                    pending = []
+                    self._rotate_if_needed(incoming_bytes)
+                    current_size = 0
+                pending.append(line)
+                current_size += incoming_bytes
+            self._write_lines(pending)
         return self.path
+
+    def _write_lines(self, lines: list[str]) -> None:
+        """Write one already serialized chunk while the ledger lock is held."""
+
+        if not lines:
+            return
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.writelines(lines)
+            handle.flush()
+            os.fsync(handle.fileno())
 
     def _rotate_if_needed(self, incoming_bytes: int) -> None:
         """Move the active ledger to an archive file when it exceeds max_bytes."""
