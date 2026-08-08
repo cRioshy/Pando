@@ -51,11 +51,11 @@ Stand: 8. August 2026
 ### KP-007 – Feature-Eingänge werden nicht strikt validiert
 
 - **Priorität:** mittel
-- **Status:** auf `agent/feature-data-quality-contract` implementiert und getestet; Merge und kontrollierter Plattformneustart noch offen
+- **Status:** am 8. August 2026 über PR #22 behoben, nach `main` gemergt und kontrolliert live verifiziert
 - **Behoben:** Vertrag `pandorickki.feature-data-quality` Version 1 prüft OHLCV, Non-Finite-Werte und Mindestanzahl, sortiert vollständig zeitgestempelte Reihen, behandelt Duplikate deterministisch mit `keep_last` und weist Warmup sowie unverifizierte Reihenfolge explizit aus.
 - **Kompatibilität:** Ein valider Einzelsnapshot bleibt erlaubt, wird aber als `WARMING` gekennzeichnet. Bestehende Legacy-Entscheidungen und History werden nicht verändert.
-- **Verifikation:** 30/30 gezielte Adapter-/Feature-/Integrationstests und 251/251 Gesamttests bestanden. Ein isolierter Realtest akzeptierte 240/240 Binance-Kerzen mit `PASS`, `VERIFIED`, `READY` und null Verstößen.
-- **Restpunkt:** Nach Merge einmal kontrolliert mit der vollständigen Plattform starten und neue Crypto-/Stock-Feature-Metadaten prüfen.
+- **Verifikation:** 30/30 gezielte Tests auf dem gemergten `main`, zuvor 251/251 Gesamttests. Ein direkter Realtest akzeptierte 240/240 Binance-Kerzen mit `PASS`, `VERIFIED`, `READY` und null Verstößen. Vier Produktionszyklen liefen mit allen zehn Services `OK`, null Sitzungsfehlern und aktuellen Crypto-/Aktienwerten.
+- **Bewusste Grenze:** Der Stock-Fallback bleibt ein zeitstempelloser Einzelsnapshot und meldet deshalb korrekt `WARN`, `UNVERIFIED` und `WARMING`. Ob solche Daten für eine Meldung genügen, entscheidet erst das noch zu implementierende fachliche Decision Gate.
 
 ### KP-009 – Portabilität durch lokale Windows-Pfade eingeschränkt
 

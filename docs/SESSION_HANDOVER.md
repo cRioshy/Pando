@@ -1,5 +1,91 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Feature-Datenqualitätsvertrag mergen und live verifizieren
+
+### Datum und Uhrzeit
+
+8. August 2026, 22:26 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den vollständig geprüften Feature-Datenqualitätsvertrag aus PR #22 nach ausdrücklicher Freigabe nach `main` mergen, den lokalen Hauptstand synchronisieren, PandorickKi kontrolliert mit sicheren Laufzeitwerten neu starten und Crypto-/Stock-Qualitätsmetadaten sowie Control Center live prüfen. Keine echten Trades aktivieren, Telegram deaktiviert/Dry-Run lassen und keine History löschen oder umschreiben.
+
+### Durchgeführte Arbeiten
+
+- PR #22 über GitHub-App und CLI auf exakten Scope, Basis `main`, Head `3d2ab1b434a475ffa2434a8379e48d657a1d3626`, Mergeability und Dateiliste geprüft. 13 erwartete Code-, Test- und Dokumentationsdateien; keine Runtime-, History- oder Secret-Dateien.
+- PR #22 nach ausdrücklicher Freigabe auf Ready gesetzt und per Head-geschütztem CLI-Fallback gemergt, weil die GitHub-App für Ready und Merge jeweils `403 Resource not accessible by integration` erhielt.
+- Merge als GitHub-Commit `14e19bf0a4e79860732ff3b6bba4135a2504b909` verifiziert und lokalen `main` ausschließlich per Fast-Forward auf `origin/main` synchronisiert.
+- Alten Webprozess über `POST /api/control/stop` kontrolliert beendet; Port 8000 war nach ungefähr 0,25 Sekunden ohne harten Prozessabbruch frei.
+- Runtime-Preflight bestanden und PandorickKi verborgen aus `.venv` mit Live-Crypto, Live-Aktien, NeuroBrain aktiv, Telegram deaktiviert und Dry-Run aktiv gestartet. Neue stdout-/stderr-Logs mit Zeitstempel erzeugt; beide blieben leer.
+- Vier vollständige Produktionszyklen per API geprüft: Crypto je drei Ergebnisse, Stock je fünf, Plattform und alle zehn Services `OK`, null Sitzungsfehler, null STALE-Services, NeuroBrain Queue/Drops null, Telegram null gesendete Nachrichten.
+- Qualitätsmetadaten direkt an den Adaptern geprüft, weil Browser-/API-Payloads große Featureblöcke absichtlich entfernen. Crypto verwendete echte öffentliche Binance-Daten; Stock lief isoliert im temporären Testverzeichnis, damit keine zweite Instanz bestehende Aktien-History beschreibt.
+- Bereits geöffnetes Control Center nach dem Prozesswechsel neu geladen und visuell geprüft: WebSocket verbunden, aktuelle BTC-/ETH-/XRP- und Aktienwerte, alle zehn Services `OK`, Telegram `false/true`, keine sichtbaren Fehler und keine Browser-Warnungen.
+- Den bereits bestehenden, nicht veröffentlichten Handover-Commit `a9f5a95` unverändert auf seinem früheren Feature-Branch erhalten. Die neue Abschlussdokumentation liegt auf `agent/document-feature-quality-live-verification`.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine Projektdateien. Zwei neue normale Runtime-Logdateien wurden für den gestarteten Prozess angelegt und blieben leer; sie sind keine Commitdateien.
+
+### Ausgeführte Befehle
+
+- Pflichtdokumentation und GitHub-/Browser-Workflow vollständig gelesen.
+- GitHub-App-Prüfung, `gh pr checks/view/ready/merge`, Mergeverifikation und Main-SHA-Prüfung.
+- `git fetch origin`, Wechsel auf `main`, `git merge --ff-only origin/main` und neuer Dokumentationsbranch.
+- Read-only API-Abfragen für Health, Status und Events; kontrollierter `POST /api/control/stop`; Runtime-Preflight; verborgener Start von `.venv\Scripts\python.exe main.py --headless --web` mit sicheren Umgebungswerten.
+- Isolierter Adapter-Probelauf für Crypto und Stock sowie Browser-DOM-/Konsolenprüfung des lokalen Control Centers.
+
+### Ausgeführte Tests
+
+- Bereits vor Merge: 251/251 vollständige Tests und isolierter Binance-Realtest.
+- Nach Merge: 30/30 gezielte Feature-, Crypto-, Stock- und Integrationsregressionen.
+- Runtime-Preflight.
+- Vier vollständige Produktionszyklen.
+- Direkte Qualitätsmetadatenprüfung für BTCUSDT und fünf Stock-Symbole.
+- Visuelle Control-Center- und Browserkonsolenprüfung.
+
+### Tatsächliche Testergebnisse
+
+- PR #22 gemergt; `origin/main` und lokaler Ausgangsstand auf `14e19bf`.
+- 30/30 gezielte Tests in 2,404 Sekunden bestanden; nur bekannte externe `datetime.utcnow()`-DeprecationWarnings.
+- Runtime-Preflight mit Python 3.12.13 bestanden.
+- Crypto-Qualität: `PASS`, 240 Eingänge/240 akzeptiert, null entfernt, null Duplikate, null Verstöße, Reihenfolge `VERIFIED`, Warmup `READY`, kein Featurefehler.
+- Stock-Qualität im sicheren isolierten Einzelsnapshot-Pfad: `WARN`, 1/1 akzeptiert, null Verstöße, Reihenfolge `UNVERIFIED`, Warmup `WARMING`, kein Featurefehler. Das entspricht dem dokumentierten rückwärtskompatiblen Fallback.
+- Produktiv: Crypto vier Zyklen mit je drei Ergebnissen; Stock vier Zyklen mit je fünf Ergebnissen; zehn Services `OK`; `error_count=0`; keine STALE-Services; NeuroBrain Queue/Drops null; Telegram deaktiviert/Dry-Run und `messages_sent=0`.
+- Browser: Control Center per WebSocket verbunden, System `OK`, aktuelle Marktdaten, keine sichtbaren Fehler und keine Console-Warnungen/-Fehler.
+
+### Bekannte Fehler
+
+- Keine neue Regression und kein neuer Sitzungsfehler festgestellt.
+- KP-007 ist technisch behoben und live verifiziert.
+- Der Stock-Einzelsnapshot besitzt weiterhin keinen Kerzenzeitstempel und keinen vollständigen Indikator-Warmup; dies ist jetzt sichtbar und muss vom Decision Gate fachlich behandelt werden.
+- Bekannte externe `datetime.utcnow()`-DeprecationWarnings und die übrigen offenen Punkte in `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Der Datenqualitätsvertrag bleibt technische Eingangsgrenze; er ist kein Trading- oder Nachrichtenfreigabe-Gate.
+- Browser und kompakte Events bleiben frei von großen Featureblöcken. Qualitätsdetails werden intern geprüft und sollen für ein späteres Gate nur als kompakte, ausdrücklich benötigte Projektion weitergereicht werden.
+- Das kommende Decision Gate muss fail-closed arbeiten: unzureichende oder unverifizierte Daten dürfen nicht still als freigegebene Meldung gelten.
+- Telegram bleibt bis hinter einer geprüften finalen Entscheidungskette deaktiviert/Dry-Run; reale Orderausführung bleibt ausgeschlossen.
+
+### Nicht abgeschlossene Punkte
+
+- Diese vier Abschlussdokumente sind lokal committed, aber noch nicht veröffentlicht.
+- Der fachliche Decision-Gate-Vertrag ist noch nicht entworfen oder implementiert.
+- Stock besitzt derzeit nur den rückwärtskompatiblen Einzelsnapshot für Features; eine echte zeitgestempelte Aktien-Kerzenhistorie ist eine spätere Datenquellenverbesserung, nicht Teil dieses Abschlusses.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Zuerst den Feld- und Zustandsvertrag für ein rein beobachtendes, fail-closed Decision Gate entwerfen: Eingangsereignis, benötigte Feature-/Qualitätsprojektion, zulässige Qualitäts- und Warmupzustände, Fakten-/Risiko-/Confidence-/Konfliktregeln, eindeutige Reason Codes und Ausgangsereignisse. Noch keine Telegram-Anbindung und keine reale Orderausführung implementieren.
+
+---
+
 ## Aktuelle Aufgabe: Feature-Datenqualitätsvertrag Version 1 umsetzen
 
 ### Datum und Uhrzeit

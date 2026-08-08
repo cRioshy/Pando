@@ -13,8 +13,9 @@ Stand: 8. August 2026
 - Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
 - Die Abschlussdokumentation aus PR #20 wurde nach ausdrücklicher Freigabe gemergt; `origin/main` steht auf `b8af62f`.
 - Draft-PR #21 enthält ausschließlich den Merge-Abschlussnachtrag und bleibt offen sowie ungemergt: `https://github.com/cRioshy/Pando/pull/21`.
-- Der Feature-Datenqualitätsvertrag Version 1 ist auf `agent/feature-data-quality-contract` als lokaler Commit `9470b47` implementiert: 30/30 gezielte und 251/251 vollständige Tests sowie ein isolierter Realtest mit 240/240 validen Binance-Kerzen bestanden. Die öffentliche Veröffentlichung wartet auf ausdrückliche Freigabe.
-- Nächster technischer Schritt nach Merge und Plattform-Liveprüfung ist der fachliche Decision-Gate-Vertrag.
+- Der Feature-Datenqualitätsvertrag Version 1 wurde über PR #22 nach `main` gemergt; `origin/main` steht auf `14e19bf`. Nach kontrolliertem Neustart liefen vier vollständige Crypto-/Stock-Zyklen mit allen zehn Services `OK`, null Sitzungsfehlern, NeuroBrain Queue/Drops null sowie Telegram aus/Dry-Run.
+- Direkte Qualitätsprüfung: Crypto `PASS/VERIFIED/READY` mit 240/240 Binance-Kerzen und null Verstößen; Stock-Einzelsnapshot erwartungsgemäß `WARN/UNVERIFIED/WARMING` ohne Featurefehler.
+- Nächster technischer Schritt ist jetzt der fachliche Decision-Gate-Vertrag. Er muss Datenqualität, Warmup, Fakten, Risiko, Confidence, Konflikte und eindeutige Ablehnungsgründe fail-closed definieren; Telegram bleibt bis zur späteren Freigabe aus/Dry-Run.
 
 ## Verbindliche Reihenfolge
 
