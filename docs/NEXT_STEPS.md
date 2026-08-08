@@ -15,7 +15,8 @@ Stand: 8. August 2026
 - Draft-PR #21 enthält ausschließlich den Merge-Abschlussnachtrag und bleibt offen sowie ungemergt: `https://github.com/cRioshy/Pando/pull/21`.
 - Der Feature-Datenqualitätsvertrag Version 1 wurde über PR #22 nach `main` gemergt; `origin/main` steht auf `14e19bf`. Nach kontrolliertem Neustart liefen vier vollständige Crypto-/Stock-Zyklen mit allen zehn Services `OK`, null Sitzungsfehlern, NeuroBrain Queue/Drops null sowie Telegram aus/Dry-Run.
 - Direkte Qualitätsprüfung: Crypto `PASS/VERIFIED/READY` mit 240/240 Binance-Kerzen und null Verstößen; Stock-Einzelsnapshot erwartungsgemäß `WARN/UNVERIFIED/WARMING` ohne Featurefehler.
-- Nächster technischer Schritt ist jetzt der fachliche Decision-Gate-Vertrag. Er muss Datenqualität, Warmup, Fakten, Risiko, Confidence, Konflikte und eindeutige Ablehnungsgründe fail-closed definieren; Telegram bleibt bis zur späteren Freigabe aus/Dry-Run.
+- Der fachliche Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 ist lokal implementiert und mit zehn Vertragstests sowie 261/261 Gesamttests geprüft. Er arbeitet ausschließlich als aufrufbare Observer-Referenz, verlangt explizite Schwellen, blockiert unvollständige Qualität/Fakten/Risiken fail-closed und kann weder Telegram noch Orders freigeben.
+- Nächster technischer Schritt ist die kompakte `feature_quality`-Projektion vom Analyseereignis bis zur Brain-/Decision-Grenze. Danach wird das Gate als separater auditierender Observer integriert; der bestehende Decision-/Signalpfad bleibt bis zur Liveauswertung unverändert.
 
 ## Verbindliche Reihenfolge
 
@@ -114,12 +115,19 @@ Stand: 8. August 2026
 
 ## Erst anschließend
 
-- **Feature-Datenqualitätsvertrag erledigt und getestet:** Sortierung, `keep_last`-Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup sind versioniert und als Metadaten sichtbar. Merge und vollständige Plattform-Liveprüfung stehen noch aus.
-- Fachlichen Decision-Gate-Vertrag mit Fakten-, Risiko-, Confidence- und Konfliktregeln entwerfen.
+- **Feature-Datenqualitätsvertrag erledigt, nach `main` gemergt und live verifiziert:** Sortierung, `keep_last`-Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup sind versioniert und als Metadaten sichtbar.
+- **Decision-Gate-Vertrag lokal erledigt und getestet:** Fakten-, Risiko-, Confidence-, Datenqualitäts- und Konfliktregeln sind fail-closed mit eindeutigen Reason Codes definiert. Noch nicht aktiv in den EventBus integrieren oder als Freigabe verwenden.
+- Kompakte `feature_quality`-Projektion ohne vollständige Features in den Marktvertrag aufnehmen und über Brain bis zu einem späteren Observer erhalten.
+- Danach einen begrenzten Decision-Gate-Audit-Observer integrieren und live auswerten; Decision-/Signal-Consumer noch nicht umschalten.
 - Telegram ausschließlich an freigegebene finale Ereignisse anbinden und bis dahin deaktiviert beziehungsweise im Dry-Run lassen.
 - Aufbewahrungs-/Archivkonzept und Portabilität der Legacy-Pfade separat planen, ohne bestehende History zu löschen.
 
 ## Zuletzt erledigt
+
+- Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 als rein beobachtende, fail-closed Referenz implementiert.
+- Explizite Probability-/Confidence-Schwellen ohne versteckte Defaults, Qualitäts-/Warmup-/Order-/Fakten-/Risiko-/Konfliktregeln und deterministische Reason Codes definiert.
+- Zehn Vertragstests und 261/261 Gesamttests bestanden. Das Modul ist nicht an den EventBus angeschlossen, setzt stets `ready_for_telegram=false` und `order_execution_allowed=false` und verändert den laufenden Dienst nicht.
+- Nächster Schritt: kompakte `feature_quality`-Projektion durch die bestehende Payloadkette erhalten; danach separaten Audit-Observer integrieren.
 
 - Feature-Datenqualitätsvertrag `pandorickki.feature-data-quality` Version 1 implementiert und in `FeatureEngine` integriert.
 - Sortierung, `keep_last`-Duplikate, OHLCV-/Non-Finite-Prüfung, Mindestkerzen, Zeitstempelpflicht und Warmup-Metadaten mit 30/30 gezielten sowie 251/251 vollständigen Tests verifiziert.

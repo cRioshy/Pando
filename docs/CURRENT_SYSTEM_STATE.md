@@ -65,7 +65,7 @@ PandorickKi ist eine lokal laufende Integrationsplattform für bestehende Crypto
 
 Die Anwendung läuft im Wesentlichen als ein Python-Prozess. Der `Orchestrator` verwaltet Adapter und führt deren `run_once()`-Zyklen parallel als AsyncIO-Tasks aus. Die Adapter kommunizieren überwiegend über einen synchronen In-Process-`EventBus`. Ein `ServiceErrorJournal` hört ausschließlich auf Fehlerereignisse und persistiert daraus kompakte, secret-gefilterte Projektionen. `SharedState` hält den beobachtbaren Laufzeitzustand; `HealthMonitor` erzeugt einen groben Health-Report. Der Webserver basiert auf `ThreadingHTTPServer` und läuft in einem zusätzlichen Thread.
 
-Die Architektur ist eine Integrations- und Beobachtungsschicht, kein autonomes Handelssystem. `BrainAdapter` und `DecisionSignalAdapter` übernehmen derzeit hauptsächlich Persistenz, Weiterleitung und deterministische Normalisierung, keine unabhängige KI- oder Risikofreigabe.
+Die Architektur ist eine Integrations- und Beobachtungsschicht, kein autonomes Handelssystem. `BrainAdapter` und `DecisionSignalAdapter` übernehmen derzeit hauptsächlich Persistenz, Weiterleitung und deterministische Normalisierung, keine unabhängige KI- oder Risikofreigabe. `decision_gate_contract.py` definiert inzwischen eine getestete, fail-closed Observer-Referenz, ist aber noch nicht an den EventBus oder den aktiven Decision Core angeschlossen.
 
 ## Aktive Services
 
@@ -102,7 +102,7 @@ Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket un
 3. Die Adapter publizieren Markt- und Analyseereignisse über den `EventBus`.
 4. Fehlerereignisse (`SYSTEM_ERROR`, `service.error` und Themen mit Suffix `_ERROR`) werden als versionierte Projektion journalisiert; vollständige Payloads und externe Antworten werden nicht übernommen.
 4. `BrainAdapter` speichert abgeschlossene Analysen rotierend und publiziert `BRAIN_DECISION_RECEIVED` sowie `AI_LEARNING_UPDATED`.
-5. `DecisionSignalAdapter` normalisiert das Brain-Ereignis, erzeugt deterministische IDs und persistiert Decision- und Signal-Ledger.
+5. `DecisionSignalAdapter` normalisiert das Brain-Ereignis weiterhin ohne Gate, erzeugt deterministische IDs und persistiert Decision- und Signal-Ledger. Der neue Decision-Gate-Vertrag ist an dieser Stelle noch nicht verdrahtet.
 6. Outcome- und Crypto-Trade-Tracker öffnen und aktualisieren ausschließlich simulierte Trades.
 7. Control Center, Statistik, Reports und Graphdienste projizieren den Ereignis- und Persistenzzustand in read-only Sichten.
 8. Telegram verarbeitet Analyse- und simulierte Trade-Ereignisse direkt; es liegt derzeit nicht strikt hinter einem finalen Decision-Gate.
@@ -138,17 +138,19 @@ Die Standardpfade für Crypto und Aktien sind rechnergebundene Windows-Pfade und
 
 Vor jeder Berechnung wendet die Feature Engine den Vertrag `pandorickki.feature-data-quality` Version 1 aus `feature_data_quality_contract.py` an. Er prüft endliche und positive OHLC-Werte, OHLC-Konsistenz, nicht negatives Volumen und gültige Zeitstempel. Vollständig zeitgestempelte Reihen werden aufsteigend sortiert; gleiche Zeitstempel behalten deterministisch die letzte Providerzeile. Fehlende oder teilweise Zeitstempel werden nicht geraten, sondern als unverifizierte Providerreihenfolge ausgewiesen. Ungültige Zeilen, Duplikate, Sortierstatus, Mindestanzahl und Warmup erscheinen unter `metadata.data_quality`.
 
-Die Mindestanzahl ist aus Rückwärtskompatibilitätsgründen standardmäßig eine valide Kerze, während vollständiger Indikator-Warmup derzeit 200 Kerzen verlangt. Einzelsnapshots bleiben damit sichtbar, behaupten aber über `warmup.status=WARMING` keine vollständige Indikatorreife. Crypto-Kerzen behalten jetzt ihren Provider-Zeitstempel. Live-Adapter verwenden weiterhin `include_targets=False`; historische Trainingsziele gelangen nicht in den Livepfad. Eine New-Candle-/Cache-Strategie und ein fachliches Decision Gate sind weiterhin nicht implementiert.
+Die Mindestanzahl ist aus Rückwärtskompatibilitätsgründen standardmäßig eine valide Kerze, während vollständiger Indikator-Warmup derzeit 200 Kerzen verlangt. Einzelsnapshots bleiben damit sichtbar, behaupten aber über `warmup.status=WARMING` keine vollständige Indikatorreife. Crypto-Kerzen behalten jetzt ihren Provider-Zeitstempel. Live-Adapter verwenden weiterhin `include_targets=False`; historische Trainingsziele gelangen nicht in den Livepfad. Eine New-Candle-/Cache-Strategie und die aktive Integration eines fachlichen Decision Gates sind weiterhin nicht implementiert.
 
 ## Brain
 
 `BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, projiziert jede neue Analyse einmal auf `pandorickki.compact-market-event` Version 1, schreibt diese Sicht in datums- und größenrotierte JSONL-Dateien und publiziert dieselbe Sicht als `BRAIN_DECISION_RECEIVED`. Quell-Event-ID, Markt-/Preis-/Risiko-/Zeitfelder und kompakte Ersatzfelder bleiben erhalten; Raw Results, Features, Diagnostik und Kerzen werden nicht neu in Brain-History übernommen. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
 
-Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Brain ist die erste aktiv migrierte Producer-/Persistenzgrenze. Decision-/Signal- und NeuroBrain-Persistenz reichen noch nicht überall ausschließlich die Projektion weiter.
+Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Brain, Decision-/Signal-Persistenz und NeuroBrain verwenden für neue Einträge die verifizierten kompakten Projektionen; alte History bleibt unverändert lesbar.
 
 ## Decision Core
 
-`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, projiziert beide Stufen auf `pandorickki.compact-market-event` Version 1 und verwendet die jeweilige Projektion unverändert für Event und rotierendes JSONL-Ledger. Quell-, Decision-, Signal- und Decision-Event-IDs bleiben erhalten; `raw_result`, Features und Kerzen werden nicht neu in Decision-/Signal-Payloads übernommen. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
+`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, projiziert beide Stufen auf `pandorickki.compact-market-event` Version 1 und verwendet die jeweilige Projektion unverändert für Event und rotierendes JSONL-Ledger. Quell-, Decision-, Signal- und Decision-Event-IDs bleiben erhalten; `raw_result`, Features und Kerzen werden nicht neu in Decision-/Signal-Payloads übernommen. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Der aktive Adapter erzeugt weiterhin für jedes Brain-Ereignis Decision und Signal und setzt `ready_for_telegram=true`, ohne eine unabhängige Freigabe.
+
+Der ausführbare Vertrag `pandorickki.decision-gate` Version 1 liegt in `decision_gate_contract.py` und `docs/DECISION_GATE_CONTRACT.md`. Er bewertet Kandidaten rein beobachtend und fail-closed anhand explizit zu konfigurierender Probability-/Confidence-Schwellen, Richtung, Preis, Fakten, kompakter Feature-Qualität, Warmup, Reihenfolge und Risikokonsistenz. Er setzt unabhängig vom Ergebnis `ready_for_telegram=false` und `order_execution_allowed=false`. Das Modul ist noch kein aktiver Service, persistiert nichts und verändert den heutigen Eventfluss nicht.
 
 ## Outcome Tracker
 
@@ -244,11 +246,11 @@ Der vollständige Lauf am 2. August 2026 bestand nach der UI-Härtung mit 243/24
 1. Storage-Laufzeiten müssen nach dem Neustart weiter beobachtet werden; der 64-MiB-Realbenchmark blieb mit 2,135 Sekunden deutlich unter dem 30-Sekunden-Limit.
 2. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
 3. WebSocket-Reconnect und Polling-Fallback sind gehärtet; reale Netzwerksonderfälle und sehr lange aktive Adapterzyklen bleiben weiter zu beobachten.
-4. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
+4. Brain und aktiver Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen; der neue Observer-Vertrag ist noch nicht integriert.
 5. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
 6. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
 7. Absolute Windows-Pfade begrenzen die Portabilität.
-8. Feature-Eingangsdaten werden nicht streng genug validiert.
+8. Feature-Eingangsdaten sind technisch validiert; ihre kompakte Qualitätsprojektion erreicht den Brain-/Decision-Pfad noch nicht.
 9. Nur Services mit vorhandenem Heartbeat können als `STALE` klassifiziert werden; heartbeatlose Services bleiben bei ihrem sonstigen Status.
 10. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
 11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.

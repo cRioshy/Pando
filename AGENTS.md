@@ -20,6 +20,8 @@ Vor Änderungen an Learning-, Outcome-, Hit-Rate-, Pattern- oder Trainingsmetrik
 
 Vor Änderungen an OHLCV-Normalisierung, Feature-Eingängen, Sortierung, Kerzenduplikaten, Warmup oder `FeatureEngine` muss zusätzlich `docs/FEATURE_DATA_QUALITY_CONTRACT.md` gelesen und gegen Crypto-/Stock-Producer sowie alle Feature-Consumer geprüft werden.
 
+Vor Änderungen am Decision Core, an fachlichen Freigaberegeln, `ready_for_telegram`, Signal-/Meldungsfreigaben oder einer späteren Telegram-Kopplung muss zusätzlich `docs/DECISION_GATE_CONTRACT.md` gelesen und gegen Feature-Qualität, Brain-, Decision-, Tracker- und Telegram-Consumer geprüft werden.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.

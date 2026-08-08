@@ -1,5 +1,98 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Fail-closed Decision-Gate-Vertrag Version 1 definieren
+
+### Datum und Uhrzeit
+
+8. August 2026, 22:35 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach Merge und Liveverifikation des Feature-Datenqualitätsvertrags den nächsten freigegebenen Schritt klein und sicher beginnen: den tatsächlichen Brain-/Decision-/Tracker-/Telegram-Fluss prüfen und einen ausführbaren, rein beobachtenden und fail-closed Decision-Gate-Vertrag definieren. Noch keine aktive EventBus-Integration, keine Telegram-Kopplung, keine reale Orderausführung und keine Änderung bestehender Runtime- oder Historydaten.
+
+### Durchgeführte Arbeiten
+
+- Pflicht-, Event-Payload- und Feature-Datenqualitätsdokumentation sowie die tatsächlichen Producer und Consumer geprüft.
+- Bestätigt, dass `DecisionSignalAdapter` heute jedes `BRAIN_DECISION_RECEIVED` unmittelbar in `DECISION_CREATED` und `SIGNAL_CREATED` überführt und dabei `ready_for_telegram=true` setzt, ohne Datenqualitäts-, Risiko- oder Confidence-Gate.
+- Bestätigt, dass `TelegramAdapter` weiterhin Crypto-/Stock-Analysen und simulierte Trade-Updates direkt abonniert. Der laufende Dienst blieb sicher `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Migrationslücke identifiziert: Der vollständige Featureblock wird an der kompakten Brain-Grenze korrekt entfernt; dadurch erreicht `features.metadata.data_quality` den Decision-Pfad heute noch nicht.
+- Ausführbaren Vertrag `pandorickki.decision-gate` Version 1 erstellt. `DecisionGatePolicy` verlangt Probability- und Confidence-Schwellen ausdrücklich und besitzt dafür keine versteckten Defaults.
+- Fail-closed Regeln für Markt, Symbol, LONG/SHORT, Preis, Probability, Confidence, Fakten, Featurefehler, Qualitätsschema/-status, verifizierte Reihenfolge, vollständigen Warmup und richtungskonsistenten Stop/Take-Profit definiert.
+- Kompakte `feature_quality`-Projektion erstellt, die nur Gate-relevante Qualitätszähler sowie Order- und Warmupstatus übernimmt und keinen vollständigen Featureblock persistiert.
+- Deterministische Reason Codes und nur zwei Bewertungszustände (`QUALIFIED`, `BLOCKED`) definiert. Version 1 setzt stets `mode=OBSERVER`, `release_status=OBSERVER_ONLY`, `ready_for_telegram=false` und `order_execution_allowed=false`.
+- Dokumentation und verbindliche AGENTS-Leseregel aktualisiert. Das Modul ist bewusst nicht an EventBus, Decision Core, Tracker oder Telegram angeschlossen.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- `decision_gate_contract.py`
+- `tests/test_decision_gate_contract.py`
+- `docs/DECISION_GATE_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- Vollständige Lektüre der Pflicht- und relevanten Vertragsdokumentation.
+- `rg`-/`Get-Content`-Bestandsaufnahme von Brain, Decision Core, Outcome Tracker, Crypto Trade Tracker, Telegram, Event-Payload-Vertrag sowie zugehörigen Tests.
+- Read-only Abruf von `http://127.0.0.1:8000/api/status` zur Bestätigung des aktiven Ereignisflusses und der sicheren Telegram-Einstellungen.
+- Neuer lokaler Branch `agent/define-decision-gate-contract` auf dem vorherigen lokalen Liveverifikations-Dokumentationscommit erstellt.
+- Test-first Unittest-Lauf vor und nach Implementierung, Python-Syntaxprüfung, angrenzende Regressionen, vollständige Testsuite sowie `git diff --check`.
+
+### Ausgeführte Tests
+
+- Vor Implementierung: `python -m unittest tests.test_decision_gate_contract -v` erwartungsgemäß rot wegen fehlendem Vertragsmodul.
+- Nach Implementierung: `.\.venv\Scripts\python.exe -m unittest tests.test_decision_gate_contract -v`.
+- Syntaxprüfung der Gate-, Feature-Qualitäts-, Event-Payload-, Brain- und Decision-Module.
+- 48 angrenzende Gate-/Qualitäts-/Payload-/Brain-/Decision-/Outcome-/Trade-Tracker-Tests.
+- Vollständige Unittest-Discovery.
+- `git diff --check`.
+
+### Tatsächliche Testergebnisse
+
+- Vorheriger Reproduktionslauf: 1 Importfehler, weil `decision_gate_contract.py` noch nicht existierte.
+- Danach 10/10 Decision-Gate-Vertragstests bestanden.
+- Abgedeckt sind qualifizierter Observerfall, fehlende Qualität, Stock `WARN/UNVERIFIED/WARMING`, WAIT/HOLD, fehlende Fakten, Featurefehler, Confidence-/Richtungskonflikte, ungültiger Stop/Take-Profit, kompakte Qualitätsprojektion sowie unveränderliche Telegram-/Order-Sperre.
+- Python-Syntaxprüfung und nach der letzten Grenzfallkorrektur 49/49 angrenzende Regressionen in 0,815 Sekunden bestanden.
+- Vollständige Suite nach der letzten Änderung: 261/261 Tests in 45,836 Sekunden bestanden; nur die bekannten externen `datetime.utcnow()`-DeprecationWarnings.
+- `git diff --check` bestand; nur normale Windows-LF/CRLF-Hinweise.
+- Der bestehende Pandorickki-Prozess wurde nicht neu gestartet und nicht verändert. Beim read-only Statusabruf liefen Plattform und alle zehn Services `OK`; Telegram war deaktiviert/Dry-Run und hatte null Nachrichten gesendet.
+
+### Bekannte Fehler
+
+- KP-004 bleibt in der aktiven Architektur offen: Der neue Vertrag ist getestet, aber noch nicht als Observer verdrahtet.
+- KP-005 bleibt offen: Telegram abonniert weiterhin vor-gelagerte Analyse-/Tradeereignisse direkt, ist aber sicher deaktiviert/Dry-Run.
+- Die kompakte Marktprojektion enthält noch keine `feature_quality`; ohne diese Projektion blockiert der Vertrag korrekt mit `DG_QUALITY_MISSING`.
+- Der Stock-Einzelsnapshot blockiert unter der sicheren Version-1-Grundeinstellung korrekt wegen `WARN`, `UNVERIFIED` und `WARMING`.
+- Die übrigen Einträge in `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Vertrag, Observer-Integration und spätere Freigabeumschaltung sind getrennte Arbeitsschritte.
+- Probability- und Confidence-Schwellen müssen explizit konfiguriert und fachlich bestätigt werden; der Vertrag erfindet keinen produktiven Standardwert.
+- Qualität wird später nur als kompakte Projektion weitergereicht. Vollständige Features, Kerzen und Raw Results bleiben aus Brain-/Decision-Payloads ausgeschlossen.
+- Ein technisch qualifizierter Version-1-Kandidat ist noch keine Meldungs- oder Tradefreigabe.
+- Commodity bleibt mangels heutiger Feature-Qualitätsanbindung fail-closed blockiert.
+
+### Nicht abgeschlossene Punkte
+
+- Die neue Implementierung, die Dokumentation und der vorherige Liveverifikations-Dokumentationscommit sind lokal und noch nicht in das öffentliche GitHub-Repository gepusht.
+- `feature_quality` wird noch nicht durch den kompakten Marktvertrag und Brain weitergereicht.
+- Es existiert noch kein EventBus-Subscriber, kein Gate-Audit-Ledger und keine Liveauswertung der Reason-Code-Verteilung.
+- Der heutige Decision-/Signalpfad und Telegram wurden bewusst nicht umgestellt.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den kompakten Event-Payload-Vertrag additiv um eine begrenzte `feature_quality`-Projektion erweitern, diese im Analyse-zu-Brain-Pfad erhalten und mit Consumer-/Bulk-Ausschluss-/Legacy-Tests absichern. Danach einen separaten, rein auditierenden Decision-Gate-Observer planen; bestehende Decisions, Signals, Tracker und Telegram noch nicht umschalten.
+
+---
+
 ## Aktuelle Aufgabe: Feature-Datenqualitätsvertrag mergen und live verifizieren
 
 ### Datum und Uhrzeit

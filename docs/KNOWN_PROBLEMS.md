@@ -27,10 +27,11 @@ Stand: 8. August 2026
 ### KP-004 – Brain und Decision Core besitzen kein unabhängiges Freigabe-Gate
 
 - **Priorität:** mittel
-- **Status:** offen
-- **Beobachtung:** Brain persistiert und reicht weiter; Decision Core normalisiert deterministisch.
+- **Status:** Vertrag am 8. August 2026 definiert und getestet; aktive Integration weiterhin offen
+- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. `pandorickki.decision-gate` Version 1 kann Kandidaten jetzt rein beobachtend und fail-closed prüfen, ist aber noch nicht an den EventBus angeschlossen.
 - **Auswirkung:** Modulnamen können eine fachliche Prüfung suggerieren, die nicht implementiert ist.
-- **Sicherheitsregel:** Daraus niemals automatische oder reale Orders ableiten.
+- **Sicherheitsregel:** Der Vertrag setzt stets `ready_for_telegram=false` und `order_execution_allowed=false`. Daraus niemals automatische oder reale Orders ableiten.
+- **Nächster Fix:** Zuerst die kompakte `feature_quality`-Projektion bis zur Brain-/Decision-Grenze erhalten und anschließend einen separaten auditierenden Observer integrieren; den bestehenden Signalpfad noch nicht umschalten.
 
 ### KP-005 – Telegram umgeht die finale Entscheidungskette
 
@@ -38,7 +39,7 @@ Stand: 8. August 2026
 - **Status:** offen
 - **Beobachtung:** Telegram abonniert Crypto-/Stock-Analysen und simulierte Crypto-Trade-Updates direkt.
 - **Auswirkung:** Eine Nachricht kann vor oder unabhängig von `DECISION_CREATED`/`SIGNAL_CREATED` entstehen.
-- **Sicherheitsregel:** Telegram deaktiviert beziehungsweise im Dry-Run lassen, bis ein explizites Gate entworfen und freigegeben ist.
+- **Sicherheitsregel:** Telegram deaktiviert beziehungsweise im Dry-Run lassen, bis der vorhandene Gate-Vertrag als Observer live ausgewertet und die spätere Kopplung separat freigegeben ist.
 
 ### KP-006 – Keine zentrale Retention-Policy
 

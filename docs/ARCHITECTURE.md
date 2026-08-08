@@ -19,6 +19,9 @@ flowchart LR
     DQ --> FE["FeatureEngine"]
     FE -. additive Features .-> CA
     FE -. additive Features .-> SA
+    DG["Decision-Gate-Vertrag v1: fail-closed Observer, nicht verdrahtet"]
+    DQ -. kompakte Quality-Projektion geplant .-> DG
+    DG -. keine aktive Freigabe .-> DC
     CA --> EB["Synchroner In-Process EventBus"]
     SA --> EB
     CO --> EB
@@ -100,6 +103,7 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
+| `decision_gate_contract.py` | Explizite fail-closed Observer-Bewertung, kompakte Qualitätsprojektion und Reason Codes | EventBus-Service, aktive Signal-/Telegram-Freigabe, Orders |
 | `BrainAdapter` | Rotierende Analysepersistenz und Folgeereignisse | Eigene KI-Inferenz oder Faktenprüfung |
 | `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
 | `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |
@@ -249,7 +253,7 @@ Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturser
 
 - Synchroner EventBus ohne allgemeine Backpressure; ausschließlich der NeuroBrain-Dateiconsumer ist inzwischen über eine eigene begrenzte Queue entkoppelt.
 - Kein allgemeiner Timeout um jeden Adapterzyklus.
-- Kein fachlich unabhängiges Decision-Gate.
+- Ein getesteter fachlicher Decision-Gate-Vertrag existiert, ist aber noch nicht als Observer an den EventBus angeschlossen und greift nicht in Decisions oder Signals ein.
 - Telegram liegt nicht strikt hinter finalen Decisions.
 - Keine zentrale Retention-Policy für den gesamten Runtime-Bestand.
 - Absolute Windows-Pfade begrenzen Portabilität.
