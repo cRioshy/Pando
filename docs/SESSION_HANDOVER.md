@@ -1,5 +1,101 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Feature-Datenqualitätsvertrag Version 1 umsetzen
+
+### Datum und Uhrzeit
+
+8. August 2026, 21:22 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den nächsten freigegebenen Entwicklungsschritt umsetzen: einen versionierten, rückwärtskompatiblen und getesteten Vertrag für Feature-Eingangsdaten mit Sortierung, Duplikaten, OHLC-Konsistenz, Non-Finite-Werten, Mindestkerzen und Warmup. Keine History verändern, kein Decision Gate vorziehen und Telegram sowie reale Trades unangetastet lassen.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, Event-Payload-Vertrag, Feature Engine, Crypto-/Stock-Adapter, Crypto-Marktdatenservice und sämtliche direkten Feature-Tests geprüft.
+- Bestehende Kompatibilitätsgrenze identifiziert: Crypto besitzt Provider-Zeitstempel, verlor sie aber bei der Normalisierung; Stock kann bewusst auf einen zeitstempellosen Einzelfakten-Snapshot zurückfallen.
+- Ausführbaren Vertrag `pandorickki.feature-data-quality` Version 1 in `feature_data_quality_contract.py` ergänzt.
+- OHLCV-Aliase, endliche/positive Preise, OHLC-Konsistenz, nicht negatives Volumen und Zeitstempelaliase validiert. Ungültige Zeilen werden gezählt und nur bei weiterhin erreichter Mindestanzahl kontrolliert entfernt.
+- Vollständig zeitgestempelte Reihen aufsteigend sortiert und doppelte Zeitstempel deterministisch per `keep_last` reduziert. Fehlende oder teilweise Zeitstempel bleiben in Providerreihenfolge und werden ausdrücklich `UNVERIFIED` markiert.
+- Konfigurierbare Mindestkerzen, optionale Zeitstempelpflicht und expliziten Warmupstatus eingeführt. Standard: mindestens eine valide Kerze für den vorhandenen Stock-Fallback, vollständiger Warmup am größten aktiven Fenster, derzeit 200.
+- Vertrag in `FeatureEngine.compute()` integriert und Qualitätsbericht unter `metadata.data_quality` ausgegeben. Nicht endliche optionale Kontextwerte werden entfernt.
+- Crypto-Marktdatennormalisierung um den vorhandenen Binance-/Bitget-Zeitstempel ergänzt.
+- Neue Regressionstests zuerst gegen den fehlenden Vertrag ausgeführt und danach grün gestellt.
+- Architektur-, Systemzustands-, Problem-, Plan- und Vertragsdokumentation aktualisiert. `AGENTS.md` verlangt den Vertrag künftig vor Feature-/OHLCV-Änderungen.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `adapters/crypto_market_data_service.py`
+- `features/feature_engine.py`
+- `tests/test_crypto_market_data_service.py`
+- `tests/test_feature_engine.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `feature_data_quality_contract.py`
+- `tests/test_feature_data_quality_contract.py`
+- `docs/FEATURE_DATA_QUALITY_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen der Pflicht- und relevanten Vertragsdateien sowie `rg`-/`Get-Content`-Prüfung der tatsächlichen Producer, Adapter, Consumer und Tests.
+- Separaten Branch `agent/feature-data-quality-contract` direkt von aktualisiertem `main` erstellt; der unabhängige lokale PR-#21-Statusnachtrag blieb auf seinem eigenen Branch erhalten.
+- Gezielte Unittest-Läufe vor und nach Implementierung.
+- `py_compile`, `git diff --check`, Runtime-Preflight und vollständige Unittest-Discovery.
+- Isolierter read-only Realtest mit `CryptoMarketDataService.fetch('BTCUSDT', '15m', 240)` und anschließender lokaler Feature-Berechnung.
+
+### Ausgeführte Tests
+
+- Vorheriger Reproduktionslauf: fehlendes Vertragsmodul, fehlende Qualitätsmetadaten und fehlender Crypto-Zeitstempel erwartungsgemäß rot.
+- 14/14 erste gezielte Vertrags-/Feature-/Marktdaten-/Adaptertests.
+- 30/30 erweiterte Feature-, Crypto-, Stock- und Vollintegrationstests.
+- Python-Syntaxprüfung der drei geänderten Produktionsmodule.
+- Runtime-Preflight.
+- Vollständige Testsuite.
+- Isolierte Prüfung mit 240 realen öffentlichen BTCUSDT-Kerzen.
+
+### Tatsächliche Testergebnisse
+
+- 14/14 erste gezielte Tests bestanden.
+- 30/30 erweiterte gezielte Tests in 3,740 Sekunden bestanden; nur bekannte externe `datetime.utcnow()`-DeprecationWarnings.
+- `py_compile` und `git diff --check` bestanden.
+- Runtime-Preflight bestanden mit Python 3.12.13 aus `.venv` und verfügbarer Legacy-Crypto-Pipeline.
+- Vollständige Suite: 251/251 Tests in 47,410 Sekunden bestanden.
+- Realtest: Quelle Binance, 240 Eingangszeilen, 240 akzeptiert, 0 entfernt, 0 Duplikate, 0 Verstöße, Reihenfolge `VERIFIED`, Warmup `READY`, Gesamtstatus `PASS`.
+
+### Bekannte Fehler
+
+- Keine neue Regression festgestellt.
+- KP-007 ist technisch implementiert und getestet, aber noch nicht gemergt und noch nicht durch einen vollständigen Plattformneustart verifiziert.
+- Bekannte externe `datetime.utcnow()`-DeprecationWarnings bestehen unverändert.
+- Die weiteren offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+
+### Getroffene Architekturentscheidungen
+
+- Datenqualität ist eine eigene versionierte Eingangsgrenze vor der Feature-Berechnung, nicht Teil eines späteren fachlichen Decision Gates.
+- `keep_last` ist die einzige Version-1-Duplikatstrategie, damit korrigierte spätere Providerzeilen deterministisch Vorrang haben.
+- Ohne vollständige Zeitstempel wird keine Reihenfolge geraten. Rückwärtskompatible Verarbeitung bleibt möglich, aber sichtbar `UNVERIFIED`.
+- Mindestanzahl und vollständiger Indikator-Warmup sind getrennte Begriffe. Einzelsnapshots bleiben kompatibel, behaupten aber keine volle Indikatorreife.
+- Qualitätsmetadaten sind additiv. Bestehende Eventverträge, Decisions, History, Telegram und Ordergrenzen bleiben unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Änderungen sind noch nicht committed oder veröffentlicht.
+- Vollständiger Plattformneustart mit dem neuen Branch steht noch aus; der isolierte öffentliche Crypto-Realtest ist bestanden.
+- Das fachliche Decision Gate wurde bewusst noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Diff und Scope abschließend prüfen, den Feature-Datenqualitätsstand committen und als Draft-PR gegen `main` veröffentlichen. Nach Merge Pandorickki kontrolliert neu starten und neue Crypto-/Stock-`metadata.data_quality` prüfen. Erst danach den fachlichen Decision-Gate-Vertrag entwerfen.
+
+---
+
 ## Aktuelle Aufgabe: Post-Merge-Liveübergabe auf GitHub veröffentlichen
 
 ### Datum und Uhrzeit

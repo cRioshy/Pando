@@ -11,8 +11,10 @@ Stand: 8. August 2026
 - Nach Abschluss der alten Kette und Merge von PR #19 sind keine offenen Pull Requests verblieben.
 - **Post-Merge-Liveprüfung abgeschlossen:** kontrollierter Stop ohne harten Prozessabbruch, Start aus `.venv`, sechs vollständige Crypto-/Stock-Zyklen, Plattform und zehn Services `OK`, Sitzungsfehler null, aktuelle Crypto-Preise, NeuroBrain Queue/Drops/Fehler null und Telegram aus/Dry-Run.
 - Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
-- Die Abschlussdokumentation wurde auf `agent/document-post-merge-live-verification` veröffentlicht. Draft-PR #20 gegen `main` ist offen, Draft und mergebar: `https://github.com/cRioshy/Pando/pull/20`.
-- Nächster technischer Schritt ist der Feature-Datenqualitätsvertrag.
+- Die Abschlussdokumentation aus PR #20 wurde nach ausdrücklicher Freigabe gemergt; `origin/main` steht auf `b8af62f`.
+- Draft-PR #21 enthält ausschließlich den Merge-Abschlussnachtrag und bleibt offen sowie ungemergt: `https://github.com/cRioshy/Pando/pull/21`.
+- Der Feature-Datenqualitätsvertrag Version 1 ist auf `agent/feature-data-quality-contract` implementiert: 30/30 gezielte und 251/251 vollständige Tests sowie ein isolierter Realtest mit 240/240 validen Binance-Kerzen bestanden.
+- Nächster technischer Schritt nach Merge und Plattform-Liveprüfung ist der fachliche Decision-Gate-Vertrag.
 
 ## Verbindliche Reihenfolge
 
@@ -111,12 +113,16 @@ Stand: 8. August 2026
 
 ## Erst anschließend
 
-- Feature-Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup definieren.
+- **Feature-Datenqualitätsvertrag erledigt und getestet:** Sortierung, `keep_last`-Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup sind versioniert und als Metadaten sichtbar. Merge und vollständige Plattform-Liveprüfung stehen noch aus.
 - Fachlichen Decision-Gate-Vertrag mit Fakten-, Risiko-, Confidence- und Konfliktregeln entwerfen.
 - Telegram ausschließlich an freigegebene finale Ereignisse anbinden und bis dahin deaktiviert beziehungsweise im Dry-Run lassen.
 - Aufbewahrungs-/Archivkonzept und Portabilität der Legacy-Pfade separat planen, ohne bestehende History zu löschen.
 
 ## Zuletzt erledigt
+
+- Feature-Datenqualitätsvertrag `pandorickki.feature-data-quality` Version 1 implementiert und in `FeatureEngine` integriert.
+- Sortierung, `keep_last`-Duplikate, OHLCV-/Non-Finite-Prüfung, Mindestkerzen, Zeitstempelpflicht und Warmup-Metadaten mit 30/30 gezielten sowie 251/251 vollständigen Tests verifiziert.
+- Isolierter Realtest: 240/240 Binance-BTCUSDT-Kerzen, `PASS`, Reihenfolge `VERIFIED`, Warmup `READY`, null Verstöße. Vollständiger Plattformneustart erst nach Merge.
 
 - UI-Härtung abgeschlossen: idempotentes Polling, Backoff-Reconnect, zentrale STALE-Projektion, echter In-Process-Restart, schneller Stop-Wartepfad und Graph-Koaleszierung.
 - 243/243 Gesamttests bestanden; Browser reconnectete nach Prozessneustart ohne Reload und zeigte zehn korrekte Services mit Heartbeat-Alter.

@@ -1,6 +1,6 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 2. August 2026
+Stand: 8. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 
@@ -14,8 +14,11 @@ flowchart LR
     CE["Externes Crypto-Projekt: Analysepipeline"] --> CA
     SE["Externes Stock-Projekt"] --> SA["StockAdapter"]
     CP["Optionale Commodity-Quelle"] --> CO["CommodityAdapter"]
-    FE["FeatureEngine"] --> CA
-    FE --> SA
+    CA --> DQ["Feature-Datenqualität v1: OHLCV, Zeit, Duplikate, Warmup"]
+    SA --> DQ
+    DQ --> FE["FeatureEngine"]
+    FE -. additive Features .-> CA
+    FE -. additive Features .-> SA
     CA --> EB["Synchroner In-Process EventBus"]
     SA --> EB
     CO --> EB
@@ -56,6 +59,7 @@ Im Webmodus erzeugt `main.py` zusätzlich `WebControlServer`. Der HTTP-Server l�
 sequenceDiagram
     participant Source as Externe Marktquelle
     participant Market as Marktadapter
+    participant Quality as Datenqualität v1
     participant Feature as FeatureEngine
     participant Bus as EventBus
     participant Brain as BrainAdapter
@@ -65,7 +69,9 @@ sequenceDiagram
     participant Telegram as TelegramAdapter
 
     Source->>Market: Analyse und OHLCV
-    Market->>Feature: optionale Feature-Berechnung
+    Market->>Quality: maximal 500 OHLCV-Kerzen
+    Quality->>Quality: validieren, sortieren, keep_last, Warmup
+    Quality->>Feature: normalisierte Kerzen + Qualitätsbericht
     Feature-->>Market: live_features ohne Targets
     Market->>Bus: MARKET_DATA_UPDATED
     Market->>Bus: ANALYSIS_FINISHED
@@ -92,7 +98,8 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `CryptoAdapter` | Normalisierte Marktdaten an externe Crypto-Analyse übergeben, Preise, maximal 500 Kerzen für Features, Fehlerdiagnose, Ereignisse | Börsenorder |
 | `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
-| `FeatureEngine` | Technische Features und optionale historische Targets | ML-Training, strikte Datenqualitätsverträge |
+| `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
+| `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
 | `BrainAdapter` | Rotierende Analysepersistenz und Folgeereignisse | Eigene KI-Inferenz oder Faktenprüfung |
 | `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
 | `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |

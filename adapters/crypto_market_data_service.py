@@ -224,6 +224,7 @@ class CryptoMarketDataService:
         if not isinstance(row, (list, tuple)) or len(row) < 6:
             raise ValueError("Candle row has fewer than six fields.")
         return {
+            "timestamp": float(row[0]),
             "open": float(row[1]),
             "high": float(row[2]),
             "low": float(row[3]),

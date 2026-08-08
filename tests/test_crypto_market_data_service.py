@@ -35,6 +35,7 @@ class CryptoMarketDataServiceTest(unittest.TestCase):
 
         self.assertEqual(snapshot.symbol, "BTCUSDT")
         self.assertEqual(snapshot.candles[0]["close"], 11.0)
+        self.assertEqual(snapshot.candles[0]["timestamp"], 1.0)
         self.assertIsNone(snapshot.open_interest)
         self.assertIsNone(snapshot.funding_rate)
         self.assertEqual(snapshot.diagnostics["candle_source"], "binance")

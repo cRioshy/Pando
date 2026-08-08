@@ -12,8 +12,11 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
-
-Number = int | float
+from feature_data_quality_contract import (
+    FeatureDataQualityError,
+    FeatureDataQualityPolicy,
+    prepare_feature_candles,
+)
 
 
 class FeatureEngineError(Exception):
@@ -50,11 +53,18 @@ class FeatureEngine:
         ema_windows: tuple[int, ...] = (5, 10, 20, 50, 200),
         volatility_window: int = 20,
         target_horizon: int = 1,
+        quality_policy: FeatureDataQualityPolicy | None = None,
     ) -> None:
         self.sma_windows = sma_windows
         self.ema_windows = ema_windows
         self.volatility_window = volatility_window
         self.target_horizon = target_horizon
+        default_full_warmup = max(
+            (*sma_windows, *ema_windows, volatility_window, 26), default=1
+        )
+        self.quality_policy = quality_policy or FeatureDataQualityPolicy(
+            full_warmup_candles=default_full_warmup
+        )
 
     def compute(
         self,
@@ -67,10 +77,11 @@ class FeatureEngine:
     ) -> FeatureResult:
         """Compute a feature bundle for live analysis or offline training."""
 
-        normalized = [_normalize_candle(item) for item in candles]
-        normalized = [item for item in normalized if item is not None]
-        if not normalized:
-            raise FeatureEngineError("No valid candles supplied.")
+        try:
+            quality = prepare_feature_candles(candles, policy=self.quality_policy)
+        except FeatureDataQualityError as exc:
+            raise FeatureEngineError(str(exc)) from exc
+        normalized = quality.candles
 
         rows = self._compute_rows(normalized, include_targets=include_targets)
         latest = rows[-1]
@@ -99,10 +110,12 @@ class FeatureEngine:
             metadata={
                 "symbol": symbol,
                 "market_type": market_type,
-                "input_candles": len(normalized),
+                "input_candles": quality.report["input_rows"],
+                "accepted_candles": len(normalized),
                 "output_rows": len(rows),
                 "ta_package_available": _ta_available(),
                 "live_safe": not include_targets,
+                "data_quality": quality.report,
             },
         )
 
@@ -215,44 +228,18 @@ class FeatureEngine:
         return rows
 
 
-def _normalize_candle(item: dict[str, Any]) -> dict[str, float] | None:
-    try:
-        open_price = _as_float(item.get("open") or item.get("open_price"))
-        high = _as_float(item.get("high") or item.get("high_price"))
-        low = _as_float(item.get("low") or item.get("low_price"))
-        close = _as_float(item.get("close") or item.get("close_price") or item.get("price"))
-        volume = _as_float(item.get("volume"), default=0.0)
-        adj_close = _as_float(item.get("adj_close") or item.get("adjClose"), default=None)
-    except (TypeError, ValueError):
-        return None
-    if open_price is None or high is None or low is None or close is None:
-        return None
-    return {
-        "open": open_price,
-        "high": high,
-        "low": low,
-        "close": close,
-        "adj_close": adj_close,
-        "volume": volume or 0.0,
-    }
-
-
 def _clean_optional_context(context: dict[str, Any]) -> dict[str, Any]:
     allowed: dict[str, Any] = {}
     for key, value in context.items():
         if value is None:
+            continue
+        if isinstance(value, float) and not math.isfinite(value):
             continue
         if isinstance(value, (str, int, float, bool)):
             allowed[str(key)] = value
         elif isinstance(value, dict):
             allowed[str(key)] = _clean_optional_context(value)
     return allowed
-
-
-def _as_float(value: Any, default: float | None = None) -> float | None:
-    if value is None:
-        return default
-    return float(value)
 
 
 def _safe_sub(value: float | None, previous: float | None) -> float | None:

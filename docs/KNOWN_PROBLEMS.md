@@ -51,9 +51,11 @@ Stand: 8. August 2026
 ### KP-007 – Feature-Eingänge werden nicht strikt validiert
 
 - **Priorität:** mittel
-- **Status:** offen
-- **Beobachtung:** Keine verbindliche Sortierungs-, Duplikat-, OHLC-Konsistenz-, Non-Finite- oder Mindestkerzenprüfung.
-- **Auswirkung:** Ungültige Eingangsdaten können Zwischenrechnungen und Warmup-Werte beeinflussen.
+- **Status:** auf `agent/feature-data-quality-contract` implementiert und getestet; Merge und kontrollierter Plattformneustart noch offen
+- **Behoben:** Vertrag `pandorickki.feature-data-quality` Version 1 prüft OHLCV, Non-Finite-Werte und Mindestanzahl, sortiert vollständig zeitgestempelte Reihen, behandelt Duplikate deterministisch mit `keep_last` und weist Warmup sowie unverifizierte Reihenfolge explizit aus.
+- **Kompatibilität:** Ein valider Einzelsnapshot bleibt erlaubt, wird aber als `WARMING` gekennzeichnet. Bestehende Legacy-Entscheidungen und History werden nicht verändert.
+- **Verifikation:** 30/30 gezielte Adapter-/Feature-/Integrationstests und 251/251 Gesamttests bestanden. Ein isolierter Realtest akzeptierte 240/240 Binance-Kerzen mit `PASS`, `VERIFIED`, `READY` und null Verstößen.
+- **Restpunkt:** Nach Merge einmal kontrolliert mit der vollständigen Plattform starten und neue Crypto-/Stock-Feature-Metadaten prüfen.
 
 ### KP-009 – Portabilität durch lokale Windows-Pfade eingeschränkt
 
