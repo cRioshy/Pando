@@ -1,5 +1,84 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Draft-PR #20 nach ausdrücklicher Freigabe mergen
+
+### Datum und Uhrzeit
+
+8. August 2026, 17:15 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe ausschließlich den dokumentationsbezogenen Draft-PR #20 aus dem Draft nehmen und mit normalem Merge-Commit nach `main` integrieren. Keine weiteren PRs mergen und keinen Produktcode verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, Repository-Kontext und GitHub-Workflow vollständig gelesen.
+- Lokalen Branch, Remote, Arbeitsbaum und den exakten PR-Dateiscope geprüft.
+- PR #20 direkt vor dem Merge als `OPEN`, `isDraft=true`, Basis `main`, Head `agent/document-post-merge-live-verification`, Head-SHA `d2a50fc91c680940019ab04eb6d894c041314ac4`, `CLEAN` und `MERGEABLE` bestätigt.
+- Bestätigt, dass keine GitHub-Checks und keine Review-Sperre vorlagen.
+- PR #20 nach Freigabe als bereit markiert und mit normalem Merge-Commit gemergt.
+- Merge auf GitHub verifiziert und `origin/main` aktualisiert.
+- Lokales `main` ausschließlich per Fast-Forward auf den neuen GitHub-Stand gebracht.
+- Für diesen verpflichtenden Abschlussnachtrag Branch `agent/document-pr20-merge` direkt vom aktualisierten `main` erstellt. Keine Architektur oder Produktlogik verändert.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen der fünf Pflichtdokumente und des GitHub-Workflows.
+- Git-Status-, Remote-, Branch-, Diff- und Commitprüfungen.
+- GitHub-App-Abruf von PR #20 sowie `gh pr view 20` und `gh pr checks 20`.
+- `gh pr ready 20` und `gh pr merge 20 --merge`.
+- Abschließende `gh pr view`- und GitHub-Main-Head-Prüfung.
+- `git fetch origin --prune`, `git switch main`, `git merge --ff-only origin/main` und Erstellung von `agent/document-pr20-merge`.
+
+### Ausgeführte Tests
+
+- `git diff origin/main...HEAD --check` vor dem Merge.
+- PR-Draft-, Status-, Basis-, Head-, SHA-, Mergeability-, Merge-State- und Checkprüfung.
+- Nach dem Merge PR-Status, Merge-Commit und GitHub-Main-Head verifiziert.
+- Lokale/Remote-Main-Synchronität per Fast-Forward und Git-Status geprüft.
+- Keine Softwaretests, weil ausschließlich bereits geprüfte Dokumentation gemergt und kein Produktcode verändert wurde.
+
+### Tatsächliche Testergebnisse
+
+- PR #20 vor Merge: `OPEN`, Draft, `CLEAN`, `MERGEABLE`; keine Checks gemeldet.
+- PR #20 nach Merge: `MERGED` am 8. August 2026 um 15:14:33 UTC.
+- Gemergter Head: `d2a50fc91c680940019ab04eb6d894c041314ac4`.
+- Main-Merge-Commit: `b8af62fa57aba9ae6396ce68ee10e5f76ed6c662`.
+- Lokales `main` und `origin/main` standen nach dem Fast-Forward beide auf `b8af62f` und der Arbeitsbaum war sauber.
+- Kein weiterer Pull Request wurde gemergt.
+
+### Bekannte Fehler
+
+- Keine neuen Produktfehler bei dieser reinen GitHub-/Dokumentationsaufgabe.
+- Die offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architektur- oder Produktlogikänderung.
+- Normaler nachvollziehbarer Merge-Commit; kein Squash, Rebase, Force-Push oder History-Umschreiben.
+- Telegram, reale Trades und automatische Orderausführung blieben unverändert und deaktiviert beziehungsweise im Dry-Run.
+
+### Nicht abgeschlossene Punkte
+
+- Dieser verpflichtende Merge-Abschlussnachtrag ist noch nicht veröffentlicht.
+- Der Feature-Datenqualitätsvertrag wurde noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Diesen kleinen Abschlussnachtrag als separaten Draft-PR gegen `main` veröffentlichen. Danach den tatsächlichen Feature-Engine-Datenfluss und alle Consumer read-only inventarisieren und einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup entwerfen.
+
+---
+
 ## Aktuelle Aufgabe: Post-Merge-Liveübergabe auf GitHub veröffentlichen
 
 ### Datum und Uhrzeit
