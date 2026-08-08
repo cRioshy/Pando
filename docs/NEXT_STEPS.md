@@ -4,12 +4,13 @@ Stand: 8. August 2026
 
 ## Aktuelle Integrationsphase
 
-- Der vollständig getestete Entwicklungsstand wurde am 8. August 2026 ohne Merge oder Rebase auf `agent/integrate-pandorickki-main` veröffentlicht.
-- Draft-PR #18 bündelt die 35 Entwicklungscommits aus PR #3 bis #17 gegen `main`: `https://github.com/cRioshy/Pando/pull/18`.
+- **Abgeschlossen am 8. August 2026.** Der vollständig getestete Entwicklungsstand wurde über PR #18 nach `main` integriert: `https://github.com/cRioshy/Pando/pull/18`.
+- `origin/main` steht auf Merge-Commit `d219fcb`; der vollständige Integrations-Head `3853d41` ist enthalten.
 - Vor der Veröffentlichung bestanden Runtime-Preflight, 243/243 Tests, JavaScript-Syntax, `git diff --check`, Merge-Simulation sowie Runtime-/Secret-Scopeprüfung.
-- PR #18 bleibt Draft und darf erst nach ausdrücklicher Freigabe gemergt werden.
-- Nach erfolgreichem Merge ausschließlich PRs #3 bis #17 als ersetzt schließen; diese gestapelten PRs nicht zusätzlich einzeln mergen.
-- Erst danach mit dem Feature-Datenqualitätsvertrag beginnen.
+- PR #4 bis #17 wurden als ersetzt geschlossen. PR #3 wurde durch die vollständige Commit-Erreichbarkeit automatisch als gemergt markiert; es gab keinen zusätzlichen Einzel-Merge.
+- Nach Abschluss der alten Kette waren zunächst keine offenen Pull Requests verblieben.
+- Die verpflichtende Abschlussdokumentation liegt anschließend in Draft-PR #19: `https://github.com/cRioshy/Pando/pull/19`.
+- Nächster technischer Schritt ist der Feature-Datenqualitätsvertrag.
 
 ## Verbindliche Reihenfolge
 
