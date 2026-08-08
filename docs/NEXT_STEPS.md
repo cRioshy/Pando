@@ -5,11 +5,13 @@ Stand: 8. August 2026
 ## Aktuelle Integrationsphase
 
 - **Abgeschlossen am 8. August 2026.** Der vollständig getestete Entwicklungsstand wurde über PR #18 nach `main` integriert: `https://github.com/cRioshy/Pando/pull/18`.
-- `origin/main` steht auf Merge-Commit `d219fcb`; der vollständige Integrations-Head `3853d41` ist enthalten.
+- Die Abschlussdokumentation aus PR #19 ist ebenfalls gemergt. `origin/main` steht auf `381229a`; der vollständige Integrations-Head `3853d41` ist enthalten.
 - Vor der Veröffentlichung bestanden Runtime-Preflight, 243/243 Tests, JavaScript-Syntax, `git diff --check`, Merge-Simulation sowie Runtime-/Secret-Scopeprüfung.
 - PR #4 bis #17 wurden als ersetzt geschlossen. PR #3 wurde durch die vollständige Commit-Erreichbarkeit automatisch als gemergt markiert; es gab keinen zusätzlichen Einzel-Merge.
-- Nach Abschluss der alten Kette waren zunächst keine offenen Pull Requests verblieben.
-- Die verpflichtende Abschlussdokumentation liegt anschließend in Draft-PR #19: `https://github.com/cRioshy/Pando/pull/19`.
+- Nach Abschluss der alten Kette und Merge von PR #19 sind keine offenen Pull Requests verblieben.
+- **Post-Merge-Liveprüfung abgeschlossen:** kontrollierter Stop ohne harten Prozessabbruch, Start aus `.venv`, sechs vollständige Crypto-/Stock-Zyklen, Plattform und zehn Services `OK`, Sitzungsfehler null, aktuelle Crypto-Preise, NeuroBrain Queue/Drops/Fehler null und Telegram aus/Dry-Run.
+- Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
+- Die Abschlussdokumentation wurde auf `agent/document-post-merge-live-verification` veröffentlicht. Draft-PR #20 gegen `main` ist offen, Draft und mergebar: `https://github.com/cRioshy/Pando/pull/20`.
 - Nächster technischer Schritt ist der Feature-Datenqualitätsvertrag.
 
 ## Verbindliche Reihenfolge
