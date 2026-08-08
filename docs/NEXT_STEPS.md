@@ -11,7 +11,8 @@ Stand: 8. August 2026
 - Nach Abschluss der alten Kette und Merge von PR #19 sind keine offenen Pull Requests verblieben.
 - **Post-Merge-Liveprüfung abgeschlossen:** kontrollierter Stop ohne harten Prozessabbruch, Start aus `.venv`, sechs vollständige Crypto-/Stock-Zyklen, Plattform und zehn Services `OK`, Sitzungsfehler null, aktuelle Crypto-Preise, NeuroBrain Queue/Drops/Fehler null und Telegram aus/Dry-Run.
 - Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
-- Die Abschlussdokumentation wurde auf `agent/document-post-merge-live-verification` veröffentlicht. Draft-PR #20 gegen `main` ist offen, Draft und mergebar: `https://github.com/cRioshy/Pando/pull/20`.
+- Die Abschlussdokumentation wurde auf `agent/document-post-merge-live-verification` veröffentlicht und nach ausdrücklicher Freigabe über PR #20 gemergt: `https://github.com/cRioshy/Pando/pull/20`.
+- `origin/main` steht nach diesem Dokumentationsmerge auf `b8af62f`; lokales `main` wurde per Fast-Forward synchronisiert.
 - Nächster technischer Schritt ist der Feature-Datenqualitätsvertrag.
 
 ## Verbindliche Reihenfolge
