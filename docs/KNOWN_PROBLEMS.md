@@ -1,6 +1,6 @@
 # Bekannte Probleme
 
-Stand: 2. August 2026
+Stand: 8. August 2026
 
 ## Offen
 
@@ -196,8 +196,8 @@ Stand: 2. August 2026
 - **Status:** behoben
 - Commit `38e1ddf` wurde auf `origin/agent/add-market-feature-engine` veröffentlicht.
 - PR #2 wurde am 26. Juli 2026 nach `main` gemergt.
-- Der spätere Crypto-Reparaturstand wurde als Commit `b0379c3` auf denselben Arbeitsbranch gepusht und liegt separat in Draft-PR #3: `https://github.com/cRioshy/Pando/pull/3`.
-- Draft-PR #3 bleibt ungemergt.
+- Der spätere Crypto-Reparaturstand wurde als Commit `b0379c3` auf denselben Arbeitsbranch gepusht und war in PR #3 dokumentiert.
+- Der gesamte validierte Entwicklungsstand wurde am 8. August 2026 über PR #18 in `main` integriert. GitHub markierte PR #3 wegen der vollständigen Commit-Erreichbarkeit automatisch als gemergt; PR #4 bis #17 wurden als ersetzt geschlossen.
 
 ### KP-R01 – Leere Speicheranzeige während langer Scans
 

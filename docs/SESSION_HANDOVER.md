@@ -1,5 +1,84 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Konsolidierten Entwicklungsstand nach `main` mergen
+
+### Datum und Uhrzeit
+
+8. August 2026, 16:21 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe den validierten PR #18 aus dem Draft nehmen, ausschließlich diesen konsolidierten PR nach `main` mergen und die gestapelte PR-Kette #3 bis #17 anschließend als ersetzt schließen, ohne weitere Einzel-Merges auszuführen.
+
+### Durchgeführte Arbeiten
+
+- Lokalen Branch, Remote-Synchronität, Pflichtdokumentation und PR #18 erneut geprüft.
+- PR #18 vor der Mutation als `CLEAN`, `MERGEABLE`, ohne Review-Sperre und ohne GitHub-Checks bestätigt.
+- Nach zusätzlicher ausdrücklicher Bestätigung PR #18 aus dem Draft genommen und mit normalem Merge-Commit nach `main` gemergt.
+- `origin/main` aktualisiert und bestätigt, dass der vollständige Integrations-Head `3853d4109ce924737631f575c74faff776f89062` Vorfahr des neuen Main-Heads ist.
+- PR #4 bis #17 mit Hinweis auf den konsolidierten PR #18 geschlossen. Keiner dieser PRs erhielt einen eigenen Merge-Commit.
+- PR #3 konnte nicht geschlossen werden, weil GitHub ihn durch die nun vollständige Commit-Erreichbarkeit automatisch als `MERGED` markiert hatte. Sein angezeigter Merge-Commit ist sein bereits enthaltener Head `599d29a`, nicht ein zusätzlicher Main-Merge.
+- Abschließend PR #3 bis #18 und die Liste offener PRs geprüft: #18 gemergt, #4 bis #17 geschlossen, #3 automatisch als gemergt markiert, keine offenen PRs.
+- Für diese verpflichtende Abschlussdokumentation Branch `agent/document-main-integration` direkt von aktuellem `origin/main` erstellt. Keine Produktlogik oder Architektur verändert.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `gh pr view 18`, `gh pr checks 18`, `gh pr ready 18` und `gh pr merge 18 --merge`.
+- `git fetch origin --prune`, `git rev-parse origin/main`, `git log -1 origin/main` und `git merge-base --is-ancestor`.
+- `gh pr close` für PR #3 bis #17 mit Superseded-Hinweis; PR #3 lieferte den Hinweis, dass er bereits als gemergt gilt.
+- Abschließende `gh pr view`-Prüfung für PR #3 bis #18 sowie `gh pr list --state open`.
+- `git switch -c agent/document-main-integration origin/main`.
+
+### Ausgeführte Tests
+
+- Keine erneute Softwaretestsuite nach dem Merge; der gemergte Head ist bytegleich mit dem zuvor durch 243/243 Tests, Preflight, JavaScript-Syntax und Diffprüfung validierten Stand zuzüglich reiner Übergabedokumentation.
+- Read-only Git-Ancestry-, Main-Head-, PR-Zustands- und Open-PR-Prüfungen.
+
+### Tatsächliche Testergebnisse
+
+- PR #18: `MERGED` am 8. August 2026 um 14:21:32 UTC.
+- Main-Merge-Commit: `d219fcbf922b4fe94acc46e4c976d72c178dbae6`.
+- Integrations-Head `3853d4109ce924737631f575c74faff776f89062` ist vollständig in `origin/main` enthalten.
+- PR #4 bis #17: `CLOSED`, `mergedAt=null`.
+- PR #3: GitHub-Status `MERGED` um 14:21:33 UTC durch Commit-Erreichbarkeit; kein zusätzlicher Merge-Commit auf `main`.
+- Offene PRs nach Abschluss: 0.
+- Vor dem Merge bereits bestanden: Runtime-Preflight, 243/243 Tests in 50,518 Sekunden, JavaScript-Syntax, Diff-, Merge-Simulations-, Runtime- und Secret-Prüfung.
+
+### Bekannte Fehler
+
+- Die offenen fachlichen und technischen Punkte aus `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+- Die GitHub-Darstellung von PR #3 als `MERGED` ist eine Folge der konsolidierten Commit-Erreichbarkeit und kein separater Einzel-Merge.
+- Bekannte externe `datetime.utcnow()`-DeprecationWarnings bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produktarchitektur geändert.
+- Nur PR #18 wurde aktiv nach `main` gemergt. Die gestapelten Review-PRs wurden nicht einzeln gemergt.
+- Der Merge erfolgte als nachvollziehbarer Merge-Commit; kein Force-Push, Rebase oder History-Umschreiben.
+- Telegram und reale Orderausführung wurden nicht verändert oder aktiviert.
+
+### Nicht abgeschlossene Punkte
+
+- Die Abschlussdokumentation dieses Merges muss noch über einen separaten kleinen Dokumentations-PR nach `main` gelangen.
+- Der Feature-Datenqualitätsvertrag wurde noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Die vier aktualisierten Übergabedateien prüfen, auf `agent/document-main-integration` committen und einen kleinen Draft-PR gegen `main` eröffnen. Nach dessen bewusster Integration als nächsten technischen Schritt ausschließlich den Feature-Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen.
+
+---
+
 ## Aktuelle Aufgabe: Validierten Entwicklungsstand als Integrations-Draft veröffentlichen
 
 ### Datum und Uhrzeit

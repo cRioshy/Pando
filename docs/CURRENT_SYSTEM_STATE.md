@@ -1,7 +1,9 @@
 # PandorickKi – aktueller Systemzustand
 
-Stand: 2. August 2026
+Stand: 8. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
+
+Der vollständig validierte Entwicklungsstand wurde am 8. August 2026 über den konsolidierten Pull Request #18 in `main` integriert. `origin/main` steht seitdem auf Merge-Commit `d219fcbf922b4fe94acc46e4c976d72c178dbae6` und enthält den geprüften Integrations-Head `3853d4109ce924737631f575c74faff776f89062`. PR #4 bis #17 wurden anschließend als durch #18 ersetzt geschlossen. PR #3 wurde von GitHub automatisch als gemergt markiert, weil sein Head vollständig durch #18 nach `main` gelangte; es gab keinen zusätzlichen Einzel-Merge. Vor der Veröffentlichung bestanden Runtime-Preflight, 243/243 Tests, JavaScript-Syntax, Diff-, Merge-Simulations-, Runtime- und Secret-Prüfung.
 
 Die UI-Härtung wurde am 2. August 2026 implementiert und kontrolliert live verifiziert. Der Browser verwaltet genau einen Polling-Fallback, verhindert parallele Statusabfragen und verbindet den WebSocket nach Abbrüchen mit begrenztem exponentiellem Backoff erneut. Ein laufender Browser wechselte nach einem vollständigen Prozessneustart ohne manuelles Neuladen zurück auf `WebSocket`. Fehlerhafte WebSocket-Nachrichten werden lokal abgefangen.
 
@@ -240,11 +242,7 @@ Der vollständige Lauf am 2. August 2026 bestand nach der UI-Härtung mit 243/24
 7. Absolute Windows-Pfade begrenzen die Portabilität.
 8. Feature-Eingangsdaten werden nicht streng genug validiert.
 9. Nur Services mit vorhandenem Heartbeat können als `STALE` klassifiziert werden; heartbeatlose Services bleiben bei ihrem sonstigen Status.
-10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
-11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen jetzt topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
-12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
-13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
-14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
-15. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
-16. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.
-17. Der neue konfliktresistente Atomic-JSON-Helfer ist zunächst bewusst auf NeuroBrain-Status und aktive Crypto-Trades begrenzt. Andere bestehende atomare JSON-Schreiber verwenden weiterhin ihre bisherigen Implementierungen und müssen nur bei tatsächlicher Konkurrenz oder eigenem Fehlerbefund migriert werden.
+10. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
+11. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
+12. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
+13. Der konfliktresistente Atomic-JSON-Helfer ist bewusst auf NeuroBrain-Status und aktive Crypto-Trades begrenzt. Andere bestehende atomare JSON-Schreiber verwenden weiterhin ihre bisherigen Implementierungen und müssen nur bei tatsächlicher Konkurrenz oder eigenem Fehlerbefund migriert werden.
