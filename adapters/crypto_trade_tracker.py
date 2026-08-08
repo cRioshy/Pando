@@ -10,6 +10,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from atomic_json import atomic_write_json
 from adapters.crypto_adapter import CRYPTO_ANALYSIS_FINISHED
 from adapters.decision_signal_adapter import SIGNAL_CREATED
 from event_bus import Event, EventBus
@@ -317,6 +318,13 @@ class CryptoTradeTracker:
     def _swing_price(self, direction: str, data: dict[str, Any]) -> float | None:
         """Return recent swing low for LONG or swing high for SHORT."""
 
+        context = data.get("market_context")
+        if isinstance(context, dict):
+            context_key = "recent_swing_low" if direction == "LONG" else "recent_swing_high"
+            compact_swing = as_float(context.get(context_key))
+            if compact_swing is not None:
+                return compact_swing
+
         raw = data.get("raw_result")
         market_data = raw.get("market_data", {}) if isinstance(raw, dict) else {}
         candles = market_data.get("candles", []) if isinstance(market_data, dict) else []
@@ -342,8 +350,7 @@ class CryptoTradeTracker:
             self.status.last_error = None
             payload = asdict(trade)
             active_payload = {symbol: asdict(item) for symbol, item in self._active.items()}
-        self.active_file.parent.mkdir(parents=True, exist_ok=True)
-        self._atomic_write_json(self.active_file, active_payload)
+            self._atomic_write_json(self.active_file, active_payload)
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
         with self.history_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
@@ -373,21 +380,12 @@ class CryptoTradeTracker:
 
         with self._lock:
             payload = {symbol: asdict(trade) for symbol, trade in self._active.items()}
-        self.active_file.parent.mkdir(parents=True, exist_ok=True)
-        self._atomic_write_json(self.active_file, payload)
+            self._atomic_write_json(self.active_file, payload)
 
     def _atomic_write_json(self, path: Path, payload: Any) -> None:
         """Write JSON through a validated temporary file and atomic replace."""
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_name(f"{path.name}.tmp")
-        text = json.dumps(payload, indent=2, ensure_ascii=True)
-        json.loads(text)
-        with tmp_path.open("w", encoding="utf-8") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
+        atomic_write_json(path, payload)
 
     def _payload_data(self, event: Event) -> dict[str, Any]:
         """Return nested event payload data."""

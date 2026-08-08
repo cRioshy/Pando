@@ -190,6 +190,11 @@ class WebControlServer:
 
         return self.control_state.should_stop()
 
+    def take_restart_request(self) -> bool:
+        """Consume one browser-requested in-process platform restart."""
+
+        return self.control_state.take_restart_request()
+
     def is_local_address(self, address: str) -> bool:
         """Allow only local browser/API access."""
 
@@ -202,11 +207,10 @@ class WebControlServer:
         self._log_command(command)
         self.orchestrator.event_bus.publish(
             Event(
-                topic="SERVICE_STATUS_CHANGED",
+                topic="CONTROL_COMMAND_APPLIED",
                 source="web_control_center",
                 payload={
-                    "service": "web_control_center",
-                    "status": action.upper(),
+                    "action": action,
                     "command": command,
                 },
             )
@@ -250,6 +254,7 @@ class WebControlServer:
                 "event_bus_queue_size": self.orchestrator.event_bus.queue_size(),
             }
 
+        self._apply_stale_heartbeats(base)
         base["web"] = {
             "running": self._running,
             "url": self.url,
@@ -261,6 +266,33 @@ class WebControlServer:
         base["statistics"] = self.api_statistics()
         base["last_error"] = self._last_error
         return self._sanitize(base)
+
+    def _apply_stale_heartbeats(self, snapshot: dict[str, Any]) -> None:
+        """Mark services with an old known heartbeat as STALE in API snapshots."""
+
+        threshold = max(float(self.orchestrator.config.service_heartbeat_stale_seconds), 1.0)
+        now = datetime.now(UTC)
+        statuses = dict(snapshot.get("service_status") or {})
+        heartbeats = snapshot.get("service_heartbeats") or {}
+        ages: dict[str, float] = {}
+        stale_services: list[str] = []
+        for name, value in heartbeats.items():
+            try:
+                heartbeat = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                if heartbeat.tzinfo is None:
+                    heartbeat = heartbeat.replace(tzinfo=UTC)
+                age = max(0.0, (now - heartbeat.astimezone(UTC)).total_seconds())
+            except (TypeError, ValueError):
+                continue
+            ages[str(name)] = round(age, 2)
+            status = str(statuses.get(name, "UNKNOWN")).upper()
+            if age > threshold and status not in {"ERROR", "STOPPED", "DISABLED"}:
+                statuses[name] = "STALE"
+                stale_services.append(str(name))
+        snapshot["service_status"] = statuses
+        snapshot["service_heartbeat_age_seconds"] = ages
+        snapshot["service_heartbeat_stale_after_seconds"] = threshold
+        snapshot["stale_services"] = sorted(stale_services)
 
     def api_health(self) -> dict[str, Any]:
         """Return compact web/platform health."""
@@ -374,6 +406,7 @@ class WebControlServer:
             "crypto_timeframe": config.crypto_timeframe,
             "cycle_interval": config.cycle_interval,
             "control_center_enabled": config.control_center_enabled,
+            "service_heartbeat_stale_seconds": config.service_heartbeat_stale_seconds,
             "telegram_enabled": config.telegram_enabled,
             "telegram_dry_run": config.telegram_dry_run,
             "live_crypto": config.live_crypto,
@@ -424,6 +457,16 @@ class WebControlServer:
                 "total_records": storage["total_records"],
                 "total_size_bytes": storage["total_size_bytes"],
                 "total_size_human": storage["total_size_human"],
+                "totals_status": storage.get("totals_status"),
+                "physical_total_files": storage.get("physical_total_files"),
+                "physical_total_records": storage.get("physical_total_records"),
+                "physical_total_size_bytes": storage.get("physical_total_size_bytes"),
+                "physical_total_size_human": storage.get("physical_total_size_human"),
+                "logical_total_files": storage.get("logical_total_files"),
+                "logical_total_records": storage.get("logical_total_records"),
+                "logical_total_size_bytes": storage.get("logical_total_size_bytes"),
+                "logical_total_size_human": storage.get("logical_total_size_human"),
+                "overlapping_file_references": storage.get("overlapping_file_references"),
                 "last_scan": storage["last_scan"],
                 "scan_interval_seconds": storage["scan_interval_seconds"],
             },
@@ -599,7 +642,9 @@ class WebControlServer:
 
         control = self.orchestrator._control_adapter()
         if control is not None and hasattr(control, "get_status"):
-            return self._sanitize(control.get_status())
+            snapshot = control.get_status()
+            self._apply_stale_heartbeats(snapshot)
+            return self._sanitize(snapshot)
         shared = self.orchestrator.shared_state.to_dict()
         return self._sanitize(
             {

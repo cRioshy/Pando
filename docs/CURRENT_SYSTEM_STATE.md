@@ -1,7 +1,53 @@
 # PandorickKi – aktueller Systemzustand
 
-Stand: 26. Juli 2026
+Stand: 2. August 2026
 Grundlage: aktueller Arbeitsbaum, statische Codeprüfung, lokale HTTP-API und zuletzt tatsächlich ausgeführte Tests.
+
+Die UI-Härtung wurde am 2. August 2026 implementiert und kontrolliert live verifiziert. Der Browser verwaltet genau einen Polling-Fallback, verhindert parallele Statusabfragen und verbindet den WebSocket nach Abbrüchen mit begrenztem exponentiellem Backoff erneut. Ein laufender Browser wechselte nach einem vollständigen Prozessneustart ohne manuelles Neuladen zurück auf `WebSocket`. Fehlerhafte WebSocket-Nachrichten werden lokal abgefangen.
+
+Heartbeat-Alter und `STALE` werden zentral in REST- und leichten WebSocket-Snapshots berechnet. Die Standardgrenze beträgt 150 Sekunden und ist über `PANDORICKKI_SERVICE_HEARTBEAT_STALE_SECONDS` konfigurierbar. Nur Services mit einem bekannten Heartbeat werden bewertet; `ERROR`, `STOPPED` und `DISABLED` werden nicht durch `STALE` überschrieben.
+
+Stop- und Restart-Anforderungen unterbrechen den Warteabschnitt der Orchestratorschleife in Intervallen von höchstens 100 Millisekunden. Restart stoppt und startet die vorhandenen Adapter im selben Prozess, während der Webserver und bestehende Browserverbindungen erhalten bleiben. Die Liveprüfung setzte einen Restart in rund 104 Millisekunden auf `APPLIED`; ein vollständiger kontrollierter Prozess-Stop gab Port 8000 in 2,326 Sekunden frei. Steuerbefehle verwenden `CONTROL_COMMAND_APPLIED` und erzeugen keinen Phantom-Service mehr.
+
+Der Learning Graph koalesziert Interaktionen per `requestAnimationFrame`, lädt nur single-flight und überspringt Hintergrundloads in ausgeblendeten Tabs. Das teure Force-Layout wird nur neu berechnet, wenn sich Knoten- oder Kantenstruktur ändert. Live wurden 76 Knoten und 179 Kanten ohne Browserfehler dargestellt.
+
+Learning-, Outcome- und Graphmetriken verwenden seit dem 2. August 2026 den additiven Vertrag `pandorickki.learning-metrics` Version 1. Hit-Rate bedeutet einheitlich Wins geteilt durch Wins plus Losses; Breakeven und unbekannte Ergebnisse bleiben separate Klassen. Jede Rate liefert Zähler und Nenner. Der Learning Report ordnet geschlossene Outcomes per `decision_id` zu und weist die Outcome-Abdeckung gegenüber outcome-fähigen LONG-/SHORT-Decisions aus. Nicht vergleichbare historische Aggregatzähler liefern für die Abdeckung bewusst `null` statt einer erfundenen Quote.
+
+`AI_LEARNING_UPDATED` ist ausdrücklich ein Projektionsereignis, kein erfolgreicher Lern- oder Modellupdate. Graph-Muster sind sichtbare Muster-Buckets, keine gelernten Modellmuster. Control Center, API und Graph melden `ml_training.active=false` und `model_updates=0`; PandorickKi trainiert weiterhin kein ML-Modell. Alte API-Felder bleiben zunächst als Aliase erhalten, bestehende Statistik-, Learning- und Historydateien wurden nicht umgeschrieben.
+
+Die finale Liveprüfung vom 2. August 2026 zeigte Plattform und alle zehn Services `OK`. Nach zwei Crypto- und Stockzyklen lagen aktuelle BTCUSDT-, ETHUSDT- und XRPUSDT-Preise vor; NeuroBrain hatte Queue-Tiefe, Drops und Fehler jeweils null. Der Learning Report lieferte die Version-1-Metriken mit expliziten Brüchen, während die historischen Trading-Aggregate ihre wegen unterschiedlicher Rekonstruktionsscopes nicht berechenbare Abdeckung korrekt als `null` ausgaben. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten.
+
+NeuroBrain ist seit dem 2. August 2026 vom synchronen Datei-I/O im EventBus-Publisher entkoppelt. Der Publisher erstellt nur noch die kompakte Projektion und reiht sie per `put_nowait` in eine FIFO-Queue mit Standardkapazität 2048 ein. Ein einzelner Worker schreibt bis zu 64 Einträge pro Batch mit einem `fsync` je aktivem Dateichunk und aktualisiert anschließend den atomaren Status. Bei voller Queue wird ausschließlich das neueste Ereignis abgelehnt und dauerhaft sichtbar gezählt; es gibt kein stilles Überschreiben älterer Einträge. `stop()` nimmt zuerst das Abonnement weg und kehrt erst zurück, wenn alle akzeptierten Einträge verarbeitet sind.
+
+Die Liveprüfung verarbeitete 231 neue, eindeutige Inboxzeilen in 48 Batches ohne FIFO-, Schema- oder Bulk-Verstoß. Queue-Tiefe, Drops, Ledger-/Status-/Benachrichtigungsfehler blieben null. Der kontrollierte Stop hinterließ `running=false`, `worker_running=false` und `queue_depth=0`; anschließend wurde PandorickKi wieder mit Queue-Worker, Telegram aus und Dry-Run gestartet. Alle zehn Services waren `OK`, Crypto lieferte sechs und Stock zehn Ergebnisse, das Fehlerjournal blieb bei 180.
+
+Die NeuroBrain-Schemaabgrenzung wurde am 2. August 2026 korrigiert. Neue Learning- und aggregierte Aktien-Update-Zeilen verwenden `pandorickki.compact-observer-event` Version 1; einzelne Crypto-/Commodity-Preisupdates bleiben Markt-Ereignisse und erhalten ihren eindeutigen Markt-Typ aus dem Topic. Nach dem kontrollierten Neustart waren 152 ausschließlich neu angehängte Inboxzeilen ohne Schema-, Pflichtfeld- oder Bulk-Verstoß. Zwei Produktionszyklen lieferten Crypto 6 und Stock 10 Ergebnisse; alle zehn Services waren `OK`, das Fehlerjournal blieb bei 180 und Telegram bei `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+Die wiederkehrenden Windows-Schreibkonflikte am NeuroBrain-Status und an den aktiven simulierten Crypto-Trades wurden am 2. August 2026 repariert. Beide Pfade verwenden jetzt eindeutige, gleichverzeichnisige Temp-Dateien, eine pro Zielpfad geteilte In-Process-Sperre und einen kurzen begrenzten Retry für transiente `PermissionError`-/Windows-Sharing-Verstöße. Der jeweilige Adapter hält zusätzlich seine Zustandssperre bis zum erfolgreichen atomaren Replace, damit ältere Snapshots keine neueren überschreiben.
+
+Nach dem kontrollierten Neustart liefen zwei vollständige Produktionszyklen mit allen zehn Services `OK`. Crypto lieferte sechs, Stock zehn neue Ergebnisse. Die Fehlerjournal-Summe blieb bei 180; die betroffenen NeuroBrain- und Crypto-Trade-Tracker-Fingerprints blieben bei jeweils drei Vorkommen und ihren bisherigen letzten Zeitpunkten. Es entstanden keine verwaisten Temp-Dateien. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten.
+
+Der vollständige gestapelte Payloadstand wurde am 1. August 2026 kontrolliert live gestartet. Nach dem aussagekräftigen Neustart mit freigegebenem Netzwerkzugriff liefen drei vollständige Produktionszyklen: Plattform, Web und alle zehn Services meldeten `OK`; Crypto lieferte je Zyklus drei und Stock fünf Ergebnisse. BTCUSDT, ETHUSDT und XRPUSDT hatten aktuelle Preise. Seit diesem Neustart entstand kein neuer Journaleintrag; Telegram blieb `enabled=false`, `dry_run=true` und bei null versendeten Nachrichten.
+
+Read-only geprüft wurden ausschließlich neu angehängte Bereiche der Brain-, Decision-, Signal- und NeuroBrain-Ledger. Die Markt-Payloads verwenden `pandorickki.compact-market-event` Version 1, Observer-Ereignisse `pandorickki.compact-observer-event` Version 1. Beide schließen `raw_result`, `features`, `market_data_diagnostics` und `candles` aus; die ID-Kette Brain → Decision → Signal → NeuroBrain blieb vollständig.
+
+Der Outcome-Zeitstempel-Fix wurde am 1. August 2026 kontrolliert live gestartet. Nach vier vollständigen Crypto-Heartbeats meldeten Plattform und alle zehn Services `OK`. Der dauerhafte Fingerprint des früheren Zeitstempelfehlers blieb unverändert bei 158 Vorkommen und seinem letzten Auftreten um 17:13:29 UTC; es entstand kein neues `OUTCOME_TRACKER_ERROR`. Das Journal meldete null Schreibfehler. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Storage verarbeitete 114/114 Dateien in 2,275 Sekunden ohne Scannerfehler.
+
+Der neue Journalstand wurde am 1. August 2026 kontrolliert live gestartet. Nach mindestens zwei vollständigen Zyklen meldeten Plattform und alle zehn sichtbaren Services `OK`; `service_error_journal` war gesund, hatte null Schreibfehler und drei Vorkommen eines Fehlerfingerprints erfasst. Crypto zeigte drei und Stock fünf Analysen. Telegram blieb deaktiviert, im Dry-Run und bei null versendeten Nachrichten. Der Storage-Scan schloss 110/110 Dateien in 2,865 Sekunden ab; `DEGRADED` stammt weiterhin aus den bekannten Datenwarnungen, nicht aus einem Scannerfehler.
+
+## Betriebsaktualisierung vom 1. August 2026
+
+PandorickKi wurde nach Veröffentlichung der Scanner-Instrumentierung kontrolliert neu gestartet. Der eingebaute Stop-Befehl wurde um 15:32 Uhr Europe/Berlin akzeptiert; der Prozess beendete sich ohne erzwungenen Prozessabbruch nach dem laufenden 60-Sekunden-Zyklusintervall. Der Runtime-Preflight bestand mit Python 3.12.13. Der neue Webdienst läuft seit 15:34:40 Uhr über die projektlokale `.venv` mit Telegram deaktiviert und im Dry-Run.
+
+Zwei vollständige Produktionszyklen wurden anschließend verifiziert. Gesamt-Health und alle neun Services meldeten `OK`; Crypto lieferte je Zyklus drei Ergebnisse, Stock fünf Ergebnisse und die neue Sitzung erzeugte keine Servicefehler. BTCUSDT, ETHUSDT und XRPUSDT zeigten aktuelle Preise. Telegram blieb `enabled=false`, `dry_run=true` und `messages_sent=0`. Der Storage-Scan bearbeitete 106/106 physische Dateien in 2,416 Sekunden, meldete verifizierte Summen und erhöhte den kumulativen JSONL-Fortschritt auf 9,20 % beziehungsweise 15/59 vollständige Dateien. `DEGRADED` bleibt wegen laufender Nachindexierung und zwei bereits dokumentierter fehlerhafter Stock-JSON-Dateien erwartbar. Das Control Center zeigte die neuen Metriken per WebSocket ohne Browser-Konsolenfehler.
+
+## Betriebsaktualisierung vom 31. Juli 2026
+
+Nach knapp sechs Tagen Dauerbetrieb war die Crypto-Analyse seit dem 27. Juli ausgefallen, während Aktien weiterliefen. Der externe Crypto-Marktdatenpfad verlangte `requests` und behandelte Spot-Kerzen, Open Interest und Funding als untrennbaren Gesamtaufruf. Die aktuell bereitgestellte Python-Runtime enthielt `requests` nach einem Runtime-Austausch nicht mehr. Der konkrete erste Laufzeitfehler vom 27. Juli war wegen der begrenzten In-Memory-Eventhistorie nicht mehr rekonstruierbar.
+
+Der Live-Crypto-Pfad verwendet jetzt `adapters/crypto_market_data_service.py` aus PandorickKi. Er arbeitet nur mit der Python-Standardbibliothek, lädt Kerzen primär von Binance und ersatzweise von Bitget und behandelt Open Interest sowie Funding als optionale Zusatzdaten. Der externe Legacy-Code wird weiterhin nur für die nicht persistierende Analysepipeline verwendet; dessen `market.py` wird nicht mehr importiert.
+
+Der Dienst läuft seit dem kontrollierten Neustart am 31. Juli 2026 unter der projektlokalen `.venv`. Zwei verifizierte Produktionszyklen lieferten sechs neue Analysen für BTCUSDT, ETHUSDT und XRPUSDT. Crypto meldete `OK`, `healthy=true`, drei Ergebnisse pro Zyklus und keinen neuen Fehler; der historische Crypto-Fehlerzähler blieb während der Verifikation bei 12.024. Telegram blieb deaktiviert und im Dry-Run, ohne versendete Nachrichten.
 
 ## Projektziel
 
@@ -9,7 +55,7 @@ PandorickKi ist eine lokal laufende Integrationsplattform für bestehende Crypto
 
 ## Aktuelle Architektur
 
-Die Anwendung läuft im Wesentlichen als ein Python-Prozess. Der `Orchestrator` verwaltet Adapter und führt deren `run_once()`-Zyklen parallel als AsyncIO-Tasks aus. Die Adapter kommunizieren überwiegend über einen synchronen In-Process-`EventBus`. `SharedState` hält den beobachtbaren Laufzeitzustand; `HealthMonitor` erzeugt einen groben Health-Report. Der Webserver basiert auf `ThreadingHTTPServer` und läuft in einem zusätzlichen Thread.
+Die Anwendung läuft im Wesentlichen als ein Python-Prozess. Der `Orchestrator` verwaltet Adapter und führt deren `run_once()`-Zyklen parallel als AsyncIO-Tasks aus. Die Adapter kommunizieren überwiegend über einen synchronen In-Process-`EventBus`. Ein `ServiceErrorJournal` hört ausschließlich auf Fehlerereignisse und persistiert daraus kompakte, secret-gefilterte Projektionen. `SharedState` hält den beobachtbaren Laufzeitzustand; `HealthMonitor` erzeugt einen groben Health-Report. Der Webserver basiert auf `ThreadingHTTPServer` und läuft in einem zusätzlichen Thread.
 
 Die Architektur ist eine Integrations- und Beobachtungsschicht, kein autonomes Handelssystem. `BrainAdapter` und `DecisionSignalAdapter` übernehmen derzeit hauptsächlich Persistenz, Weiterleitung und deterministische Normalisierung, keine unabhängige KI- oder Risikofreigabe.
 
@@ -28,6 +74,8 @@ Der Standard-Orchestrator erstellt, abhängig von der Konfiguration:
 9. `TelegramAdapter`
 10. optional `ControlCenterAdapter`
 
+Zusätzlich startet der Standard-Orchestrator das interne `ServiceErrorJournal` vor den Adaptern und stoppt es nach ihnen. Es erscheint als Service `service_error_journal`, ist aber kein zyklischer Marktadapter. Konfiguration: standardmäßig aktiv, 5 MiB je aktive Datei, höchstens vier Archive und höchstens 500 zusammengefasste Fehlerfingerprints.
+
 Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket und Statistikdienst `OK`. Brain, Decision Core, Outcome Tracker, NeuroBrain Receiver, Crypto Trade Tracker, Telegram und Control Center meldeten `OK`; Crypto und Stock befanden sich in einem laufenden Adapterzyklus.
 
 ## Einstiegspunkte
@@ -44,6 +92,7 @@ Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket un
 1. Marktadapter rufen vorhandene externe Analyseprojekte beziehungsweise Preisquellen auf.
 2. Crypto und Stock ergänzen OHLCV-Daten optional durch die `FeatureEngine`.
 3. Die Adapter publizieren Markt- und Analyseereignisse über den `EventBus`.
+4. Fehlerereignisse (`SYSTEM_ERROR`, `service.error` und Themen mit Suffix `_ERROR`) werden als versionierte Projektion journalisiert; vollständige Payloads und externe Antworten werden nicht übernommen.
 4. `BrainAdapter` speichert abgeschlossene Analysen rotierend und publiziert `BRAIN_DECISION_RECEIVED` sowie `AI_LEARNING_UPDATED`.
 5. `DecisionSignalAdapter` normalisiert das Brain-Ereignis, erzeugt deterministische IDs und persistiert Decision- und Signal-Ledger.
 6. Outcome- und Crypto-Trade-Tracker öffnen und aktualisieren ausschließlich simulierte Trades.
@@ -52,7 +101,7 @@ Beim letzten lokalen API-Abruf am 26. Juli 2026 meldeten Webserver, WebSocket un
 
 ## Datenquellen
 
-- Crypto: externes lokales Legacy-Projekt über `PANDORICKKI_CRYPTO_PATH`; Livepreise über dessen Datenpfade, im aktuellen Betrieb unter anderem Binance.
+- Crypto: Binance-Spot-Kerzen mit Bitget-Fallback über den internen `CryptoMarketDataService`; Binance Futures liefert optional Open Interest und Funding. Das externe Legacy-Projekt unter `PANDORICKKI_CRYPTO_PATH` verarbeitet die normalisierten Daten ausschließlich analytisch und nicht persistierend.
 - Aktien: externes lokales Stock-Projekt über `PANDORICKKI_STOCK_PATH`.
 - Rohstoffe: optionale Preisquelle für konfigurierte Symbole; standardmäßig deaktiviert.
 - Interne Historie: JSON-/JSONL-Ledger unter `data/`.
@@ -63,7 +112,8 @@ Die Standardpfade für Crypto und Aktien sind rechnergebundene Windows-Pfade und
 
 ## Adapter
 
-- `adapters/crypto_adapter.py`: Crypto-Analyse, Preisstatus, Feature-Anreicherung und Events; Feature-Berechnung ist im aktuellen Arbeitsstand auf die letzten 500 Kerzen begrenzt.
+- `adapters/crypto_adapter.py`: Crypto-Analyse, Preisstatus, Feature-Anreicherung, genaue Fehlerdiagnose und Events; Feature-Berechnung ist auf die letzten 500 Kerzen begrenzt.
+- `adapters/crypto_market_data_service.py`: Abhängigkeitsfreier Candle-Abruf mit Binance/Bitget-Fallback, Retry und optionalem Futures-Kontext.
 - `adapters/stock_adapter.py`: Aktienanalyse mit entsprechender Feature-Anreicherung und derselben 500-Kerzen-Grenze.
 - `adapters/commodity_adapter.py`: optionale Rohstoffanalyse ohne Feature-Engine-Anbindung.
 - `adapters/brain_adapter.py`: Analysepersistenz und Weiterleitung.
@@ -82,19 +132,35 @@ Live-Adapter verwenden `include_targets=False`; historische Trainingsziele werde
 
 ## Brain
 
-`BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, schreibt sie in datums- und größenrotierte JSONL-Dateien und publiziert Folgeereignisse. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
+`BrainAdapter` abonniert abgeschlossene Crypto-, Stock- und Commodity-Analysen, projiziert jede neue Analyse einmal auf `pandorickki.compact-market-event` Version 1, schreibt diese Sicht in datums- und größenrotierte JSONL-Dateien und publiziert dieselbe Sicht als `BRAIN_DECISION_RECEIVED`. Quell-Event-ID, Markt-/Preis-/Risiko-/Zeitfelder und kompakte Ersatzfelder bleiben erhalten; Raw Results, Features, Diagnostik und Kerzen werden nicht neu in Brain-History übernommen. Er führt aktuell keine eigene Modellinferenz, Faktenprüfung oder Konfliktauflösung durch.
+
+Der versionierte kompakte Event-Payload-Vertrag liegt in `event_payload_contract.py` und `docs/EVENT_PAYLOAD_CONTRACT.md`. Version 1 erhält die von Brain, Decision Core, Trackern, Learning, Control Center, Telegram und NeuroBrain tatsächlich benötigten Felder, verbietet aber `raw_result`, Feature-/Diagnostikblöcke und Kerzen. Brain ist die erste aktiv migrierte Producer-/Persistenzgrenze. Decision-/Signal- und NeuroBrain-Persistenz reichen noch nicht überall ausschließlich die Projektion weiter.
 
 ## Decision Core
 
-`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, normalisiert Markt-, Richtung-, Preis- und Risikofelder und schreibt rotierende JSONL-Ledger. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
+`DecisionSignalAdapter` erzeugt aus Brain-Payloads deterministische Decision- und Signal-IDs, projiziert beide Stufen auf `pandorickki.compact-market-event` Version 1 und verwendet die jeweilige Projektion unverändert für Event und rotierendes JSONL-Ledger. Quell-, Decision-, Signal- und Decision-Event-IDs bleiben erhalten; `raw_result`, Features und Kerzen werden nicht neu in Decision-/Signal-Payloads übernommen. Der Duplikatschutz ist innerhalb der laufenden Instanz in-memory. Eine unabhängige Risiko-Policy, Confidence-Schwelle oder zentrale fachliche Freigabe ist nicht implementiert.
 
 ## Outcome Tracker
 
-`OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert.
+`OutcomeTracker` und `CryptoTradeTracker` arbeiten ausschließlich simuliert. Valide LONG-/SHORT-Entscheidungen mit Entry-Preis können einen simulierten Trade eröffnen. Preisupdates aktualisieren P/L, Drawdown und Terminalbedingungen wie Stop, TP oder Zeithorizont. Offene Zustände werden als JSON, abgeschlossene Lebenszyklen als rotierende JSONL-Dateien gespeichert. Beim Berechnen von Laufzeiten werden historische ISO-Zeitstempel ohne Offset rückwärtskompatibel als UTC interpretiert; die gespeicherten Originalwerte werden nicht umgeschrieben.
+
+Der Crypto Trade Tracker serialisiert Zustandsänderung und aktiven JSON-Snapshot unter derselben Adapter-Sperre. Sein atomarer Schreibpfad verwendet konfliktfreie Temp-Dateien und einen begrenzten Windows-Retry; die append-only Trade-History bleibt unverändert.
+
+Der Crypto Trade Tracker bevorzugt für die Stop-Berechnung die kompakten Felder `market_context.recent_swing_low` beziehungsweise `recent_swing_high`. Vorhandene Events und History ohne diese Felder bleiben über den bisherigen Kerzenpfad in `raw_result` lesbar.
 
 ## Learning und History
 
 Learning Reports, Statistikdienste und Learning/Knowledge Graph aggregieren vorhandene Historien. `AI_LEARNING_UPDATED` bezeichnet derzeit ein Daten-/Projektionsereignis, kein Training oder Update eines ML-Modells. Die Graphdienste unter `learning_graph/` liefern sanitizierte Nodes, Edges, Cluster und Übersichten für API und Browser.
+
+Der ausführbare Learning-Metrikvertrag liegt in `learning_metrics_contract.py`, die Feld- und Nennerdefinition in `docs/LEARNING_METRICS_CONTRACT.md`. Der Report lädt begrenzte aktuelle Decision-/Outcome-Fenster, ordnet exakte Outcomes per `decision_id` zu und zeigt Zähler/Nenner sowie Outcome-Abdeckung. Persistente Trading-Aggregate verwenden denselben Hit-Rate-Nenner; ihre Abdeckung bleibt `null`, wenn historisch rekonstruierte Decision- und Outcome-Zähler nicht denselben Scope belegen. `successful_learnings` und `learned_patterns` werden nicht mehr aus Projektionszählern erfunden.
+
+Der Learning Graph unterscheidet `pattern_buckets`, `learning_projection_records_today` und kumulative `learning_update_events_total`. Die ersten beiden beziehen sich auf das geladene Graph-Fenster; keiner dieser Werte ist ein Modelltrainingsergebnis.
+
+Der Learning Graph bevorzugt das kompakte Ergebnisfeld `public_result`. Bei älteren Brain-Datensätzen ohne dieses Feld bleibt `raw_result.result` als reiner Legacy-Lesepfad erhalten.
+
+Der optionale `NeuroBrainReceiverAdapter` behält für jede Inboxzeile seine eigenständige Kopfsicht mit tatsächlich gespiegelter Event-ID, Topic, Quelle, Markt-, Symbol-, Decision-/Signal- und Zeitfeldern. Das zusätzliche Feld `payload` enthält für neue Zeilen ausschließlich Version 1 des passenden Vertrags. Eine darin vorhandene vorgelagerte `source_event_id` bleibt erhalten; bestehende alte Inboxzeilen werden nicht umgeschrieben. Analysis-, Brain-, Decision-, Signal-, Trade- und einzelwertige Marktupdates verwenden den Marktvertrag. `AI_LEARNING_UPDATED` und das aggregierte Aktien-Update verwenden den Observer-Vertrag ohne künstlichen singulären Marktbezug. Persistiert wird über einen einzelnen begrenzten FIFO-Worker; Queue-, Batch-, Drop- und Fehlerzähler sind in Health, Heartbeat und Statusdatei sichtbar.
+
+Seine kleine Statusdatei wird unter der Adapter-Sperre über denselben konfliktresistenten atomaren JSON-Schreibpfad ersetzt. Die Inbox selbst bleibt append-only und wurde durch diese Reparatur nicht migriert oder umgeschrieben.
 
 Der Storage-Statistikdienst besitzt inzwischen:
 
@@ -105,17 +171,25 @@ Der Storage-Statistikdienst besitzt inzwischen:
 - inkrementelle JSONL-Offsets,
 - atomare Cache-/Index-Schreibvorgänge,
 - Metadatenmodus für große SQLite-, JSON-, CSV- und Logdateien,
-- ein globales JSONL-Bytebudget pro Scan.
+- ein globales JSONL-Bytebudget pro Scan,
+- ein anhand des realen Bestands vermessenes Standardbudget von 64 MiB pro Lauf,
+- getrennte Phasenlaufzeiten für Zielermittlung, Pfadauflösung, Metadaten, Fingerprint, Dateiverarbeitung, Index- und Cachepersistenz,
+- kumulativen JSONL-Fortschritt mit Gesamt-/indexierten/restlichen Bytes, vollständigen Dateien sowie geschätzten Restläufen und Restzeit,
+- einen geschützten Lebenszyklus: Nach `close()` werden keine neuen Scans akzeptiert und laufende Hintergrund- oder synchrone Scans sind vollständig beendet, bevor `close()` zurückkehrt.
+- physische Pfad-Deduplizierung innerhalb eines Scans: Überlappende logische Ziele verwenden dasselbe Dateiergebnis und verbrauchen Scanbudget nur einmal,
+- getrennte verifizierte Summen für physische Dateien und logische Kategorieverweise einschließlich ausgewiesener Überlappungsanzahl.
 
-Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Der laufende Bestand lag beim letzten Abruf bei 7 Ordnern, 93 gecachten Dateien und 4,26 GB. Ein Scan endete dennoch nach 35,236 Sekunden als `TIMEOUT` und bearbeitete 27 von 94 Dateien; das ist ein offener Performancefehler, kein Datenverlustsignal.
+Der Cache bleibt bei Timeout oder Teilfehlern sichtbar. Ein alter Cache ohne getrennte Summen wird als `LEGACY_CACHE` markiert; seine bisherigen Gesamtwerte werden nicht als physisch verifiziert ausgegeben. Erst ein neuer vollständiger Scan erzeugt `VERIFIED`-Werte. Eine schreibgeschützte Realmessung am 1. August 2026 fand 105 physische Dateien und 58 JSONL-Dateien mit rund 5,80 GB. Der vorhandene Index deckte 5,69 % ab. Mit dem alten Budget dauerte der Lauf 1,084 Sekunden; 64 MiB wurden in einem zweiten Benchmark in 2,135 Sekunden verarbeitet. Daraus ergaben sich ungefähr 82 weitere Minutenläufe bis zur Nachindexierung. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und erklären den Status `DEGRADED`; sie wurden nicht verändert.
 
 ## Control Center
 
 Das lokale Control Center wird standardmäßig unter `http://127.0.0.1:8000/` bereitgestellt. Es zeigt Health, Services, Märkte, Brain, Signals, Statistiken, Speicher, Learning Report und Graphen. HTTP-Endpunkte liefern read-only Sichten; `/api/statistics/storage/refresh` startet einen Hintergrundscan und antwortet mit HTTP `202 Accepted`.
 
-Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus und verwendet Cache-Buster sowie `defer` für lokale Skripte. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
+Die Learning-Oberfläche heißt fachlich Outcome-Auswertung, zeigt Hit-Rate und Outcome-Abdeckung einschließlich Zähler/Nenner und kennzeichnet sichtbar, dass kein ML-Training aktiv ist. Trading-Statistik, Outcome-Auswertung und Graph verwenden getrennte Scope-Bezeichnungen; nicht vergleichbare Aggregate erscheinen als `nicht vergleichbar`.
 
-Der WebSocket-Client fällt bei `close` auf Polling zurück. Reconnect, mehrfacher Close, `error`-Fallback sowie JSON-/Renderfehler sind noch nicht vollständig robust.
+Die UI lädt den vollständigen Storage-Snapshot single-flight, zeigt Scanstatus, kumulativen JSONL-Indexfortschritt, geschätzte Restläufe/-zeit, die langsamste Phase sowie getrennte physische und logische Storage-Summen und verwendet Cache-Buster sowie `defer` für lokale Skripte. Überlappende Dateiverweise werden ausdrücklich angezeigt. Live- und Statistik-Broadcasts sind gedrosselt; große interne Felder wie Candles, Features, Steps und Raw Results werden aus Browser-Payloads entfernt, ohne interne Events zu verändern.
+
+Der WebSocket-Client fällt bei `close` oder `error` auf genau einen idempotenten Polling-Timer zurück und verbindet sich mit begrenztem exponentiellem Backoff erneut. Veraltete Socket-Callbacks werden über eine Verbindungsgeneration ignoriert; erfolgreiche Verbindung beendet den Fallback-Timer. Polling ist single-flight, JSON-/Renderfehler bleiben auf die Verbindungssicht begrenzt. Servicezustände berücksichtigen zusätzlich das Ergebnis von `adapter.health()`: null Crypto-Ergebnisse bei Fehlern werden als `ERROR` statt fälschlich als `OK` projiziert. Bekannte Heartbeats erhalten Alter und zentrale `STALE`-Klassifikation.
 
 ## Telegram
 
@@ -123,8 +197,8 @@ Telegram ist über Umgebungsvariablen steuerbar. Sichere Vorgaben sind `PANDORIC
 
 ## Speicherformate
 
-- JSON: Shared State, offene simulierte Trades, Status- und Cachedateien.
-- JSONL: Brain-Ereignisse, Decisions, Signals, Outcomes, Trade-Historie, NeuroBrain-Inbox, Telegram-Dry-Run und Audits.
+- JSON: Shared State, offene simulierte Trades, Status-, Cache- und begrenzte Servicefehler-Zusammenfassung (`service_error_summary.json`).
+- JSONL: Brain-Ereignisse, Decisions, Signals, Outcomes, Trade-Historie, NeuroBrain-Inbox, Telegram-Dry-Run, Audits und kompakte Servicefehler (`service_errors.jsonl`).
 - Rotierte JSONL: Größen- beziehungsweise datumsbezogene Ledgersegmente.
 - SQLite: vorhandene externe beziehungsweise historische Datenbestände; große Dateien werden vom Statistikscanner nur per Metadaten erfasst.
 - Statische HTML-/CSS-/JavaScript-Dateien: lokales Control Center und Graphvisualisierung.
@@ -134,41 +208,43 @@ Runtime-Verzeichnisse wie `data/`, `storage/`, `runtime_logs/` und `backups/` k�
 ## Startbefehle
 
 ```powershell
-python main.py --once
-python main.py --live
-python main.py --headless
-python main.py --live --web
-python main.py --headless --web
+setup_local_env.bat
+.\.venv\Scripts\python.exe scripts\runtime_preflight.py
+.\.venv\Scripts\python.exe main.py --once
+.\.venv\Scripts\python.exe main.py --live
+.\.venv\Scripts\python.exe main.py --headless --web
 ```
 
 Lokales Control Center: `http://127.0.0.1:8000/`
 
-Auf diesem Rechner war zuletzt der gebündelte Python-Pfad verfügbar:
-
-```powershell
-& 'C:\Users\Admin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' main.py --headless --web
-```
+Die Batch-Starter erzeugen die ignorierte projektlokale `.venv` bei Bedarf, installieren `tzdata`, führen den Preflight aus und verwenden danach ausschließlich diese Umgebung. `start_pandorick_web.bat` setzt Telegram ausdrücklich auf deaktiviert und Dry-Run.
 
 ## Testbefehle
 
 ```powershell
 python -m unittest discover -s tests
-python -m unittest tests.test_statistics_and_storage tests.test_web_control_center
+python -m unittest tests.test_service_error_journal tests.test_config tests.test_parallel_orchestrator
 python -m compileall .
 ```
 
-Früher in diesem Arbeitsstand waren 195/195 Tests erfolgreich. Der jüngste vollständige Lauf am 26. Juli 2026 endete nach 243,332 Sekunden mit 194 bestandenen Tests und einem Fehler: Ein Webtest konnte sein temporäres `storage/statistics`-Verzeichnis nicht entfernen, weil der Hintergrundscanner noch schrieb (`WinError 145`). Der unmittelbar folgende isolierte Wiederholungslauf des betroffenen Tests bestand mit 1/1. Das ist als nicht-deterministische Shutdown-Race in `KNOWN_PROBLEMS.md` erfasst.
+Der vollständige Lauf am 2. August 2026 bestand nach der UI-Härtung mit 243/243 Tests in 43,586 Sekunden. 15 gezielte Web-/Orchestrator-Tests bestanden. Die neuen Regressionen decken einmaliges Konsumieren von Restart, echten In-Process-Adapterrestart, unterbrechbaren Stop, zentrale STALE-Klassifikation, leichte WebSocket-Snapshots und die Frontend-Verträge für Reconnect, Timer und Frame-Koaleszierung ab. JavaScript-Syntaxprüfung und `git diff --check` bestanden ebenfalls.
 
 ## Bekannte Risiken
 
-1. Der Storage-Worker kann den einsekündigen Shutdown-Join überleben und danach noch in temporäre Verzeichnisse schreiben.
-2. Storage-Scans überschreiten im realen Datenbestand weiterhin teilweise das konfigurierte Timeout.
-3. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
-4. WebSocket-Reconnect und Polling-Fallback sind nicht vollständig robust.
-5. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
-6. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
-7. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
-8. Absolute Windows-Pfade begrenzen die Portabilität.
-9. Feature-Eingangsdaten werden nicht streng genug validiert.
-10. Heartbeats werden nicht automatisch als `STALE` klassifiziert.
-11. Der aktuelle Stand ist auf `origin/agent/add-market-feature-engine` veröffentlicht, aber Draft-PR #2 ist noch nicht nach `main` gemergt.
+1. Storage-Laufzeiten müssen nach dem Neustart weiter beobachtet werden; der 64-MiB-Realbenchmark blieb mit 2,135 Sekunden deutlich unter dem 30-Sekunden-Limit.
+2. Der synchrone EventBus kann Produzenten durch langsame Handler blockieren.
+3. WebSocket-Reconnect und Polling-Fallback sind gehärtet; reale Netzwerksonderfälle und sehr lange aktive Adapterzyklen bleiben weiter zu beobachten.
+4. Brain und Decision Core bieten weniger fachliche Prüfung, als ihre Namen vermuten lassen.
+5. Telegram umgeht derzeit eine strikt zentrale finale Freigabekette.
+6. Runtime-Ledger wachsen insgesamt ohne zentrale Retention-Policy.
+7. Absolute Windows-Pfade begrenzen die Portabilität.
+8. Feature-Eingangsdaten werden nicht streng genug validiert.
+9. Nur Services mit vorhandenem Heartbeat können als `STALE` klassifiziert werden; heartbeatlose Services bleiben bei ihrem sonstigen Status.
+10. Der Crypto-Reparaturstand ist auf `origin/agent/add-market-feature-engine` veröffentlicht und liegt in Draft-PR #3 gegen `main`; er ist noch nicht gemergt.
+11. Brain, Decision Core und NeuroBrain persistieren neue Marktstufen kompakt; der vollständige gestapelte Stand ist live verifiziert. NeuroBrain trennt neue Markt- und Observer-Zeilen jetzt topicbasiert. Vorhandene alte Ledger und Inboxzeilen enthalten erwartungsgemäß weiterhin ihre bisherigen Payloadformen und werden nicht umgeschrieben.
+12. Das Fehlerjournal läuft als synchroner EventBus-Handler. Es schreibt nur bei Fehlern und fängt eigene Schreibfehler ab, kann bei langsamen Datenträgern aber den Fehler-Publisher kurzzeitig verzögern.
+13. Der Storage-Shutdown-Fix liegt gestapelt in Draft-PR #4 gegen `agent/add-market-feature-engine`; auch dieser PR ist noch nicht gemergt.
+14. Die Storage-Deduplizierung liegt gestapelt in Draft-PR #5 gegen `agent/fix-storage-worker-shutdown`; auch dieser PR ist noch nicht gemergt.
+15. Zwei vorhandene Stock-JSON-Dateien enthalten Syntaxfehler und halten Storage auf `DEGRADED`; sie wurden bewusst nicht repariert oder gelöscht.
+16. Die Scanner-Instrumentierung liegt gestapelt in Draft-PR #6 gegen `agent/fix-storage-physical-totals`; auch dieser PR ist noch nicht gemergt.
+17. Der neue konfliktresistente Atomic-JSON-Helfer ist zunächst bewusst auf NeuroBrain-Status und aktive Crypto-Trades begrenzt. Andere bestehende atomare JSON-Schreiber verwenden weiterhin ihre bisherigen Implementierungen und müssen nur bei tatsächlicher Konkurrenz oder eigenem Fehlerbefund migriert werden.

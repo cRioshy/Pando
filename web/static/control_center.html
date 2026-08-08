@@ -80,16 +80,19 @@
 
       <article class="panel wide">
         <div class="panel-head">
-          <h2>Learning Report</h2>
+          <h2>Outcome-Auswertung</h2>
+          <span class="section-note">Kein ML-Training aktiv</span>
           <button id="refreshLearningReport" class="small">Report aktualisieren</button>
         </div>
         <div class="stats-grid learning-report-stats">
-          <div title="Read-only Score aus Trefferquote, Datenmenge, Stabilitaet und nachgewiesenem Brain-Adjustment."><span>Learning Score</span><strong id="learningScore">-</strong></div>
-          <div title="Trefferquote aus eindeutig vorhandenen Ergebnisdaten."><span>Trefferquote</span><strong id="learningHitRate">-</strong></div>
+          <div title="Read-only Auswertungswert; kein Modelltraining."><span>Auswertungs-Score</span><strong id="learningScore">-</strong></div>
+          <div title="Wins geteilt durch Wins plus Losses; Breakeven und unbekannt sind ausgeschlossen."><span>Outcome-Hit-Rate</span><strong id="learningHitRate">-</strong></div>
+          <div title="Zugeordnete geschlossene Outcomes geteilt durch outcome-faehige LONG-/SHORT-Decisions."><span>Outcome-Abdeckung</span><strong id="learningOutcomeCoverage">-</strong></div>
+          <div title="PandorickKi trainiert aktuell kein ML-Modell."><span>ML-Training</span><strong id="learningMlTraining">Nein</strong></div>
           <div title="Vergleich erste 1000 gegen letzte 1000 Entscheidungen."><span>Trend</span><strong id="learningTrend">-</strong></div>
           <div title="Durchschnittliche Confidence aus gespeicherten Decisions."><span>Confidence</span><strong id="learningConfidence">-</strong></div>
           <div title="Simulierter Durchschnitt aus vorhandenen Stock-Learning-Preisveraenderungen."><span>Profit Simulation</span><strong id="learningProfit">-</strong></div>
-          <div title="Anzahl eindeutiger Outcome-Eintraege."><span>Outcome-Daten</span><strong id="learningOutcomes">-</strong></div>
+          <div title="Per decision_id oder gekennzeichnetem Legacy-Fallback zugeordnete Outcomes."><span>Zugeordnete Outcomes</span><strong id="learningOutcomes">-</strong></div>
           <div title="Gespeicherte Entscheidungen im Report."><span>Entscheidungen</span><strong id="learningDecisions">-</strong></div>
           <div title="Letzte Berechnung."><span>Update</span><strong id="learningReportUpdated">-</strong></div>
         </div>
@@ -143,6 +146,7 @@
       <article class="panel wide">
         <div class="panel-head">
           <h2>Learning Graph</h2>
+          <span class="section-note">Beobachtungsprojektion, kein ML-Modell</span>
           <div class="panel-actions">
             <button data-graph-view="list" class="small active">Liste</button>
             <button data-graph-view="graph" class="small">Graph</button>
@@ -155,8 +159,8 @@
           <div><span>Knoten</span><strong id="graphNodeCount">0</strong></div>
           <div><span>Verbindungen</span><strong id="graphEdgeCount">0</strong></div>
           <div><span>Analysen</span><strong id="graphAnalyses">0</strong></div>
-          <div><span>Muster</span><strong id="graphPatterns">0</strong></div>
-          <div><span>Neue Learnings</span><strong id="graphLearningsToday">0</strong></div>
+          <div><span>Muster-Buckets</span><strong id="graphPatterns">0</strong></div>
+          <div title="Beobachtungsprojektionen vom heutigen Datum innerhalb des geladenen Graph-Fensters."><span>Projektionen heute (Fenster)</span><strong id="graphLearningsToday">0</strong></div>
           <div><span>Maerkte</span><strong id="graphMarkets">0</strong></div>
           <div><span>Status</span><strong id="graphStatus">-</strong></div>
           <div><span>Update</span><strong id="graphUpdated">-</strong></div>
@@ -281,15 +285,16 @@
           <div title="Nur finale HOLD- oder WAIT-Decisions."><span>Finale HOLD</span><strong id="tradeFinalHold" class="warn">0</strong></div>
           <div title="Nur finale WATCHLIST-Decisions."><span>WATCHLIST</span><strong id="tradeWatchlist">0</strong></div>
           <div title="Maerkte mit aktuellen Live-Daten."><span>Aktive Maerkte</span><strong id="tradeActiveMarkets">0</strong></div>
-          <div title="Gelernte Muster, soweit eindeutig im Statistiksystem vorhanden."><span>Gelernte Muster</span><strong id="tradeLearnedPatterns">-</strong></div>
-          <div title="Trefferquote aus abgeschlossenen simulierten Outcome-Trades."><span>Trefferquote</span><strong id="tradeHitRate">-</strong></div>
+          <div title="Echtes Mustertraining ist nicht implementiert."><span>ML-Muster gelernt</span><strong id="tradeLearnedPatterns">-</strong></div>
+          <div title="Wins geteilt durch Wins plus Losses; Breakeven und unbekannt sind ausgeschlossen."><span>Trading Hit-Rate</span><strong id="tradeHitRate">-</strong></div>
+          <div title="Geschlossene Outcomes geteilt durch finale LONG-/SHORT-Decisions; bei unvereinbaren Zaehlerstaenden nicht berechnet."><span>Outcome-Abdeckung</span><strong id="tradeOutcomeCoverage">-</strong></div>
           <div title="Aktuell offene simulierte LONG/SHORT-Trades."><span>Offene Simulationen</span><strong id="tradeSimOpen">0</strong></div>
           <div title="Abgeschlossene simulierte Trades mit decision_id."><span>Geschlossene Outcomes</span><strong id="tradeSimClosed">0</strong></div>
           <div title="Gewonnene abgeschlossene simulierte Trades."><span>Sim Wins</span><strong id="tradeSimWins" class="good">0</strong></div>
           <div title="Verlorene abgeschlossene simulierte Trades."><span>Sim Losses</span><strong id="tradeSimLosses" class="bad">0</strong></div>
           <div title="Durchschnittlicher P/L abgeschlossener Simulationen."><span>Outcome P/L</span><strong id="tradeAvgOutcomeProfit">-</strong></div>
           <div title="Durchschnittliche Haltedauer abgeschlossener Simulationen."><span>Haltedauer</span><strong id="tradeAvgHolding">-</strong></div>
-          <div title="AI_LEARNING_UPDATED Events."><span>Erfolgreiche Learnings</span><strong id="tradeSuccessfulLearnings">0</strong></div>
+          <div title="AI_LEARNING_UPDATED Projektionsereignisse; kein Trainingserfolg."><span>Learning-Update-Events</span><strong id="tradeSuccessfulLearnings">0</strong></div>
           <div title="Durchschnitt aus finalen Decision-Confidence-Werten."><span>Confidence-Schnitt</span><strong id="tradeAvgConfidence">-</strong></div>
           <div title="Durchschnittliche gemeldete Analysezeit."><span>Analysezeit</span><strong id="tradeAvgAnalysisTime">-</strong></div>
         </div>
@@ -343,6 +348,7 @@
           <button id="refreshStorage" class="small">Datenstatistik aktualisieren</button>
         </div>
         <div id="storageScanStatus" class="muted">Scan: IDLE</div>
+        <div id="storageTotals" class="muted">Physische Gesamtwerte: noch nicht berechnet</div>
         <table>
           <thead><tr><th>Ordner</th><th>Dateien</th><th>Datensätze</th><th>Größe</th><th>Letzte Änderung</th><th>Status</th></tr></thead>
           <tbody id="storageRows"></tbody>
@@ -365,6 +371,6 @@
   <script defer src="/vendor/sigma.min.js?v=20260725-page-load-v1"></script>
   <script defer src="/knowledge_graph.js?v=20260725-page-load-v1"></script>
   <script defer src="/knowledge_graph_bootstrap.js?v=20260725-page-load-v1"></script>
-  <script defer src="/control_center.js?v=20260725-storage-scan-v4"></script>
+  <script defer src="/control_center.js?v=20260802-learning-metrics-v1"></script>
 </body>
 </html>

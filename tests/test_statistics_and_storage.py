@@ -16,6 +16,7 @@ import urllib.request
 from dataclasses import replace
 from pathlib import Path
 from threading import Event as ThreadEvent
+from threading import Thread
 from unittest.mock import patch
 
 from adapters.control_center_adapter import ControlCenterAdapter
@@ -203,6 +204,44 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(snapshot["trading"]["average_outcome_profit_percent"], 2.5)
             self.assertEqual(snapshot["trading"]["average_holding_seconds"], 300.0)
 
+    def test_trading_metrics_separate_hit_rate_from_breakeven_and_learning_updates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            service = AnalysisStatisticsService(Path(temp) / "system_statistics.json")
+            for index, direction in enumerate(("LONG", "SHORT", "HOLD")):
+                service.apply_event(
+                    Event(
+                        topic="DECISION_CREATED",
+                        source="core",
+                        payload={"payload": {"direction": direction}},
+                        created_at=f"2026-08-02T10:00:0{index}+00:00",
+                    )
+                )
+            for index, (event_id, result) in enumerate((("w", "WIN"), ("l", "LOSS"), ("b", "BREAKEVEN"))):
+                service.apply_event(
+                    Event(
+                        topic="SIMULATED_TRADE_CLOSED",
+                        source="outcome_tracker",
+                        payload={"payload": {"decision_id": event_id, "result_type": result}},
+                        event_id=event_id,
+                        created_at=f"2026-08-02T10:01:0{index}+00:00",
+                    )
+                )
+            service.apply_event(Event(topic="AI_LEARNING_UPDATED", source="brain", payload={}))
+
+            trading = service.snapshot()["trading"]
+            metrics = trading["learning_metrics"]
+
+            self.assertEqual(trading["hit_rate"], 50.0)
+            self.assertEqual(metrics["decisions"]["total"], 3)
+            self.assertEqual(metrics["decisions"]["outcome_eligible"], 2)
+            self.assertEqual(metrics["outcomes"]["closed"], 3)
+            self.assertEqual(metrics["rates"]["hit_rate_denominator"], 2)
+            self.assertIsNone(metrics["rates"]["outcome_coverage_percent"])
+            self.assertEqual(metrics["learning"]["update_events"], 1)
+            self.assertIsNone(trading["learned_patterns"])
+            self.assertIsNone(trading["successful_learnings"])
+            self.assertFalse(metrics["ml_training"]["active"])
+
     def test_outcome_reconstruction_uses_trade_outcomes_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -312,6 +351,35 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(folder["status"], "WARN")
             self.assertTrue(folder["errors"])
 
+    def test_overlapping_targets_keep_logical_categories_but_dedupe_physical_totals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            config.brain_events_file.write_text('{"event":1}\n{"event":2}\n', encoding="utf-8")
+            config.shared_state_file.write_text('{"status":"ok"}', encoding="utf-8")
+            service = StorageStatisticsService(config)
+
+            with patch.object(service, "_scan_file", wraps=service._scan_file) as scan_file:
+                snapshot = service.refresh()
+
+            folders = {folder["name"]: folder for folder in snapshot["folders"]}
+            physical_size = config.brain_events_file.stat().st_size + config.shared_state_file.stat().st_size
+            self.assertEqual(set(folders), {"platform_data", "brain_events", "shared_state"})
+            self.assertEqual(folders["platform_data"]["file_count"], 2)
+            self.assertEqual(folders["brain_events"]["file_count"], 1)
+            self.assertEqual(folders["shared_state"]["file_count"], 1)
+            self.assertEqual(snapshot["logical_total_files"], 4)
+            self.assertEqual(snapshot["physical_total_files"], 2)
+            self.assertEqual(snapshot["overlapping_file_references"], 2)
+            self.assertEqual(snapshot["logical_total_size_bytes"], physical_size * 2)
+            self.assertEqual(snapshot["physical_total_size_bytes"], physical_size)
+            self.assertEqual(snapshot["total_files"], snapshot["physical_total_files"])
+            self.assertEqual(snapshot["total_size_bytes"], snapshot["physical_total_size_bytes"])
+            self.assertEqual(snapshot["scan"]["files_total"], 2)
+            self.assertEqual(snapshot["scan"]["files_completed"], 2)
+            self.assertEqual(scan_file.call_count, 2)
+
     def test_large_sqlite_uses_metadata_without_count_query(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -388,6 +456,36 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertEqual(restored["total_records"], 1)
             self.assertEqual(restored["scan_status"], "IDLE")
             self.assertIsNotNone(restored["last_scan"])
+
+    def test_legacy_cache_does_not_claim_unverified_physical_totals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            statistics_dir = config.project_root / "storage" / "statistics"
+            statistics_dir.mkdir(parents=True)
+            (statistics_dir / "storage_statistics.json").write_text(
+                json.dumps(
+                    {
+                        "last_scan": "2026-07-31T00:00:00+00:00",
+                        "scan_interval_seconds": 60,
+                        "total_files": 4,
+                        "total_records": 8,
+                        "total_size_bytes": 1024,
+                        "total_size_human": "1.00 KB",
+                        "folders": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = StorageStatisticsService(config).snapshot()
+
+            self.assertEqual(snapshot["totals_status"], "LEGACY_CACHE")
+            self.assertIsNone(snapshot["physical_total_files"])
+            self.assertIsNone(snapshot["physical_total_size_bytes"])
+            self.assertEqual(snapshot["logical_total_files"], 4)
+            self.assertEqual(snapshot["logical_total_size_bytes"], 1024)
+            self.assertIsNone(snapshot["overlapping_file_references"])
 
     def test_jsonl_append_is_read_from_persisted_offset(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -532,6 +630,55 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertFalse(second["accepted"])
             self.assertEqual(second["status"], "RUNNING")
 
+    def test_close_waits_until_background_worker_can_no_longer_write(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = self.make_config(root)
+            config.data_dir.mkdir(parents=True)
+            (config.data_dir / "records.jsonl").write_text('{"ok":true}\n', encoding="utf-8")
+            service = StorageStatisticsService(config)
+            write_entered = ThreadEvent()
+            release_write = ThreadEvent()
+            close_returned = ThreadEvent()
+            writes_after_close: list[Path] = []
+            original_write = service._atomic_write_json
+
+            def blocked_write(path: Path, payload: dict) -> None:
+                if not write_entered.is_set():
+                    write_entered.set()
+                    release_write.wait(timeout=3)
+                if close_returned.is_set():
+                    writes_after_close.append(path)
+                original_write(path, payload)
+
+            def close_service() -> None:
+                service.close()
+                close_returned.set()
+
+            with patch.object(service, "_atomic_write_json", side_effect=blocked_write):
+                started = service.start_scan()
+                self.assertTrue(started["accepted"])
+                self.assertTrue(write_entered.wait(timeout=1))
+                closer = Thread(target=close_service, name="storage-service-closer")
+                closer.start()
+                try:
+                    self.assertFalse(
+                        close_returned.wait(timeout=1.2),
+                        "close() returned while the storage worker could still write",
+                    )
+                finally:
+                    release_write.set()
+                closer.join(timeout=3)
+
+            self.assertTrue(close_returned.is_set())
+            self.assertFalse(closer.is_alive())
+            self.assertTrue(service._worker is None or not service._worker.is_alive())
+            self.assertEqual(writes_after_close, [])
+            rejected = service.start_scan()
+            self.assertFalse(rejected["accepted"])
+            self.assertEqual(rejected["status"], "CLOSED")
+            service.close()
+
     def test_large_jsonl_uses_bounded_incremental_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -554,6 +701,51 @@ class StatisticsAndStorageTest(unittest.TestCase):
             self.assertTrue(service.cache_file.exists())
             self.assertTrue(service.index_file.exists())
             self.assertFalse(service.cache_file.with_suffix(".json.tmp").exists())
+
+    def test_scan_reports_phase_timings_and_cumulative_jsonl_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = replace(
+                self.make_config(root),
+                storage_large_file_threshold_bytes=32,
+                storage_scan_byte_budget=48,
+            )
+            config.data_dir.mkdir(parents=True)
+            ledger = config.data_dir / "large.jsonl"
+            ledger.write_text(
+                "".join(json.dumps({"index": index}) + "\n" for index in range(100)),
+                encoding="utf-8",
+            )
+            service = StorageStatisticsService(config)
+
+            first = service.refresh()["scan"]
+            second = service.refresh()["scan"]
+
+            expected_phases = {
+                "target_discovery",
+                "path_resolution",
+                "metadata",
+                "fingerprint",
+                "file_processing",
+                "index_persist",
+                "cache_persist",
+            }
+            self.assertEqual(set(first["phase_seconds"]), expected_phases)
+            self.assertTrue(all(value >= 0 for value in first["phase_seconds"].values()))
+            self.assertEqual(first["jsonl_files_total"], 1)
+            self.assertEqual(first["jsonl_bytes_total"], ledger.stat().st_size)
+            self.assertGreater(first["jsonl_bytes_indexed"], 0)
+            self.assertLess(first["jsonl_bytes_indexed"], first["jsonl_bytes_total"])
+            self.assertGreater(second["jsonl_bytes_indexed"], first["jsonl_bytes_indexed"])
+            self.assertGreater(second["jsonl_progress_percent"], first["jsonl_progress_percent"])
+            self.assertEqual(second["jsonl_files_complete"], 0)
+            self.assertEqual(first["scan_byte_budget"], 48)
+            self.assertGreater(first["estimated_cycles_remaining"], 0)
+            self.assertGreater(first["estimated_minutes_remaining"], 0)
+            self.assertLessEqual(
+                second["estimated_cycles_remaining"],
+                first["estimated_cycles_remaining"],
+            )
 
     def test_multiple_small_jsonl_files_share_global_budget(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -616,6 +808,9 @@ class StatisticsAndStorageTest(unittest.TestCase):
                 self.assertIn("analyses", stats)
                 self.assertIn("developer", stats)
                 self.assertIn("trading", stats)
+                self.assertIn("physical_total_files", stats["storage"])
+                self.assertIn("logical_total_files", stats["storage"])
+                self.assertIn("overlapping_file_references", stats["storage"])
                 self.assertEqual(stats["trading"]["simulated_closed_trades"], 1)
                 self.assertEqual(stats["trading"]["simulated_wins"], 1)
                 self.assertEqual(stats["trading"]["hit_rate"], 100.0)
@@ -691,6 +886,14 @@ class StatisticsUiStateTest(unittest.TestCase):
         self.assertIn("async function loadStorageSnapshot()", script)
         self.assertIn("if (state.storageLoading) return", script)
         self.assertIn("await loadStorageSnapshot()", script)
+        self.assertIn('$("storageTotals")', script)
+        self.assertIn("storage.physical_total_files", script)
+        self.assertIn("storage.logical_total_files", script)
+        self.assertIn("storage.overlapping_file_references", script)
+        self.assertIn("scan.jsonl_progress_percent", script)
+        self.assertIn("scan.estimated_cycles_remaining", script)
+        self.assertIn("scan.phase_seconds", script)
+        self.assertIn("Langsamste Phase", script)
 
 
 if __name__ == "__main__":

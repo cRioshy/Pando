@@ -69,9 +69,18 @@ class PlatformConfig:
     brain_event_rotation_bytes: int = 200 * 1024 * 1024
     brain_event_day_warning_bytes: int = int(1.5 * 1024 * 1024 * 1024)
     jsonl_ledger_rotation_bytes: int = 128 * 1024 * 1024
+    service_error_journal_enabled: bool = True
+    service_error_journal_file: Path = PROJECT_ROOT / "data" / "service_errors.jsonl"
+    service_error_summary_file: Path = PROJECT_ROOT / "data" / "service_error_summary.json"
+    service_error_rotation_bytes: int = 5 * 1024 * 1024
+    service_error_max_archives: int = 4
+    service_error_max_summary_entries: int = 500
     neurobrain_receiver_enabled: bool = False
     neurobrain_inbox_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "inbox.jsonl"
     neurobrain_status_file: Path = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
+    neurobrain_queue_capacity: int = 2048
+    neurobrain_batch_size: int = 64
+    neurobrain_flush_interval_seconds: float = 0.25
     live_crypto: bool = False
     crypto_live_price_display: bool = False
     crypto_symbols: list[str] = field(default_factory=lambda: ["BTCUSDT", "ETHUSDT", "XRPUSDT"])
@@ -84,11 +93,12 @@ class PlatformConfig:
     cycle_interval: float = 60.0
     control_center_enabled: bool = True
     control_refresh_seconds: float = 1.0
+    service_heartbeat_stale_seconds: float = 150.0
     event_bus_max_history: int = 2000
     storage_scan_interval_seconds: float = 60.0
     storage_scan_timeout_seconds: float = 30.0
     storage_large_file_threshold_bytes: int = 50 * 1024 * 1024
-    storage_scan_byte_budget: int = 256 * 1024
+    storage_scan_byte_budget: int = 64 * 1024 * 1024
     adapter_error_backoff_seconds: float = 5.0
     adapter_cycle_timeout_seconds: float = 45.0
     stop_timeout_seconds: float = 2.0
@@ -129,6 +139,12 @@ class PlatformConfig:
         default_neurobrain_status = PROJECT_ROOT / "data" / "neurobrain" / "status.json"
         if self.neurobrain_status_file == default_neurobrain_status and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "neurobrain_status_file", self.data_dir / "neurobrain" / "status.json")
+        default_error_journal = PROJECT_ROOT / "data" / "service_errors.jsonl"
+        if self.service_error_journal_file == default_error_journal and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "service_error_journal_file", self.data_dir / "service_errors.jsonl")
+        default_error_summary = PROJECT_ROOT / "data" / "service_error_summary.json"
+        if self.service_error_summary_file == default_error_summary and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "service_error_summary_file", self.data_dir / "service_error_summary.json")
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -171,6 +187,24 @@ class PlatformConfig:
                 "PANDORICKKI_JSONL_LEDGER_ROTATION_BYTES",
                 128 * 1024 * 1024,
             ),
+            service_error_journal_enabled=_env_bool("PANDORICKKI_SERVICE_ERROR_JOURNAL_ENABLED", True),
+            service_error_journal_file=_env_path(
+                "PANDORICKKI_SERVICE_ERROR_JOURNAL_FILE",
+                data_dir / "service_errors.jsonl",
+            ),
+            service_error_summary_file=_env_path(
+                "PANDORICKKI_SERVICE_ERROR_SUMMARY_FILE",
+                data_dir / "service_error_summary.json",
+            ),
+            service_error_rotation_bytes=_env_int(
+                "PANDORICKKI_SERVICE_ERROR_ROTATION_BYTES",
+                5 * 1024 * 1024,
+            ),
+            service_error_max_archives=_env_int("PANDORICKKI_SERVICE_ERROR_MAX_ARCHIVES", 4),
+            service_error_max_summary_entries=_env_int(
+                "PANDORICKKI_SERVICE_ERROR_MAX_SUMMARY_ENTRIES",
+                500,
+            ),
             neurobrain_receiver_enabled=_env_bool("PANDORICKKI_NEUROBRAIN_RECEIVER_ENABLED", False),
             neurobrain_inbox_file=_env_path(
                 "PANDORICKKI_NEUROBRAIN_INBOX_FILE",
@@ -179,6 +213,12 @@ class PlatformConfig:
             neurobrain_status_file=_env_path(
                 "PANDORICKKI_NEUROBRAIN_STATUS_FILE",
                 data_dir / "neurobrain" / "status.json",
+            ),
+            neurobrain_queue_capacity=_env_int("PANDORICKKI_NEUROBRAIN_QUEUE_CAPACITY", 2048),
+            neurobrain_batch_size=_env_int("PANDORICKKI_NEUROBRAIN_BATCH_SIZE", 64),
+            neurobrain_flush_interval_seconds=_env_float(
+                "PANDORICKKI_NEUROBRAIN_FLUSH_INTERVAL",
+                0.25,
             ),
             live_crypto=_env_bool("PANDORICKKI_LIVE_CRYPTO", False),
             crypto_live_price_display=_env_bool("PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY", False),
@@ -198,6 +238,10 @@ class PlatformConfig:
             cycle_interval=_env_float("PANDORICKKI_CYCLE_INTERVAL", 60.0),
             control_center_enabled=_env_bool("PANDORICKKI_CONTROL_CENTER_ENABLED", True),
             control_refresh_seconds=_env_float("PANDORICKKI_CONTROL_REFRESH", 1.0),
+            service_heartbeat_stale_seconds=_env_float(
+                "PANDORICKKI_SERVICE_HEARTBEAT_STALE_SECONDS",
+                150.0,
+            ),
             event_bus_max_history=_env_int("PANDORICKKI_EVENT_BUS_MAX_HISTORY", 2000),
             storage_scan_interval_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_INTERVAL", 60.0),
             storage_scan_timeout_seconds=_env_float("PANDORICKKI_STORAGE_SCAN_TIMEOUT", 30.0),
@@ -207,7 +251,7 @@ class PlatformConfig:
             ),
             storage_scan_byte_budget=_env_int(
                 "PANDORICKKI_STORAGE_SCAN_BYTE_BUDGET",
-                256 * 1024,
+                64 * 1024 * 1024,
             ),
             adapter_error_backoff_seconds=_env_float("PANDORICKKI_ERROR_BACKOFF", 5.0),
             adapter_cycle_timeout_seconds=_env_float("PANDORICKKI_ADAPTER_CYCLE_TIMEOUT", 45.0),
@@ -259,6 +303,8 @@ class PlatformConfig:
             warnings.append("Cycle interval below 0.1 seconds; minimum runtime value is 0.1.")
         if self.control_refresh_seconds < 0.1:
             warnings.append("Control refresh below 0.1 seconds; minimum runtime value is 0.1.")
+        if self.service_heartbeat_stale_seconds < 1.0:
+            warnings.append("Service heartbeat stale threshold below 1 second; suitable only for tests.")
         if self.event_bus_max_history < 100:
             warnings.append("EventBus max history below 100; suitable only for tests.")
         if self.storage_scan_interval_seconds < 5.0:
@@ -275,8 +321,20 @@ class PlatformConfig:
             warnings.append("Brain event rotation size is below 1 MB; suitable only for tests.")
         if self.jsonl_ledger_rotation_bytes < 1024 * 1024:
             warnings.append("JSONL ledger rotation size is below 1 MB; suitable only for tests.")
+        if self.service_error_rotation_bytes < 64 * 1024:
+            warnings.append("Service error journal rotation size is below 64 KB; suitable only for tests.")
+        if self.service_error_max_archives < 1:
+            warnings.append("Service error journal keeps no archives; only the active file remains.")
+        if self.service_error_max_summary_entries < 10:
+            warnings.append("Service error summary entry limit below 10; suitable only for tests.")
         if self.neurobrain_receiver_enabled:
             warnings.append("NeuroBrain receiver is enabled in read-only event mirror mode.")
+        if self.neurobrain_queue_capacity < 1:
+            warnings.append("NeuroBrain queue capacity below 1; runtime clamps it to 1.")
+        if self.neurobrain_batch_size < 1:
+            warnings.append("NeuroBrain batch size below 1; runtime clamps it to 1.")
+        if self.neurobrain_flush_interval_seconds <= 0:
+            warnings.append("NeuroBrain flush interval is not positive; runtime uses 0.01 seconds.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -319,9 +377,18 @@ class PlatformConfig:
             brain_event_rotation_bytes=self.brain_event_rotation_bytes,
             brain_event_day_warning_bytes=self.brain_event_day_warning_bytes,
             jsonl_ledger_rotation_bytes=self.jsonl_ledger_rotation_bytes,
+            service_error_journal_enabled=self.service_error_journal_enabled,
+            service_error_journal_file=self.service_error_journal_file,
+            service_error_summary_file=self.service_error_summary_file,
+            service_error_rotation_bytes=self.service_error_rotation_bytes,
+            service_error_max_archives=self.service_error_max_archives,
+            service_error_max_summary_entries=self.service_error_max_summary_entries,
             neurobrain_receiver_enabled=self.neurobrain_receiver_enabled,
             neurobrain_inbox_file=self.neurobrain_inbox_file,
             neurobrain_status_file=self.neurobrain_status_file,
+            neurobrain_queue_capacity=self.neurobrain_queue_capacity,
+            neurobrain_batch_size=self.neurobrain_batch_size,
+            neurobrain_flush_interval_seconds=self.neurobrain_flush_interval_seconds,
             live_crypto=self.live_crypto,
             crypto_live_price_display=self.crypto_live_price_display,
             crypto_symbols=list(self.crypto_symbols),
@@ -334,6 +401,7 @@ class PlatformConfig:
             cycle_interval=self.cycle_interval,
             control_center_enabled=enabled,
             control_refresh_seconds=self.control_refresh_seconds,
+            service_heartbeat_stale_seconds=self.service_heartbeat_stale_seconds,
             event_bus_max_history=self.event_bus_max_history,
             storage_scan_interval_seconds=self.storage_scan_interval_seconds,
             storage_scan_timeout_seconds=self.storage_scan_timeout_seconds,

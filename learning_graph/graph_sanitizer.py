@@ -53,6 +53,11 @@ class GraphSanitizer:
             "analyses_processed",
             "patterns_recognized",
             "new_learnings_today",
+            "pattern_buckets",
+            "learning_projection_records_today",
+            "learning_update_events_total",
+            "ml_training_active",
+            "model_updates",
             "active_markets",
             "last_update",
             "system_status",
@@ -86,4 +91,3 @@ class GraphSanitizer:
         if any(marker in lower for marker in ("api_key", "token=", "password", "secret")):
             return True
         return False
-

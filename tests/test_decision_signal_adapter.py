@@ -15,9 +15,87 @@ from adapters.decision_signal_adapter import (
     DecisionSignalAdapter,
 )
 from event_bus import Event, EventBus
+from event_payload_contract import CONTRACT_NAME, CONTRACT_VERSION, contract_errors
 
 
 class DecisionSignalAdapterTest(unittest.TestCase):
+    def test_events_and_ledgers_use_compact_versioned_payloads(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                temp_path = Path(temp)
+                bus = EventBus()
+                decisions: list[Event] = []
+                signals: list[Event] = []
+                bus.subscribe(DECISION_CREATED, decisions.append)
+                bus.subscribe(SIGNAL_CREATED, signals.append)
+                adapter = DecisionSignalAdapter(
+                    bus,
+                    decisions_file=temp_path / "decisions.jsonl",
+                    signals_file=temp_path / "signals.jsonl",
+                )
+                brain_payload = {
+                    "market_type": "crypto",
+                    "symbol": "BTCUSDT",
+                    "direction": "LONG",
+                    "probability": 74.0,
+                    "confidence": 74.0,
+                    "price": 64260.0,
+                    "source_event_id": "analysis-compact-1",
+                    "source_timestamp": "2026-08-01T18:00:00+00:00",
+                    "indicators": {"atr": 250.0},
+                    "risk": {"stop_loss": 63000.0},
+                    "raw_result": {
+                        "result": "OPEN",
+                        "market_data": {
+                            "candles": [
+                                {"low": 62000.0 + index, "high": 65000.0 + index}
+                                for index in range(500)
+                            ]
+                        },
+                        "private_reasoning": "must not be copied",
+                    },
+                    "features": {"training_only": list(range(500))},
+                }
+
+                await adapter.start()
+                bus.publish(
+                    Event(
+                        topic=BRAIN_DECISION_RECEIVED,
+                        source="brain",
+                        payload={"payload": brain_payload},
+                    )
+                )
+                await adapter.stop()
+
+                decision_record = json.loads(
+                    (temp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()[0]
+                )["payload"]
+                signal_record = json.loads(
+                    (temp_path / "signals.jsonl").read_text(encoding="utf-8").splitlines()[0]
+                )["payload"]
+                payloads = (
+                    decisions[0].payload["payload"],
+                    signals[0].payload["payload"],
+                    decision_record,
+                    signal_record,
+                )
+                for compact in payloads:
+                    self.assertEqual(compact["schema_name"], CONTRACT_NAME)
+                    self.assertEqual(compact["schema_version"], CONTRACT_VERSION)
+                    self.assertEqual(contract_errors(compact), [])
+                    encoded = json.dumps(compact)
+                    self.assertNotIn("raw_result", encoded)
+                    self.assertNotIn("features", encoded)
+                    self.assertNotIn("candles", encoded)
+                    self.assertNotIn("private_reasoning", encoded)
+                self.assertEqual(decision_record["source_event_id"], "analysis-compact-1")
+                self.assertEqual(signal_record["decision_id"], decision_record["decision_id"])
+                self.assertEqual(signal_record["decision_event_id"], decisions[0].event_id)
+                self.assertEqual(decision_record["public_result"], "OPEN")
+                self.assertLess(len(json.dumps(signal_record)), len(json.dumps(brain_payload)) // 4)
+
+        asyncio.run(run())
+
     def test_brain_decision_creates_final_decision_and_signal_once(self) -> None:
         async def run() -> None:
             bus = EventBus()

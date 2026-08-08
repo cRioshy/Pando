@@ -12,6 +12,7 @@ from adapters.commodity_adapter import COMMODITY_ANALYSIS_FINISHED
 from adapters.stock_adapter import STOCK_ANALYSIS_FINISHED
 from brain_event_store import BrainEventWriter, DEFAULT_DAY_WARNING_BYTES, DEFAULT_ROTATION_BYTES
 from event_bus import Event, EventBus
+from event_payload_contract import compact_market_payload
 
 
 BRAIN_SERVICE_STARTED = "BRAIN_SERVICE_STARTED"
@@ -123,11 +124,19 @@ class BrainAdapter:
         """Store one completed market decision event."""
 
         try:
-            payload = event.payload.get("payload", {})
+            envelope = dict(event.payload) if isinstance(event.payload, dict) else {}
+            envelope.setdefault("event_type", event.topic)
+            envelope.setdefault("event_id", event.event_id)
+            payload = compact_market_payload(envelope)
+            received_at = datetime.now(UTC).isoformat()
+            payload["source_event_id"] = event.event_id
+            payload["event_type"] = envelope.get("event_type", event.topic)
+            payload["confidence"] = payload.get("probability")
+            payload["received_at"] = received_at
             record = {
-                "received_at": datetime.now(UTC).isoformat(),
+                "received_at": received_at,
                 "source_event_id": event.event_id,
-                "event_type": event.payload.get("event_type", event.topic),
+                "event_type": payload["event_type"],
                 "source": event.source,
                 "market_type": payload.get("market_type"),
                 "symbol": payload.get("symbol"),
@@ -144,22 +153,7 @@ class BrainAdapter:
             self.status.last_error = None
             self._publish(
                 BRAIN_DECISION_RECEIVED,
-                {
-                    "symbol": self.status.last_symbol,
-                    "market_type": record["market_type"],
-                    "direction": record["direction"],
-                    "probability": record["probability"],
-                    "confidence": record["probability"],
-                    "price": payload.get("price"),
-                    "current_price": payload.get("current_price") or payload.get("price"),
-                    "indicators": payload.get("indicators"),
-                    "risk": payload.get("risk"),
-                    "raw_result": payload.get("raw_result"),
-                    "received_decisions": self.status.received_decisions,
-                    "source_event_id": record["source_event_id"],
-                    "source_timestamp": record["source_timestamp"],
-                    "received_at": record["received_at"],
-                },
+                payload,
             )
             self._publish(
                 AI_LEARNING_UPDATED,

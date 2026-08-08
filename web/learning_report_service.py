@@ -14,6 +14,11 @@ from typing import Any
 
 from config import PlatformConfig
 from jsonl_ledger import related_jsonl_files
+from learning_metrics_contract import (
+    LEARNING_METRICS_SCHEMA_NAME,
+    LEARNING_METRICS_SCHEMA_VERSION,
+    build_learning_metrics,
+)
 
 
 INSUFFICIENT_DATA = "Nicht genuegend Daten"
@@ -138,6 +143,16 @@ class LearningReportService:
                     )
 
     def _pending_report(self, message: str) -> dict[str, Any]:
+        metrics = build_learning_metrics(
+            decisions_total=0,
+            outcome_eligible_decisions=0,
+            matched_outcomes=0,
+            wins=0,
+            losses=0,
+            matching_method="cache_pending",
+            coverage_reliable=False,
+        )
+        evaluation_score = {"score": 0, "components": {}, "verdict": message}
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "data_sources": self._data_sources(),
@@ -153,7 +168,13 @@ class LearningReportService:
                 "drawdown": INSUFFICIENT_DATA,
                 "holding_duration": INSUFFICIENT_DATA,
                 "learning_updates_per_decision": INSUFFICIENT_DATA,
+                "outcome_eligible_decisions": 0,
+                "matched_outcomes": 0,
+                "outcome_coverage_percent": None,
+                "hit_rate_numerator": 0,
+                "hit_rate_denominator": 0,
             },
+            "learning_metrics": metrics,
             "windows": [],
             "progress": {"verdict": message},
             "confidence_quality": [],
@@ -162,7 +183,8 @@ class LearningReportService:
             "timeframes": [],
             "indicators": [],
             "learning_curve": [],
-            "learning_score": {"score": 0, "components": {}, "verdict": message},
+            "evaluation_score": evaluation_score,
+            "learning_score": evaluation_score,
             "warnings": [message],
             "recommendations": ["Bitte kurz warten; die Live-Ansicht bleibt waehrenddessen bedienbar."],
             "cache": {
@@ -181,7 +203,16 @@ class LearningReportService:
                 data = json.load(handle)
         except (OSError, json.JSONDecodeError):
             return None
-        return data if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            return None
+        metrics = data.get("learning_metrics")
+        if not isinstance(metrics, dict):
+            return None
+        if metrics.get("schema_name") != LEARNING_METRICS_SCHEMA_NAME:
+            return None
+        if metrics.get("schema_version") != LEARNING_METRICS_SCHEMA_VERSION:
+            return None
+        return data
 
     def _cache_age_seconds(self, report: dict[str, Any]) -> float | None:
         generated_at = report.get("cache", {}).get("generated_at") or report.get("generated_at")
@@ -226,21 +257,49 @@ class LearningReportService:
             outcome_events = stock_learning_events
             outcome_source = "stock_learning_logs"
 
+        learning_metrics, matched_outcomes = self._learning_metrics(
+            all_decisions,
+            outcome_events,
+            outcome_source,
+        )
+        scoped_outcomes = matched_outcomes
+        evaluation_score = self._learning_score(all_decisions, scoped_outcomes)
+        metric_notes = [
+            "AI_LEARNING_UPDATED bezeichnet eine Beobachtungsprojektion; ein ML-Modelltraining ist nicht implementiert.",
+            "Hit-Rate verwendet ausschließlich Wins und Losses; Breakeven und unbekannte Outcomes stehen separat.",
+        ]
+        coverage = learning_metrics["rates"]["outcome_coverage_percent"]
+        if coverage is not None:
+            metric_notes.append(
+                "Outcome-Abdeckung: "
+                f"{learning_metrics['rates']['outcome_coverage_numerator']}/"
+                f"{learning_metrics['rates']['outcome_coverage_denominator']} "
+                f"outcome-faehige Decisions ({coverage:.2f} %)."
+            )
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "data_sources": self._data_sources(),
-            "summary": self._summary(all_decisions, outcome_events, crypto_records, outcome_source),
-            "windows": self._windows(all_decisions, outcome_events),
-            "progress": self._progress(all_decisions, outcome_events),
-            "confidence_quality": self._confidence_quality(all_decisions, outcome_events),
-            "market_comparison": self._market_comparison(all_decisions, outcome_events, crypto_records, outcome_source),
-            "symbol_comparison": self._symbol_comparison(all_decisions, outcome_events),
+            "summary": self._summary(
+                all_decisions,
+                matched_outcomes,
+                crypto_records,
+                outcome_source,
+                learning_metrics,
+            ),
+            "learning_metrics": learning_metrics,
+            "metric_notes": metric_notes,
+            "windows": self._windows(all_decisions, scoped_outcomes),
+            "progress": self._progress(all_decisions, scoped_outcomes),
+            "confidence_quality": self._confidence_quality(all_decisions, scoped_outcomes),
+            "market_comparison": self._market_comparison(all_decisions, scoped_outcomes, crypto_records, outcome_source),
+            "symbol_comparison": self._symbol_comparison(all_decisions, scoped_outcomes),
             "timeframes": self._timeframes(all_decisions),
-            "indicators": self._indicator_report(stock_decisions, crypto_records, outcome_events),
-            "learning_curve": self._learning_curve(all_decisions, outcome_events),
-            "learning_score": self._learning_score(all_decisions, outcome_events),
-            "warnings": self._warnings(all_decisions, outcome_events, crypto_records, outcome_source),
-            "recommendations": self._recommendations(all_decisions, outcome_events, crypto_records, outcome_source),
+            "indicators": self._indicator_report(stock_decisions, crypto_records, scoped_outcomes),
+            "learning_curve": self._learning_curve(all_decisions, scoped_outcomes),
+            "evaluation_score": evaluation_score,
+            "learning_score": evaluation_score,
+            "warnings": self._warnings(all_decisions, scoped_outcomes, crypto_records, outcome_source),
+            "recommendations": self._recommendations(all_decisions, scoped_outcomes, crypto_records, outcome_source),
         }
 
     def _data_sources(self) -> dict[str, str]:
@@ -450,26 +509,64 @@ class LearningReportService:
     def _summary(
         self,
         decisions: list[dict[str, Any]],
-        learning_events: list[dict[str, Any]],
+        matched_outcomes: list[dict[str, Any]],
         crypto_records: list[dict[str, Any]],
         outcome_source: str,
+        learning_metrics: dict[str, Any],
     ) -> dict[str, Any]:
-        outcomes = self._outcome_stats(learning_events)
+        rates = learning_metrics["rates"]
+        metric_decisions = learning_metrics["decisions"]
+        outcomes = learning_metrics["outcomes"]
         return {
             "decisions": len(decisions),
-            "learning_events_with_outcome": len(learning_events),
+            "learning_events_with_outcome": len(matched_outcomes),
+            "matched_outcomes": outcomes["matched"],
+            "outcome_eligible_decisions": metric_decisions["outcome_eligible"],
+            "outcome_coverage_percent": rates["outcome_coverage_percent"],
             "outcome_source": outcome_source,
             "crypto_decision_records": len(crypto_records),
-            "hit_rate": outcomes["hit_rate"],
+            "hit_rate": rates["hit_rate_percent"] if rates["hit_rate_percent"] is not None else INSUFFICIENT_DATA,
+            "hit_rate_numerator": rates["hit_rate_numerator"],
+            "hit_rate_denominator": rates["hit_rate_denominator"],
             "average_confidence": self._avg([d.get("confidence") for d in decisions]),
-            "average_profit_simulation": self._avg([e.get("price_change_percent") for e in learning_events]),
+            "average_profit_simulation": self._avg([e.get("price_change_percent") for e in matched_outcomes]),
             "average_loss_simulation": self._avg(
-                [e.get("price_change_percent") for e in learning_events if str(e.get("outcome")).lower() == "loss"]
+                [e.get("price_change_percent") for e in matched_outcomes if str(e.get("outcome")).lower() == "loss"]
             ),
             "drawdown": INSUFFICIENT_DATA,
             "holding_duration": INSUFFICIENT_DATA,
-            "learning_updates_per_decision": round(len(learning_events) / len(decisions), 4) if decisions else INSUFFICIENT_DATA,
+            "learning_updates_per_decision": INSUFFICIENT_DATA,
         }
+
+    def _learning_metrics(
+        self,
+        decisions: list[dict[str, Any]],
+        outcome_events: list[dict[str, Any]],
+        outcome_source: str,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """Build metrics from outcomes actually matched to this decision scope."""
+
+        pairs = self._paired_decision_outcomes(decisions, outcome_events)
+        matched_outcomes = [event for _, event in pairs]
+        stats = self._outcome_stats(matched_outcomes)
+        eligible = sum(
+            1
+            for decision in decisions
+            if str(decision.get("direction") or "").upper() in {"LONG", "BUY", "SHORT", "SELL"}
+        )
+        exact = outcome_source == "decision_id_trade_outcomes"
+        metrics = build_learning_metrics(
+            decisions_total=len(decisions),
+            outcome_eligible_decisions=eligible,
+            matched_outcomes=len(matched_outcomes),
+            wins=stats["wins"],
+            losses=stats["losses"],
+            breakeven=stats["breakeven"],
+            unknown=stats["unknown"],
+            matching_method="decision_id" if exact else "legacy_order_fallback",
+            coverage_reliable=exact,
+        )
+        return metrics, matched_outcomes
 
     def _windows(self, decisions: list[dict[str, Any]], learning_events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rows = []
@@ -750,15 +847,23 @@ class LearningReportService:
         ]
         if pairs:
             return pairs
+        if by_id or any(event.get("decision_id") for event in learning_events):
+            return []
         return list(zip(decisions[-len(learning_events) :], learning_events)) if learning_events else []
 
     def _outcome_stats(self, events: list[dict[str, Any]]) -> dict[str, Any]:
         wins = sum(1 for event in events if str(event.get("outcome") or "").lower() == "win")
         losses = sum(1 for event in events if str(event.get("outcome") or "").lower() == "loss")
+        breakeven = sum(1 for event in events if str(event.get("outcome") or "").lower() == "breakeven")
+        unknown = max(0, len(events) - wins - losses - breakeven)
         total = wins + losses
         return {
             "wins": wins,
             "losses": losses,
+            "breakeven": breakeven,
+            "unknown": unknown,
+            "closed": len(events),
+            "classified_for_hit_rate": total,
             "hit_rate": round(wins / total * 100, 2) if total else INSUFFICIENT_DATA,
         }
 

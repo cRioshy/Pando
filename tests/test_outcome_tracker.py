@@ -10,7 +10,14 @@ from pathlib import Path
 
 from adapters.crypto_trade_tracker import CRYPTO_TRADE_UPDATED
 from adapters.decision_signal_adapter import DECISION_CREATED, SIGNAL_CREATED
-from adapters.outcome_tracker import SIMULATED_TRADE_CLOSED, SIMULATED_TRADE_OPENED, SIMULATED_TRADE_UPDATED, OutcomeTracker
+from adapters.outcome_tracker import (
+    OUTCOME_TRACKER_ERROR,
+    SIMULATED_TRADE_CLOSED,
+    SIMULATED_TRADE_OPENED,
+    SIMULATED_TRADE_UPDATED,
+    OutcomeTracker,
+    _duration_seconds,
+)
 from event_bus import Event, EventBus
 
 
@@ -103,6 +110,24 @@ def market_update(
 
 
 class OutcomeTrackerTest(unittest.TestCase):
+    def test_duration_seconds_normalizes_legacy_naive_timestamps_to_utc(self) -> None:
+        cases = (
+            ("2026-07-22T10:00:00", "2026-07-22T10:05:00", 300.0),
+            ("2026-07-22T10:00:00", "2026-07-22T10:05:00+00:00", 300.0),
+            ("2026-07-22T10:00:00+00:00", "2026-07-22T10:05:00", 300.0),
+            ("2026-07-22T10:00:00Z", "2026-07-22T10:05:00+00:00", 300.0),
+            ("2026-07-22T10:00:00+01:00", "2026-07-22T09:05:00+00:00", 300.0),
+        )
+
+        for start, end, expected in cases:
+            with self.subTest(start=start, end=end):
+                self.assertEqual(_duration_seconds(start, end), expected)
+        self.assertIsNone(_duration_seconds("not-a-time", "2026-07-22T10:05:00+00:00"))
+        self.assertEqual(
+            _duration_seconds("2026-07-22T10:05:00+00:00", "2026-07-22T10:00:00+00:00"),
+            0.0,
+        )
+
     def test_long_decision_opens_persistent_simulated_trade_once(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:
@@ -351,6 +376,38 @@ class OutcomeTrackerTest(unittest.TestCase):
                 self.assertEqual(closed_payload["result_type"], "WIN")
                 self.assertEqual(closed_payload["gross_profit_percent"], 1.0)
                 self.assertEqual(records[-1]["record_type"], "SIMULATED_TRADE_CLOSED")
+
+        asyncio.run(run())
+
+    def test_legacy_naive_entry_time_closes_against_utc_market_update(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                bus = EventBus()
+                closed = []
+                errors = []
+                bus.subscribe(SIMULATED_TRADE_CLOSED, closed.append)
+                bus.subscribe(OUTCOME_TRACKER_ERROR, errors.append)
+                tracker = OutcomeTracker(
+                    bus,
+                    open_trades_file=Path(temp) / "open.json",
+                    outcomes_file=Path(temp) / "outcomes.jsonl",
+                    evaluation_horizon_seconds=60,
+                )
+                legacy_decision = decision("LONG", decision_id="legacy-naive")
+                legacy_decision.payload["payload"]["created_at"] = "2026-07-22T10:00:00"
+
+                await tracker.start()
+                bus.publish(legacy_decision)
+                bus.publish(market_update(price=101.0, source_timestamp="2026-07-22T10:02:00+00:00"))
+                health = await tracker.health()
+                await tracker.stop()
+
+                self.assertEqual(errors, [])
+                self.assertEqual(health["closed_trades"], 1)
+                self.assertTrue(health["healthy"])
+                self.assertIsNone(health["last_error"])
+                self.assertEqual(closed[0].payload["payload"]["decision_id"], "legacy-naive")
+                self.assertGreaterEqual(closed[0].payload["payload"]["holding_seconds"], 120.0)
 
         asyncio.run(run())
 

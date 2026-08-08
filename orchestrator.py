@@ -20,6 +20,7 @@ from adapters.telegram_adapter import TelegramAdapter
 from config import PlatformConfig
 from event_bus import Event, EventBus
 from health_monitor import HealthMonitor, HealthReport
+from service_error_journal import ServiceErrorJournal
 from shared_state import SharedState
 
 
@@ -82,18 +83,32 @@ class Orchestrator:
         health_monitor: HealthMonitor | None = None,
         adapters: list[ServiceAdapter] | None = None,
         config: PlatformConfig | None = None,
+        error_journal: ServiceErrorJournal | None = None,
     ) -> None:
         self.config = config or PlatformConfig.from_env()
         self.event_bus = event_bus or EventBus(max_history=self.config.event_bus_max_history)
         self.shared_state = shared_state or SharedState(self.config.shared_state_file)
         self.health_monitor = health_monitor or HealthMonitor()
         self.adapters = adapters or self._default_adapters()
+        self.error_journal = error_journal
+        if self.error_journal is None and adapters is None and self.config.service_error_journal_enabled:
+            self.error_journal = ServiceErrorJournal(
+                self.event_bus,
+                journal_file=self.config.service_error_journal_file,
+                summary_file=self.config.service_error_summary_file,
+                rotation_bytes=self.config.service_error_rotation_bytes,
+                max_archives=self.config.service_error_max_archives,
+                max_summary_entries=self.config.service_error_max_summary_entries,
+            )
         self._live_control_task: asyncio.Task | None = None
         self.event_bus.subscribe("*", self._record_event)
 
     async def start(self) -> None:
         """Start all adapters."""
 
+        if self.error_journal is not None:
+            self.error_journal.start()
+            self._sync_error_journal_health()
         for adapter in self.adapters:
             try:
                 await adapter.start()
@@ -101,11 +116,7 @@ class Orchestrator:
             except Exception as exc:
                 self.shared_state.update_service(adapter.name, "ERROR", {"error": str(exc)})
                 self.event_bus.publish(
-                    Event(
-                        topic="service.error",
-                        source=adapter.name,
-                        payload={"error": str(exc)},
-                    )
+                    Event(topic="service.error", source=adapter.name, payload={"error": str(exc)})
                 )
 
     async def stop(self) -> None:
@@ -118,6 +129,17 @@ class Orchestrator:
                 self.shared_state.update_service(adapter.name, "STOPPED")
             except Exception as exc:
                 self.shared_state.update_service(adapter.name, "ERROR", {"error": str(exc)})
+                self.event_bus.publish(
+                    Event(
+                        topic="service.error",
+                        source=adapter.name,
+                        payload={"error": str(exc)},
+                    )
+                )
+        if self.error_journal is not None:
+            self._sync_error_journal_health()
+            self.error_journal.stop()
+            self.shared_state.update_service(self.error_journal.name, "STOPPED")
 
     async def run_once(self, *, final_control_snapshot: bool = True) -> HealthReport:
         """Run one orchestration cycle with real asyncio service tasks."""
@@ -130,6 +152,8 @@ class Orchestrator:
             for adapter in self.adapters
         ]
         await asyncio.gather(*tasks)
+
+        self._sync_error_journal_health()
 
         if final_control_snapshot:
             await self._publish_final_control_snapshot()
@@ -149,6 +173,7 @@ class Orchestrator:
         max_cycles: int | None = None,
         should_pause: Callable[[], bool] | None = None,
         should_stop: Callable[[], bool] | None = None,
+        take_restart_request: Callable[[], bool] | None = None,
     ) -> HealthReport | None:
         """Run orchestration cycles until cancelled or max_cycles is reached."""
 
@@ -160,18 +185,80 @@ class Orchestrator:
         while max_cycles is None or cycles < max_cycles:
             if should_stop is not None and should_stop():
                 break
+            if take_restart_request is not None and take_restart_request():
+                await self._restart_adapters(
+                    restart_live_control=live_control,
+                    refresh_seconds=refresh_seconds,
+                )
+                continue
             if should_pause is not None and should_pause():
-                await asyncio.sleep(max(min(cycle_interval, 1.0), 0.1))
+                action = await self._wait_for_control_action(
+                    min(max(cycle_interval, 0.1), 1.0),
+                    should_stop=should_stop,
+                    take_restart_request=take_restart_request,
+                )
+                if action == "stop":
+                    break
+                if action == "restart":
+                    await self._restart_adapters(
+                        restart_live_control=live_control,
+                        refresh_seconds=refresh_seconds,
+                    )
                 continue
             last_report = await self.run_once(final_control_snapshot=final_control_snapshot)
             cycles += 1
             if max_cycles is not None and cycles >= max_cycles:
                 break
-            await asyncio.sleep(max(cycle_interval, 0.1))
+            action = await self._wait_for_control_action(
+                max(cycle_interval, 0.1),
+                should_stop=should_stop,
+                take_restart_request=take_restart_request,
+            )
+            if action == "stop":
+                break
+            if action == "restart":
+                await self._restart_adapters(
+                    restart_live_control=live_control,
+                    refresh_seconds=refresh_seconds,
+                )
         if live_control:
             await self.stop_live_control()
             await self._publish_final_control_snapshot()
         return last_report
+
+    async def _wait_for_control_action(
+        self,
+        delay: float,
+        *,
+        should_stop: Callable[[], bool] | None,
+        take_restart_request: Callable[[], bool] | None,
+    ) -> str | None:
+        """Wait interruptibly so stop and restart do not wait for the next cycle."""
+
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(delay, 0.0)
+        while True:
+            if should_stop is not None and should_stop():
+                return "stop"
+            if take_restart_request is not None and take_restart_request():
+                return "restart"
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            await asyncio.sleep(min(remaining, 0.1))
+
+    async def _restart_adapters(
+        self,
+        *,
+        restart_live_control: bool,
+        refresh_seconds: float,
+    ) -> None:
+        """Restart the existing adapter set without replacing the web process."""
+
+        await self.stop()
+        await self.start()
+        if restart_live_control:
+            await self.start_live_control(refresh_seconds=refresh_seconds)
 
     async def start_live_control(self, refresh_seconds: float = 1.0) -> None:
         """Start the ControlCenter live view as a background task."""
@@ -223,10 +310,38 @@ class Orchestrator:
             return
 
         event_count = self._publish_adapter_results(adapter.name, results)
+        adapter_health = await adapter.health()
+        healthy = adapter_health.get("healthy")
+        if healthy is False:
+            service_status = "DEGRADED" if results else "ERROR"
+        else:
+            service_status = "OK"
+        health_details = {
+            key: value
+            for key, value in adapter_health.items()
+            if key
+            in {
+                "healthy",
+                "last_error",
+                "last_error_details",
+                "cycles",
+                "published_results",
+                "test_mode",
+                "queue_depth",
+                "queue_capacity",
+                "batch_size",
+                "batches_written",
+                "dropped_events",
+                "failed_events",
+                "status_write_failures",
+                "notification_failures",
+                "worker_running",
+            }
+        }
         self.shared_state.update_service(
             adapter.name,
-            "OK",
-            {"results": len(results), "events": event_count},
+            service_status,
+            {"results": len(results), "events": event_count, **health_details},
         )
 
     async def _run_adapter_once(self, adapter: ServiceAdapter) -> list[Any]:
@@ -301,6 +416,22 @@ class Orchestrator:
             },
         )
 
+    def _sync_error_journal_health(self) -> None:
+        """Project journal health into shared state without exposing local paths."""
+
+        if self.error_journal is None:
+            return
+        health = self.error_journal.health()
+        status = "OK" if health.get("healthy") else "ERROR"
+        self.shared_state.update_service(
+            self.error_journal.name,
+            status,
+            {
+                key: health.get(key)
+                for key in ("running", "healthy", "events_recorded", "unique_errors", "failed_writes", "last_error")
+            },
+        )
+
     def _default_adapters(self) -> list[ServiceAdapter]:
         """Return safe placeholders for Phase 3 ground-system validation."""
 
@@ -341,6 +472,9 @@ class Orchestrator:
                         inbox_file=self.config.neurobrain_inbox_file,
                         status_file=self.config.neurobrain_status_file,
                         ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+                        queue_capacity=self.config.neurobrain_queue_capacity,
+                        batch_size=self.config.neurobrain_batch_size,
+                        flush_interval_seconds=self.config.neurobrain_flush_interval_seconds,
                     )
                 ]
                 if self.config.neurobrain_receiver_enabled

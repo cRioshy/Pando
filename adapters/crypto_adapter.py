@@ -14,6 +14,7 @@ from types import ModuleType
 from typing import Any
 from uuid import uuid4
 
+from adapters.crypto_market_data_service import CryptoMarketDataError, CryptoMarketDataService
 from adapters.crypto_price_service import CryptoPriceService
 from event_bus import Event, EventBus
 from features.feature_engine import FeatureEngine, FeatureEngineError
@@ -49,6 +50,7 @@ class CryptoAdapterStatus:
     healthy: bool = True
     cycles: int = 0
     last_error: str | None = None
+    last_error_details: dict[str, Any] | None = None
     last_event_at: str | None = None
     published_results: int = 0
     test_mode: bool = True
@@ -74,6 +76,7 @@ class CryptoAdapter:
         persist_existing: bool = False,
         load_existing_brain: bool = False,
         suppress_output: bool = True,
+        market_data_service: CryptoMarketDataService | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.crypto_project_path = crypto_project_path
@@ -87,15 +90,16 @@ class CryptoAdapter:
         self.suppress_output = suppress_output
         self.status = CryptoAdapterStatus(test_mode=test_mode, live_price_display=live_price_display)
         self._pipeline: ModuleType | None = None
-        self._market: ModuleType | None = None
         self._models: ModuleType | None = None
         self._brain: ModuleType | None = None
         self._correlation_id: str | None = None
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._price_service = CryptoPriceService()
+        self._market_data_service = market_data_service or CryptoMarketDataService()
         self._feature_engine = FeatureEngine()
         self._last_live_price_source: str | None = None
         self._last_price_diagnostics: dict[str, Any] = {}
+        self._market_diagnostics: dict[str, dict[str, Any]] = {}
 
     async def start(self) -> None:
         """Load safe crypto modules and optional brain state."""
@@ -111,6 +115,7 @@ class CryptoAdapter:
             self.status.running = True
             self.status.healthy = True
             self.status.last_error = None
+            self.status.last_error_details = None
             self._publish(CRYPTO_SERVICE_STARTED, {"status": "started", "test_mode": self.test_mode})
         except Exception as exc:
             self.status.running = False
@@ -134,6 +139,7 @@ class CryptoAdapter:
         self.status.cycles += 1
         self._correlation_id = str(uuid4())
         results: list[dict[str, Any]] = []
+        cycle_errors: list[dict[str, Any]] = []
 
         for symbol in self.symbols:
             try:
@@ -150,17 +156,34 @@ class CryptoAdapter:
                 )
                 self._publish_analysis_finished(normalized)
             except Exception as exc:
-                self.status.healthy = False
-                self.status.last_error = str(exc)
-                self._publish(CRYPTO_SERVICE_ERROR, {"symbol": symbol, "error": str(exc)})
+                diagnostics = getattr(exc, "diagnostics", None)
+                error = {
+                    "symbol": symbol,
+                    "stage": "market_data" if isinstance(exc, CryptoMarketDataError) else "analysis",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+                if diagnostics:
+                    error["diagnostics"] = diagnostics
+                cycle_errors.append(error)
+                self._publish(CRYPTO_SERVICE_ERROR, error)
 
+        self.status.healthy = bool(results) and not cycle_errors
+        if cycle_errors:
+            self.status.last_error = cycle_errors[-1]["error"]
+            self.status.last_error_details = cycle_errors[-1]
+        else:
+            self.status.last_error = None
+            self.status.last_error_details = None
         self._publish(
             CRYPTO_SERVICE_HEARTBEAT,
-            {"status": "ok" if self.status.healthy else "degraded", "cycle": self.status.cycles},
+            {
+                "status": "ok" if self.status.healthy else ("degraded" if results else "error"),
+                "cycle": self.status.cycles,
+                "results": len(results),
+                "errors": len(cycle_errors),
+            },
         )
-        if results:
-            self.status.healthy = True
-            self.status.last_error = None
         return results
 
     async def health(self) -> dict[str, Any]:
@@ -172,6 +195,7 @@ class CryptoAdapter:
             "healthy": self.status.healthy,
             "cycles": self.status.cycles,
             "last_error": self.status.last_error,
+            "last_error_details": self.status.last_error_details,
             "published_results": self.status.published_results,
             "test_mode": self.status.test_mode,
             "live_price_display": self.status.live_price_display,
@@ -211,8 +235,6 @@ class CryptoAdapter:
             self._pipeline = importlib.import_module("pandorick_pipeline")
             self._models = importlib.import_module("models")
             self._brain = importlib.import_module("brain")
-            if not self.test_mode:
-                self._market = importlib.import_module("market")
         finally:
             if inserted:
                 try:
@@ -238,8 +260,16 @@ class CryptoAdapter:
         if self.test_mode:
             market_data = self._build_test_market_data(symbol)
         else:
-            assert self._market is not None
-            market_data = self._market.get_market_data(symbol, self.timeframe, self.candle_limit)
+            assert self._models is not None
+            snapshot = self._market_data_service.fetch(symbol, self.timeframe, self.candle_limit)
+            self._market_diagnostics[symbol] = snapshot.diagnostics
+            market_data = self._models.MarketData(
+                symbol=snapshot.symbol,
+                timeframe=snapshot.timeframe,
+                candles=snapshot.candles,
+                open_interest=snapshot.open_interest,
+                funding_rate=snapshot.funding_rate,
+            )
 
         if not self.suppress_output:
             return self._analyse_with_brain_guard(market_data)
@@ -352,6 +382,9 @@ class CryptoAdapter:
             "price_status": price_status,
             "price_error": price_diagnostics.get("last_error"),
             "price_attempts": price_diagnostics.get("attempts", []),
+            "market_data_diagnostics": dict(
+                self._market_diagnostics.get(str(market_data.get("symbol") or decision.get("symbol")), {})
+            ),
             "features": feature_payload.get("features"),
             "feature_error": feature_payload.get("feature_error"),
             "risk": risk,

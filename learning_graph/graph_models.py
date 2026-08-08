@@ -58,6 +58,11 @@ class GraphStats:
     analyses_processed: int = 0
     patterns_recognized: int = 0
     new_learnings_today: int = 0
+    pattern_buckets: int = 0
+    learning_projection_records_today: int = 0
+    learning_update_events_total: int = 0
+    ml_training_active: bool = False
+    model_updates: int = 0
     active_markets: int = 0
     last_update: str | None = None
     system_status: str = "PENDING"
@@ -94,4 +99,3 @@ def stable_edge_id(source: str, edge_type: str, target: str) -> str:
     """Create a stable public edge id."""
 
     return f"{source}|{edge_type}|{target}"
-

@@ -181,6 +181,7 @@ async def run_platform_continuous(
             max_cycles=cycles,
             should_pause=web_server.is_paused if web_server else None,
             should_stop=web_server.should_stop if web_server else None,
+            take_restart_request=web_server.take_restart_request if web_server else None,
         )
     except KeyboardInterrupt:
         with suppress(Exception):

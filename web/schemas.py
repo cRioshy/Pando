@@ -95,3 +95,16 @@ class WebControlState:
 
         with self._lock:
             return self.stop_requested
+
+    def take_restart_request(self) -> bool:
+        """Atomically consume one pending platform restart request."""
+
+        with self._lock:
+            if not self.restart_requested:
+                return False
+            self.restart_requested = False
+            completed_at = datetime.now(UTC).isoformat()
+            if self.last_command and self.last_command.get("action") == "restart":
+                self.last_command["status"] = "APPLIED"
+                self.last_command["completed_at"] = completed_at
+            return True
