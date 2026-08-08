@@ -20,6 +20,7 @@ Nach ausdrücklicher Benutzerfreigabe den validierten PR #18 aus dem Draft nehme
 - PR #3 konnte nicht geschlossen werden, weil GitHub ihn durch die nun vollständige Commit-Erreichbarkeit automatisch als `MERGED` markiert hatte. Sein angezeigter Merge-Commit ist sein bereits enthaltener Head `599d29a`, nicht ein zusätzlicher Main-Merge.
 - Abschließend PR #3 bis #18 und die Liste offener PRs geprüft: #18 gemergt, #4 bis #17 geschlossen, #3 automatisch als gemergt markiert, keine offenen PRs.
 - Für diese verpflichtende Abschlussdokumentation Branch `agent/document-main-integration` direkt von aktuellem `origin/main` erstellt. Keine Produktlogik oder Architektur verändert.
+- Vier Übergabedateien als Commit `db9d06a` veröffentlicht und Draft-PR #19 gegen `main` erstellt: `https://github.com/cRioshy/Pando/pull/19`.
 
 ### Veränderte Dateien
 
@@ -39,6 +40,7 @@ Nach ausdrücklicher Benutzerfreigabe den validierten PR #18 aus dem Draft nehme
 - `gh pr close` für PR #3 bis #17 mit Superseded-Hinweis; PR #3 lieferte den Hinweis, dass er bereits als gemergt gilt.
 - Abschließende `gh pr view`-Prüfung für PR #3 bis #18 sowie `gh pr list --state open`.
 - `git switch -c agent/document-main-integration origin/main`.
+- Explizites Staging der vier Dokumente, Commit `db9d06a`, Push und `gh pr create --draft` für PR #19.
 
 ### Ausgeführte Tests
 
@@ -53,6 +55,7 @@ Nach ausdrücklicher Benutzerfreigabe den validierten PR #18 aus dem Draft nehme
 - PR #4 bis #17: `CLOSED`, `mergedAt=null`.
 - PR #3: GitHub-Status `MERGED` um 14:21:33 UTC durch Commit-Erreichbarkeit; kein zusätzlicher Merge-Commit auf `main`.
 - Offene PRs nach Abschluss: 0.
+- Danach ausschließlich Draft-PR #19 für die verpflichtende Abschlussdokumentation geöffnet.
 - Vor dem Merge bereits bestanden: Runtime-Preflight, 243/243 Tests in 50,518 Sekunden, JavaScript-Syntax, Diff-, Merge-Simulations-, Runtime- und Secret-Prüfung.
 
 ### Bekannte Fehler
@@ -70,12 +73,12 @@ Nach ausdrücklicher Benutzerfreigabe den validierten PR #18 aus dem Draft nehme
 
 ### Nicht abgeschlossene Punkte
 
-- Die Abschlussdokumentation dieses Merges muss noch über einen separaten kleinen Dokumentations-PR nach `main` gelangen.
+- Die Abschlussdokumentation liegt in Draft-PR #19 und ist noch nicht nach `main` gemergt.
 - Der Feature-Datenqualitätsvertrag wurde noch nicht begonnen.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Die vier aktualisierten Übergabedateien prüfen, auf `agent/document-main-integration` committen und einen kleinen Draft-PR gegen `main` eröffnen. Nach dessen bewusster Integration als nächsten technischen Schritt ausschließlich den Feature-Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen.
+Draft-PR #19 prüfen und nach ausdrücklicher Freigabe nach `main` mergen. Danach als nächsten technischen Schritt ausschließlich den Feature-Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte und Warmup entwerfen.
 
 ---
 

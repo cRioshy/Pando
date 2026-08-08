@@ -8,7 +8,8 @@ Stand: 8. August 2026
 - `origin/main` steht auf Merge-Commit `d219fcb`; der vollständige Integrations-Head `3853d41` ist enthalten.
 - Vor der Veröffentlichung bestanden Runtime-Preflight, 243/243 Tests, JavaScript-Syntax, `git diff --check`, Merge-Simulation sowie Runtime-/Secret-Scopeprüfung.
 - PR #4 bis #17 wurden als ersetzt geschlossen. PR #3 wurde durch die vollständige Commit-Erreichbarkeit automatisch als gemergt markiert; es gab keinen zusätzlichen Einzel-Merge.
-- Es sind keine offenen Pull Requests verblieben.
+- Nach Abschluss der alten Kette waren zunächst keine offenen Pull Requests verblieben.
+- Die verpflichtende Abschlussdokumentation liegt anschließend in Draft-PR #19: `https://github.com/cRioshy/Pando/pull/19`.
 - Nächster technischer Schritt ist der Feature-Datenqualitätsvertrag.
 
 ## Verbindliche Reihenfolge
