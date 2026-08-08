@@ -1,5 +1,80 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Post-Merge-Liveübergabe auf GitHub veröffentlichen
+
+### Datum und Uhrzeit
+
+8. August 2026, 17:10 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach erneuerter GitHub-Anmeldung und ausdrücklicher Freigabe für das öffentliche Repository ausschließlich den vorbereiteten Dokumentationsbranch veröffentlichen und einen Draft-Pull-Request gegen `main` erstellen. Nichts mergen und weder Produktcode noch Runtime-Daten verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, Git-Branch, Remote, Commit und Dateiscope erneut geprüft.
+- GitHub-Anmeldung außerhalb der lokalen Netzwerksperre als aktives Konto `cRioshy` bestätigt; Ziel als öffentliches Repository `cRioshy/Pando` mit Defaultbranch `main` verifiziert.
+- Nach ausdrücklicher Benutzerfreigabe Branch `agent/document-post-merge-live-verification` mit Commit `2f50881a368e714236ac825139267bbfe8205de5` zu `origin` gepusht.
+- GitHub-App versuchte bevorzugt, den PR anzulegen, erhielt aber `403 Resource not accessible by integration`. Danach gemäß Veröffentlichungsworkflow die authentifizierte GitHub-CLI als Fallback verwendet.
+- Draft-PR #20 gegen `main` erstellt und anschließend als offen, Draft, mergebar und auf den richtigen Head geprüft.
+- `main` blieb unverändert auf `381229a66c5ac8ed121297457fa4315155c55176`.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine dauerhaften Dateien. Die temporäre PR-Beschreibungsdatei wurde nach erfolgreicher PR-Erstellung wieder entfernt.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen der fünf Pflichtdokumente und des GitHub-Veröffentlichungsworkflows.
+- `gh --version`, `gh auth status`, `gh repo view`, Git-Status-, Remote-, Branch-, Commit-, Scope- und Diffprüfungen.
+- `git push -u origin agent/document-post-merge-live-verification`.
+- Bevorzugter PR-Versuch über die GitHub-App; danach `gh pr create --draft` als dokumentierter Fallback.
+- `gh pr view 20`, GitHub-Main-Head- und lokale/Remote-Refprüfungen.
+
+### Ausgeführte Tests
+
+- `git diff origin/main...HEAD --check` vor der Veröffentlichung.
+- Branch-, Commit-, Dateiscope- und Remoteprüfung.
+- GitHub-Authentifizierungs-, Repository-, Draft-, Basisbranch-, Headbranch-, Head-SHA-, Mergeability- und Main-Unverändert-Prüfung.
+- Keine Softwaretests, weil ausschließlich bereits geprüfte Dokumentation veröffentlicht und kein Produktcode geändert wurde.
+
+### Tatsächliche Testergebnisse
+
+- GitHub-Anmeldung: aktiv als `cRioshy`, Git-Protokoll HTTPS, erforderlicher `repo`-Scope vorhanden.
+- Repository: `cRioshy/Pando`, Sichtbarkeit `PUBLIC`, Defaultbranch `main`.
+- Gepushter Branch: `agent/document-post-merge-live-verification`.
+- Veröffentlichter Commit vor diesem Abschlussnachtrag: `2f50881a368e714236ac825139267bbfe8205de5`.
+- Draft-PR #20: `OPEN`, `isDraft=true`, `MERGEABLE`, Basis `main`, Head `agent/document-post-merge-live-verification`.
+- PR-URL: `https://github.com/cRioshy/Pando/pull/20`.
+- `main` blieb auf `381229a66c5ac8ed121297457fa4315155c55176`; kein Merge wurde ausgeführt.
+
+### Bekannte Fehler
+
+- Die GitHub-App besitzt für die PR-Erstellung weiterhin nicht die erforderliche Berechtigung; die authentifizierte GitHub-CLI funktionierte als vorgesehener Fallback.
+- Die offenen Produktprobleme aus `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produkt- oder Systemarchitektur geändert.
+- Veröffentlichung enthält ausschließlich die vier bereits freigegebenen technischen Übergabedokumente sowie diesen verpflichtenden Dokumentationsnachtrag.
+- PR #20 bleibt Draft. `main`, Telegram-Konfiguration und reale Orderausführung wurden nicht verändert.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #20 ist bewusst nicht gemergt.
+- Der Feature-Datenqualitätsvertrag wurde noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #20 prüfen und nur nach ausdrücklicher Freigabe nach `main` mergen. Danach den Feature-Engine-Datenfluss und alle Consumer read-only inventarisieren und zuerst einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup entwerfen.
+
+---
+
 ## Aktuelle Aufgabe: Gemergten `main`-Stand kontrolliert neu starten und live prüfen
 
 ### Datum und Uhrzeit
