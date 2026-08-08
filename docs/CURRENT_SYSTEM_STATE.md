@@ -132,7 +132,9 @@ Die Standardpfade für Crypto und Aktien sind rechnergebundene Windows-Pfade und
 
 `features/feature_engine.py` normalisiert OHLCV-Aliase und berechnet Preis-, Return-, Momentum-, Trend-, Volatilitäts-, Volumen-, Kerzenstruktur- und technische Indikatorgruppen. Dazu gehören unter anderem SMA, EMA, ATR, RSI, MACD, ADX, Bollinger, Stochastic, CCI, Williams %R, OBV, MFI, ROC und KAMA.
 
-Live-Adapter verwenden `include_targets=False`; historische Trainingsziele werden damit nicht in den Livepfad gegeben. Es fehlen weiterhin strikte Eingangsvalidierung, Mindestkerzen-/Warmup-Verträge, Feature-Schemaversionierung und eine New-Candle-/Cache-Strategie.
+Vor jeder Berechnung wendet die Feature Engine den Vertrag `pandorickki.feature-data-quality` Version 1 aus `feature_data_quality_contract.py` an. Er prüft endliche und positive OHLC-Werte, OHLC-Konsistenz, nicht negatives Volumen und gültige Zeitstempel. Vollständig zeitgestempelte Reihen werden aufsteigend sortiert; gleiche Zeitstempel behalten deterministisch die letzte Providerzeile. Fehlende oder teilweise Zeitstempel werden nicht geraten, sondern als unverifizierte Providerreihenfolge ausgewiesen. Ungültige Zeilen, Duplikate, Sortierstatus, Mindestanzahl und Warmup erscheinen unter `metadata.data_quality`.
+
+Die Mindestanzahl ist aus Rückwärtskompatibilitätsgründen standardmäßig eine valide Kerze, während vollständiger Indikator-Warmup derzeit 200 Kerzen verlangt. Einzelsnapshots bleiben damit sichtbar, behaupten aber über `warmup.status=WARMING` keine vollständige Indikatorreife. Crypto-Kerzen behalten jetzt ihren Provider-Zeitstempel. Live-Adapter verwenden weiterhin `include_targets=False`; historische Trainingsziele gelangen nicht in den Livepfad. Eine New-Candle-/Cache-Strategie und ein fachliches Decision Gate sind weiterhin nicht implementiert.
 
 ## Brain
 

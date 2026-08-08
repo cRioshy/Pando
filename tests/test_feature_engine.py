@@ -59,6 +59,33 @@ class FeatureEngineTest(unittest.TestCase):
         with self.assertRaises(FeatureEngineError):
             FeatureEngine().compute([{"close": None}])
 
+    def test_quality_contract_is_exposed_in_metadata(self) -> None:
+        rows = candles(3)
+        for index, row in enumerate(rows):
+            row["timestamp"] = 3 - index
+
+        result = FeatureEngine().compute(rows).to_dict()
+
+        quality = result["metadata"]["data_quality"]
+        self.assertEqual(quality["schema_name"], "pandorickki.feature-data-quality")
+        self.assertEqual(quality["schema_version"], 1)
+        self.assertEqual(quality["order"]["status"], "VERIFIED")
+        self.assertTrue(quality["order"]["reordered"])
+        self.assertEqual(quality["warmup"]["status"], "WARMING")
+        self.assertEqual(result["live_features"]["price"]["close"], rows[0]["close"])
+
+    def test_non_finite_optional_context_is_not_exposed(self) -> None:
+        result = FeatureEngine().compute(
+            candles(),
+            optional_context={
+                "funding_rate": float("nan"),
+                "nested": {"value": float("inf")},
+            },
+        ).to_dict()
+
+        self.assertNotIn("funding_rate", result["live_features"]["optional_context"])
+        self.assertEqual(result["live_features"]["optional_context"]["nested"], {})
+
 
 if __name__ == "__main__":
     unittest.main()

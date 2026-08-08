@@ -18,6 +18,8 @@ Vor Änderungen an Markt-, Brain-, Decision-, Signal- oder NeuroBrain-Payloads m
 
 Vor Änderungen an Learning-, Outcome-, Hit-Rate-, Pattern- oder Trainingsmetriken muss zusätzlich `docs/LEARNING_METRICS_CONTRACT.md` gelesen und gegen die tatsächlichen Produzenten, Ledger und UI-Nenner geprüft werden.
 
+Vor Änderungen an OHLCV-Normalisierung, Feature-Eingängen, Sortierung, Kerzenduplikaten, Warmup oder `FeatureEngine` muss zusätzlich `docs/FEATURE_DATA_QUALITY_CONTRACT.md` gelesen und gegen Crypto-/Stock-Producer sowie alle Feature-Consumer geprüft werden.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.
