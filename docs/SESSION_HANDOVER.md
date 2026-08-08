@@ -1,5 +1,93 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Validierten Entwicklungsstand als Integrations-Draft veröffentlichen
+
+### Datum und Uhrzeit
+
+8. August 2026, 12:33 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den vollständig gestapelten und getesteten PandorickKi-Stand kontrolliert als einen neuen Integrationsbranch und zusammenfassenden Draft-Pull-Request gegen `main` veröffentlichen. Die vorhandenen Draft-PRs #3 bis #17 unverändert lassen, nichts mergen und keine Runtime-, History-, Lern-, Token- oder Konfigurationsdaten veröffentlichen oder verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation und tatsächlichen Git-/GitHub-Stand erneut geprüft; die Dokumente waren seit der unmittelbar vorherigen vollständigen Integrationsanalyse unverändert.
+- `origin` aktualisiert und die zwei `main`-exklusiven Commits `1c632f0` und `2c43541` untersucht.
+- Bestätigt, dass `origin/main` und die gemeinsame Merge-Basis `28341e2` denselben Tree `f09031790f3e3a2c509e74b81965ed82036d1d96` besitzen. Die zwei Merge-Commits enthalten damit keine `main`-exklusive Dateiänderung.
+- Read-only Merge-Simulation ausgeführt: keine gemeinsam geänderten Konfliktpfade und keine Konfliktmarker.
+- Runtime-Preflight, vollständige Testsuite, JavaScript-Syntax, Diff-, Scope- und Secret-Prüfung ausgeführt.
+- Branch `agent/integrate-pandorickki-main` ohne Merge oder Rebase direkt auf dem geprüften Commit `85b640c8bf9e47d0cee67b84f1b623f1883a5981` erstellt und gepusht.
+- Die GitHub-App konnte wegen `403 Resource not accessible by integration` keinen PR anlegen. Gemäß Veröffentlichungsworkflow auf die authentifizierte GitHub CLI zurückgefallen.
+- Draft-PR #18 gegen `main` erstellt und anschließend als offen, Draft und mergebar verifiziert. Kein PR wurde gemergt oder geschlossen.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine dauerhaften neuen Dateien. Die temporäre PR-Beschreibungsdatei wurde nach erfolgreicher Erstellung wieder entfernt.
+
+### Ausgeführte Befehle
+
+- Vollständiges Lesen beziehungsweise unveränderte Hash-/Git-Prüfung der fünf Pflichtdokumente sowie Prüfung von `AGENTS.md`.
+- `git fetch origin --prune`, Branch-, Remote-, Commit-, Tree-, Merge-Basis- und Ahead/Behind-Vergleiche.
+- Klassische read-only `git merge-tree`-Simulation, `git diff --check`, Diffstatistik und Ancestry-Prüfungen.
+- `gh --version`, `gh auth status` und PR-Abfragen über GitHub-App beziehungsweise `gh`.
+- `\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- `\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py'`.
+- `node --check web\static\control_center.js`.
+- Prüfung aller 60 Diffdateien auf Runtime-Verzeichnisse und konkrete Secret-Tokenmuster.
+- `git switch -c agent/integrate-pandorickki-main` und `git push -u origin agent/integrate-pandorickki-main`.
+- `gh pr create --draft` und abschließendes `gh pr view 18`.
+
+### Ausgeführte Tests
+
+- Runtime-Preflight.
+- Vollständige Python-Unittest-Suite.
+- JavaScript-Syntaxprüfung.
+- Git-Whitespace-/Patchprüfung.
+- Read-only Merge-Konfliktsimulation.
+- Veröffentlichungsumfang auf Runtime-Daten und Secret-Muster.
+- GitHub-Draft-, Zielbranch-, Head- und Mergeability-Prüfung.
+
+### Tatsächliche Testergebnisse
+
+- Runtime-Preflight: bestanden mit Python 3.12.13 aus der projektlokalen `.venv`.
+- Vollständige Suite: 243/243 Tests in 50,518 Sekunden bestanden.
+- JavaScript-Syntax: bestanden.
+- `git diff --check`: bestanden. Ein erster kombinierter Befehlslauf verwendete versehentlich `origin\main..HEAD` und endete nur wegen dieses ungültigen Refnamens; die korrekt wiederholte Prüfung bestand.
+- Merge-Simulation: 0 gemeinsam geänderte Konfliktpfade, 0 Konfliktmarker.
+- Umfang vor der Übergabedokumentation: 35 Commits, 60 Dateien, 6.716 Ergänzungen und 403 Löschungen gegenüber `main`; 0 Runtime-Dateien und 0 Treffer der geprüften Secret-Muster.
+- Draft-PR #18: `OPEN`, `isDraft=true`, `MERGEABLE`, Basis `main`, Head `agent/integrate-pandorickki-main`, Head-SHA `85b640c8bf9e47d0cee67b84f1b623f1883a5981` vor diesem Abschlusscommit.
+
+### Bekannte Fehler
+
+- Die offenen fachlichen und technischen Punkte aus `docs/KNOWN_PROBLEMS.md` bleiben bestehen.
+- Die bekannte externe `datetime.utcnow()`-DeprecationWarning trat erneut auf, beeinflusste die 243 bestandenen Tests aber nicht.
+- Die GitHub-App besitzt für die PR-Erstellung nicht die nötige Berechtigung; die authentifizierte GitHub CLI funktionierte erfolgreich.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produktarchitektur geändert.
+- Kein inhaltsloser Merge- oder Rebase-Commit nur zur Korrektur des Commitgraphen: `main` besitzt gegenüber der Merge-Basis keine eigene Dateidifferenz.
+- Die bestehende gestapelte PR-Kette bleibt als Review-Historie erhalten. Für die spätere Integration nach `main` dient ausschließlich der neue konsolidierte Draft-PR #18.
+- Telegram blieb unverändert; echte Trades und automatische Orderausführung wurden nicht aktiviert.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #18 ist bewusst noch nicht gemergt.
+- PRs #3 bis #17 bleiben offen und Draft. Sie dürfen erst nach einer bewussten Integration von PR #18 als ersetzt geschlossen werden, nicht einzeln gemergt werden.
+- Der Feature-Datenqualitätsvertrag wurde noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #18 auf GitHub als Gesamtdiff prüfen und den nach diesem Handover-Push aktualisierten Head erneut als Draft/mergebar verifizieren. Erst nach ausdrücklicher Benutzerfreigabe PR #18 nach `main` mergen. Danach PRs #3 bis #17 als ersetzt schließen und erst anschließend den Feature-Datenqualitätsvertrag planen.
+
+---
+
 ## Aktuelle Aufgabe: Control-Center-UI und Lebenszyklus härten
 
 ### Datum und Uhrzeit

@@ -1,6 +1,15 @@
 # Nächste Schritte
 
-Stand: 2. August 2026
+Stand: 8. August 2026
+
+## Aktuelle Integrationsphase
+
+- Der vollständig getestete Entwicklungsstand wurde am 8. August 2026 ohne Merge oder Rebase auf `agent/integrate-pandorickki-main` veröffentlicht.
+- Draft-PR #18 bündelt die 35 Entwicklungscommits aus PR #3 bis #17 gegen `main`: `https://github.com/cRioshy/Pando/pull/18`.
+- Vor der Veröffentlichung bestanden Runtime-Preflight, 243/243 Tests, JavaScript-Syntax, `git diff --check`, Merge-Simulation sowie Runtime-/Secret-Scopeprüfung.
+- PR #18 bleibt Draft und darf erst nach ausdrücklicher Freigabe gemergt werden.
+- Nach erfolgreichem Merge ausschließlich PRs #3 bis #17 als ersetzt schließen; diese gestapelten PRs nicht zusätzlich einzeln mergen.
+- Erst danach mit dem Feature-Datenqualitätsvertrag beginnen.
 
 ## Verbindliche Reihenfolge
 
