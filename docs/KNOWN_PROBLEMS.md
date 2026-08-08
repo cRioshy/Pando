@@ -24,14 +24,22 @@ Stand: 8. August 2026
 - **Entschärfung:** NeuroBrain-Datei- und Status-I/O wurde am 2. August 2026 über eine begrenzte FIFO-Queue und einen einzelnen Batch-Worker entkoppelt. Andere Handler bleiben synchron.
 - **Nächster Fix:** verbleibende langsame Consumer anhand realer Messungen identifizieren und nur bei Befund gezielt entkoppeln; nicht ungeprüft den vollständigen EventBus ersetzen.
 
-### KP-004 – Brain und Decision Core besitzen kein unabhängiges Freigabe-Gate
+### KP-004 – Brain und Decision Core besitzen kein aktives Freigabe-Gate
 
 - **Priorität:** mittel
-- **Status:** Vertrag am 8. August 2026 definiert und getestet; aktive Integration weiterhin offen
-- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. `pandorickki.decision-gate` Version 1 kann Kandidaten jetzt rein beobachtend und fail-closed prüfen, ist aber noch nicht an den EventBus angeschlossen.
+- **Status:** Vertrag und separater Audit-Observer am 8. August 2026 implementiert und getestet; produktive Freigabe weiterhin offen
+- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. Der standardmäßig deaktivierte `decision_gate_observer` kann dieselben Brain-Ereignisse parallel fail-closed prüfen und begrenzt auditieren, beeinflusst aber den aktiven Pfad nicht.
 - **Auswirkung:** Modulnamen können eine fachliche Prüfung suggerieren, die nicht implementiert ist.
 - **Sicherheitsregel:** Der Vertrag setzt stets `ready_for_telegram=false` und `order_execution_allowed=false`. Daraus niemals automatische oder reale Orders ableiten.
-- **Nächster Fix:** Zuerst die kompakte `feature_quality`-Projektion bis zur Brain-/Decision-Grenze erhalten und anschließend einen separaten auditierenden Observer integrieren; den bestehenden Signalpfad noch nicht umschalten.
+- **Nächster Fix:** Fachliche Probability-/Confidence-Schwellen ausdrücklich festlegen, Observer kontrolliert aktivieren und mehrere Livezyklen ausschließlich auswerten; den bestehenden Signalpfad noch nicht umschalten.
+
+### KP-018 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
+
+- **Priorität:** niedrig
+- **Status:** einmalig beobachtet; direkte und vollständige Wiederholung grün
+- **Beobachtung:** Ein Gesamtlauf bestand 264 fachliche Tests, endete aber beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test einmal mit `WinError 145` (Verzeichnis nicht leer). Derselbe Test bestand direkt danach isoliert.
+- **Auswirkung:** Kein Hinweis auf eine fachliche Regression des Decision Gates; die Wiederholung bestand 265/265 Tests.
+- **Nächster Fix:** Nur bei erneuter Reproduktion den noch schreibenden Learning-/Storage-Worker gezielt instrumentieren.
 
 ### KP-005 – Telegram umgeht die finale Entscheidungskette
 

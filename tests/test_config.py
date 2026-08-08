@@ -42,6 +42,10 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_TELEGRAM_DRY_RUN": "1",
                 "PANDORICKKI_SIMULATED_OPEN_TRADES_FILE": "C:/tmp/pandorickki-data/open_trades.json",
                 "PANDORICKKI_TRADE_OUTCOMES_FILE": "C:/tmp/pandorickki-data/outcomes.jsonl",
+                "PANDORICKKI_DECISION_GATE_OBSERVER_ENABLED": "1",
+                "PANDORICKKI_DECISION_GATE_MINIMUM_PROBABILITY": "65",
+                "PANDORICKKI_DECISION_GATE_MINIMUM_CONFIDENCE": "62.5",
+                "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE": "3",
             },
             clear=False,
         ):
@@ -74,6 +78,10 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertTrue(config.telegram_dry_run)
         self.assertEqual(config.simulated_open_trades_file, Path("C:/tmp/pandorickki-data/open_trades.json"))
         self.assertEqual(config.trade_outcomes_file, Path("C:/tmp/pandorickki-data/outcomes.jsonl"))
+        self.assertTrue(config.decision_gate_observer_enabled)
+        self.assertEqual(config.decision_gate_minimum_probability, 65.0)
+        self.assertEqual(config.decision_gate_minimum_confidence, 62.5)
+        self.assertEqual(config.decision_gate_confidence_tolerance, 3.0)
 
     def test_orchestrator_uses_configured_paths(self) -> None:
         config = PlatformConfig(
@@ -102,6 +110,9 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.neurobrain_queue_capacity, 2048)
         self.assertEqual(config.neurobrain_batch_size, 64)
         self.assertEqual(config.neurobrain_flush_interval_seconds, 0.25)
+        self.assertFalse(config.decision_gate_observer_enabled)
+        self.assertIsNone(config.decision_gate_minimum_probability)
+        self.assertIsNone(config.decision_gate_minimum_confidence)
 
     def test_custom_data_dir_derives_error_journal_paths(self) -> None:
         config = PlatformConfig(data_dir=Path("C:/tmp/custom-pandorickki-data"))
@@ -125,6 +136,22 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertIn("commodity", [adapter.name for adapter in commodities_enabled.adapters])
         self.assertIn("outcome_tracker", [adapter.name for adapter in enabled.adapters])
         self.assertNotIn("control_center", [adapter.name for adapter in disabled.adapters])
+
+    def test_decision_gate_observer_requires_explicit_thresholds_and_is_separate(self) -> None:
+        config = PlatformConfig(
+            decision_gate_observer_enabled=True,
+            decision_gate_minimum_probability=65.0,
+            decision_gate_minimum_confidence=60.0,
+        )
+        names = [adapter.name for adapter in Orchestrator(config=config).adapters]
+
+        self.assertIn("decision_gate_observer", names)
+        self.assertLess(names.index("brain"), names.index("decision_gate_observer"))
+        self.assertLess(names.index("decision_gate_observer"), names.index("decision_core"))
+        self.assertIn("decision_core", names)
+
+        with self.assertRaises(ValueError):
+            Orchestrator(config=PlatformConfig(decision_gate_observer_enabled=True))
 
     def test_html_control_center_contains_switch_commands(self) -> None:
         html = (Path(__file__).resolve().parents[1] / "control_center.html").read_text(encoding="utf-8")

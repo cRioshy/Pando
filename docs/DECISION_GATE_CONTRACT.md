@@ -6,7 +6,7 @@ Vertragsname: `pandorickki.decision-gate`, Version `1`
 
 ## Zweck und Sicherheitsgrenze
 
-Version 1 ist eine ausführbare, rein beobachtende und fail-closed Referenz für eine spätere fachliche Freigabekette. Sie liegt in `decision_gate_contract.py`, ist noch nicht an den EventBus angeschlossen und verändert weder bestehende Decisions und Signals noch Tracker, Telegram oder History.
+Version 1 ist eine ausführbare, rein beobachtende und fail-closed Referenz für eine spätere fachliche Freigabekette. Sie liegt in `decision_gate_contract.py` und ist über den standardmäßig deaktivierten `DecisionGateAuditAdapter` optional an `BRAIN_DECISION_RECEIVED` angeschlossen. Der Observer verändert weder bestehende Decisions und Signals noch Tracker, Telegram oder History.
 
 Ein Ergebnis `QUALIFIED` bedeutet ausschließlich, dass ein Kandidat die ausdrücklich übergebene Testpolicy erfüllt. Es bedeutet keine Meldungs-, Trade- oder Orderfreigabe. Jedes Version-1-Ergebnis setzt deshalb unveränderlich:
 
@@ -71,11 +71,11 @@ Das Gate liefert nur `QUALIFIED` oder `BLOCKED`. Mehrere Ablehnungsgründe bleib
 | Risiko | `DG_RISK_MISSING`, `DG_RISK_DIRECTION_CONFLICT`, `DG_STOP_LOSS_INVALID`, `DG_TAKE_PROFIT_INVALID` |
 | Erfolg | `DG_QUALIFIED` |
 
-## Geplante Integrationsreihenfolge
+## Integrationsstand und weitere Reihenfolge
 
-1. Die kompakte `feature_quality`-Projektion an der Analyse-/Brain-Grenze mit Kompatibilitätstests weiterreichen.
-2. Einen separaten Observer abonnieren, der Kandidaten ausschließlich bewertet und versionierte Gate-Ergebnisse in einen eigenen begrenzten Auditpfad schreibt.
-3. Gate-Ergebnisse über mehrere Livezyklen auswerten; Schwellen bleiben explizite Konfiguration und benötigen fachliche Freigabe.
+1. **Erledigt:** Die kompakte `feature_quality`-Projektion wird an der Analyse-/Brain-Grenze sowie über Decision und Signal erhalten.
+2. **Erledigt:** Ein separater Observer bewertet Kandidaten ausschließlich und schreibt versionierte Gate-Ergebnisse in einen eigenen, größen- und archivbegrenzten Auditpfad.
+3. Gate-Ergebnisse erst nach ausdrücklicher Wahl der Schwellen über mehrere Livezyklen auswerten. Der Observer bleibt bis dahin deaktiviert.
 4. Erst nach separater Freigabe den heutigen automatischen Signalpfad hinter ein bestandenes Gate verschieben.
 5. Telegram später ausschließlich an ein finales freigegebenes Ereignis koppeln; bis dahin deaktiviert/Dry-Run.
 
@@ -87,4 +87,4 @@ Keine Stufe dieser Reihenfolge erlaubt reale Orderausführung.
 .\.venv\Scripts\python.exe -m unittest tests.test_decision_gate_contract -v
 ```
 
-Die Tests decken den qualifizierten Observerfall, fehlende Qualität, den Stock-Fallback, HOLD/WAIT, Fakten-, Feature-, Confidence- und Risikokonflikte sowie die unveränderliche Telegram-/Order-Sperre ab.
+Die Tests decken den qualifizierten Observerfall, fehlende Qualität, den Stock-Fallback, HOLD/WAIT, Fakten-, Feature-, Confidence- und Risikokonflikte sowie die unveränderliche Telegram-/Order-Sperre ab. Adaptertests prüfen zusätzlich Auditpersistenz, Duplikatschutz, Stop-Semantik und dass der Observer keine Decision oder Signal erzeugt.

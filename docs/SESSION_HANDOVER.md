@@ -1,5 +1,91 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Kompakte Feature-Qualität und Decision-Gate-Audit-Observer integrieren
+
+### Datum und Uhrzeit
+
+8. August 2026, 22:52 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den zuvor definierten Decision-Gate-Vertrag sicher an die bestehende Payloadkette anbinden: ausschließlich die kompakte Feature-Qualität bis Brain/Decision erhalten und einen separaten, standardmäßig deaktivierten Audit-Observer ergänzen. Den bestehenden Decision-/Signalpfad, Telegram, Tracker und jede Ordersemantik unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- Gemeinsame Projektion `project_feature_data_quality()` als einzige Grenze für Status, Zähler, Reihenfolge und Warmup eingeführt; vollständige Features, Warnungen und Verletzungsdetails bleiben ausgeschlossen.
+- `compact_market_payload()` erhält `feature_quality`, sodass dieselbe begrenzte Sicht in Brain-History, `BRAIN_DECISION_RECEIVED`, Decision, Signal und deren Ledger gelangt.
+- Neuen `DecisionGateAuditAdapter` ergänzt. Er abonniert nur `BRAIN_DECISION_RECEIVED`, bewertet mit dem Version-1-Vertrag, publiziert nur `DECISION_GATE_EVALUATED` und persistiert einen getrennten Auditdatensatz.
+- Audit-Ledger auf 5 MiB Standardgröße und höchstens vier Archive begrenzt; Duplikatschutz, Health-Zähler, Heartbeat, Stop-Semantik und Fehlerereignis ergänzt.
+- Observer standardmäßig deaktiviert. Aktivierung verlangt ausdrücklich gesetzte Probability- und Confidence-Schwellen; ohne diese bricht die Adapterkonstruktion fail-closed ab.
+- Orchestrator-Reihenfolge bei Aktivierung: Brain → Gate-Observer → unveränderter Decision Core. Das Gate blockiert, ersetzt oder verändert kein Ereignis.
+- `.env.example`, Systemzustand, Architektur, Verträge, bekannte Probleme und nächste Schritte aktualisiert.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `config.py`
+- `decision_gate_contract.py`
+- `event_payload_contract.py`
+- `feature_data_quality_contract.py`
+- `orchestrator.py`
+- `tests/test_brain_adapter.py`
+- `tests/test_config.py`
+- `tests/test_decision_signal_adapter.py`
+- `tests/test_event_payload_contract.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DECISION_GATE_CONTRACT.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- `adapters/decision_gate_audit_adapter.py`
+- `tests/test_decision_gate_audit_adapter.py`
+
+### Ausgeführte Befehle
+
+- Pflichtdokumente und die drei Verträge vollständig gelesen.
+- Relevante Producer, Consumer, Konfiguration, Orchestrator und Tests mit `rg` und `Get-Content` geprüft.
+- `git switch -c agent/integrate-decision-gate-observer`
+- Gezielte Unittests über `.\.venv\Scripts\python.exe -m unittest ...`
+- Gesamtsuite über `.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"`
+- Isolierte Wiederholung des Learning-Cache-Tests.
+- `git diff --check`, Status- und Diffprüfung.
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Gezielte Integrationssuite: **35/35 bestanden**.
+- Erster Gesamtlauf: **265 Tests ausgeführt; 264 fachlich bestanden, 1 Cleanup-Fehler**. Fehler war `WinError 145` beim Entfernen eines temporären Verzeichnisses nach `test_legacy_cache_without_metric_contract_is_rebuilt`.
+- Derselbe Learning-Cache-Test direkt isoliert: **1/1 bestanden**.
+- Vollständige Wiederholung: **265/265 bestanden** in 43,517 Sekunden.
+
+### Bekannte Fehler
+
+- KP-018: sporadischer Windows-`TemporaryDirectory`-Cleanupfehler im ersten vollständigen Testlauf; isolierte und vollständige Wiederholung waren grün.
+- Der aktive Decision Core besitzt weiterhin kein produktives Gate und erstellt aus jedem Brain-Ereignis Decision und Signal.
+- Telegram liegt weiterhin nicht hinter einer final freigegebenen Entscheidungskette und muss deaktiviert/Dry-Run bleiben.
+
+### Getroffene Architekturentscheidungen
+
+- `feature_quality` ist die einzige erlaubte Qualitätsprojektion jenseits der Feature-Grenze; der vollständige `features`-Block bleibt verboten.
+- Audit und aktiver Decision Core laufen parallel. Der Observer ist ausdrücklich kein Filter und besitzt keine Signal-, Telegram- oder Orderberechtigung.
+- Keine versteckten Produktschwellen: beide Schwellen sind optional in der Konfiguration, aber zwingend für eine Aktivierung.
+- Auditretention ist lokal begrenzt; vorhandene History- und Runtime-Daten werden nicht migriert, geändert oder gelöscht.
+
+### Nicht abgeschlossene Punkte
+
+- Noch kein Live-Neustart mit dem neuen Code und keine Observer-Liveauswertung.
+- Noch keine fachlich bestätigten Probability-/Confidence-Schwellen.
+- Keine Umschaltung des aktiven Decision-/Signal- oder Telegrampfads.
+- Änderungen liegen vollständig geprüft auf `agent/integrate-decision-gate-observer`; sie werden als lokaler Aufgabencommit abgeschlossen und nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den Benutzer ausdrücklich nach den diagnostischen Probability-/Confidence-Schwellen fragen; erst mit dieser Freigabe den Observer kontrolliert aktivieren und mehrere Livezyklen rein beobachtend auswerten.
+
 ## Aktuelle Aufgabe: Fail-closed Decision-Gate-Vertrag Version 1 definieren
 
 ### Datum und Uhrzeit

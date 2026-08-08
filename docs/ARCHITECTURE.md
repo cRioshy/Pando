@@ -19,8 +19,10 @@ flowchart LR
     DQ --> FE["FeatureEngine"]
     FE -. additive Features .-> CA
     FE -. additive Features .-> SA
-    DG["Decision-Gate-Vertrag v1: fail-closed Observer, nicht verdrahtet"]
-    DQ -. kompakte Quality-Projektion geplant .-> DG
+    DG["DecisionGateAuditAdapter: optional, fail-closed Observer"]
+    DQ -. kompakte feature_quality .-> BA
+    BA -. BRAIN_DECISION_RECEIVED .-> DG
+    DG --> GA["Begrenztes Decision-Gate-Audit"]
     DG -. keine aktive Freigabe .-> DC
     CA --> EB["Synchroner In-Process EventBus"]
     SA --> EB
@@ -66,6 +68,7 @@ sequenceDiagram
     participant Feature as FeatureEngine
     participant Bus as EventBus
     participant Brain as BrainAdapter
+    participant Gate as DecisionGateAuditAdapter
     participant Decision as DecisionSignalAdapter
     participant Tracker as Outcome/Trade Tracker
     participant View as Control Center/Statistik
@@ -81,6 +84,9 @@ sequenceDiagram
     Bus->>Brain: abgeschlossene Analyse
     Brain->>Brain: rotierende JSONL-Persistenz
     Brain->>Bus: BRAIN_DECISION_RECEIVED
+    Bus-->>Gate: optional parallel beobachten
+    Gate->>Gate: fail-closed bewerten + begrenzt auditieren
+    Gate-->>Bus: DECISION_GATE_EVALUATED (keine Freigabe)
     Brain->>Bus: AI_LEARNING_UPDATED
     Bus->>Decision: Brain-Payload
     Decision->>Decision: normalisieren, IDs und Ledger
@@ -103,7 +109,8 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
-| `decision_gate_contract.py` | Explizite fail-closed Observer-Bewertung, kompakte Qualitätsprojektion und Reason Codes | EventBus-Service, aktive Signal-/Telegram-Freigabe, Orders |
+| `decision_gate_contract.py` | Explizite fail-closed Observer-Bewertung, kompakte Qualitätsprojektion und Reason Codes | Aktive Signal-/Telegram-Freigabe, Orders |
+| `DecisionGateAuditAdapter` | Optionaler EventBus-Observer, Duplikatschutz, begrenztes Audit-Ledger | Decision-/Signal-Erzeugung, Telegram-Freigabe, Orders |
 | `BrainAdapter` | Rotierende Analysepersistenz und Folgeereignisse | Eigene KI-Inferenz oder Faktenprüfung |
 | `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
 | `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |
@@ -122,6 +129,7 @@ flowchart TD
     EVENTS --> DEC["Decision JSONL, größenrotiert"]
     EVENTS --> SIG["Signal JSONL, größenrotiert"]
     EVENTS --> OUT["Outcome JSONL, größenrotiert"]
+    EVENTS --> GATE["Decision-Gate-Audit JSONL, 5 MiB + max. 4 Archive"]
     EVENTS --> MP["Kompakte Marktprojektion v1"]
     EVENTS --> OP["Kompakte Observer-Projektion v1"]
     MP --> NEURO["NeuroBrain Inbox JSONL"]

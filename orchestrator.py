@@ -13,11 +13,13 @@ from adapters.control_center_adapter import ControlCenterAdapter
 from adapters.crypto_adapter import CryptoAdapter
 from adapters.crypto_trade_tracker import CryptoTradeTracker
 from adapters.decision_signal_adapter import DecisionSignalAdapter
+from adapters.decision_gate_audit_adapter import DecisionGateAuditAdapter
 from adapters.neurobrain_receiver_adapter import NeuroBrainReceiverAdapter
 from adapters.outcome_tracker import OutcomeTracker
 from adapters.stock_adapter import StockAdapter
 from adapters.telegram_adapter import TelegramAdapter
 from config import PlatformConfig
+from decision_gate_contract import DecisionGatePolicy
 from event_bus import Event, EventBus
 from health_monitor import HealthMonitor, HealthReport
 from service_error_journal import ServiceErrorJournal
@@ -451,6 +453,23 @@ class Orchestrator:
                 event_root=self.config.brain_events_dir,
                 rotation_bytes=self.config.brain_event_rotation_bytes,
                 day_warning_bytes=self.config.brain_event_day_warning_bytes,
+            ),
+            *(
+                [
+                    DecisionGateAuditAdapter(
+                        self.event_bus,
+                        policy=DecisionGatePolicy(
+                            minimum_probability=self.config.decision_gate_minimum_probability,
+                            minimum_confidence=self.config.decision_gate_minimum_confidence,
+                            confidence_tolerance=self.config.decision_gate_confidence_tolerance,
+                        ),
+                        audit_file=self.config.decision_gate_audit_file,
+                        ledger_rotation_bytes=self.config.decision_gate_audit_rotation_bytes,
+                        ledger_max_archives=self.config.decision_gate_audit_max_archives,
+                    )
+                ]
+                if self.config.decision_gate_observer_enabled
+                else []
             ),
             DecisionSignalAdapter(
                 self.event_bus,

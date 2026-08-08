@@ -31,6 +31,16 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_optional_float(name: str) -> float | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 def _env_int(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None:
@@ -114,6 +124,13 @@ class PlatformConfig:
     simulated_outcome_horizon_seconds: float = 3600.0
     platform_decisions_file: Path = PROJECT_ROOT / "data" / "platform_decisions.jsonl"
     platform_signals_file: Path = PROJECT_ROOT / "data" / "platform_signals.jsonl"
+    decision_gate_observer_enabled: bool = False
+    decision_gate_audit_file: Path = PROJECT_ROOT / "data" / "decision_gate_audit.jsonl"
+    decision_gate_audit_rotation_bytes: int = 5 * 1024 * 1024
+    decision_gate_audit_max_archives: int = 4
+    decision_gate_minimum_probability: float | None = None
+    decision_gate_minimum_confidence: float | None = None
+    decision_gate_confidence_tolerance: float = 0.0
 
     def __post_init__(self) -> None:
         """Align derived brain event defaults with a custom data directory."""
@@ -145,6 +162,9 @@ class PlatformConfig:
         default_error_summary = PROJECT_ROOT / "data" / "service_error_summary.json"
         if self.service_error_summary_file == default_error_summary and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "service_error_summary_file", self.data_dir / "service_error_summary.json")
+        default_gate_audit = PROJECT_ROOT / "data" / "decision_gate_audit.jsonl"
+        if self.decision_gate_audit_file == default_gate_audit and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "decision_gate_audit_file", self.data_dir / "decision_gate_audit.jsonl")
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -289,6 +309,29 @@ class PlatformConfig:
                 "PANDORICKKI_PLATFORM_SIGNALS_FILE",
                 data_dir / "platform_signals.jsonl",
             ),
+            decision_gate_observer_enabled=_env_bool(
+                "PANDORICKKI_DECISION_GATE_OBSERVER_ENABLED", False
+            ),
+            decision_gate_audit_file=_env_path(
+                "PANDORICKKI_DECISION_GATE_AUDIT_FILE",
+                data_dir / "decision_gate_audit.jsonl",
+            ),
+            decision_gate_audit_rotation_bytes=_env_int(
+                "PANDORICKKI_DECISION_GATE_AUDIT_ROTATION_BYTES",
+                5 * 1024 * 1024,
+            ),
+            decision_gate_audit_max_archives=_env_int(
+                "PANDORICKKI_DECISION_GATE_AUDIT_MAX_ARCHIVES", 4
+            ),
+            decision_gate_minimum_probability=_env_optional_float(
+                "PANDORICKKI_DECISION_GATE_MINIMUM_PROBABILITY"
+            ),
+            decision_gate_minimum_confidence=_env_optional_float(
+                "PANDORICKKI_DECISION_GATE_MINIMUM_CONFIDENCE"
+            ),
+            decision_gate_confidence_tolerance=_env_float(
+                "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE", 0.0
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -335,6 +378,16 @@ class PlatformConfig:
             warnings.append("NeuroBrain batch size below 1; runtime clamps it to 1.")
         if self.neurobrain_flush_interval_seconds <= 0:
             warnings.append("NeuroBrain flush interval is not positive; runtime uses 0.01 seconds.")
+        if self.decision_gate_observer_enabled:
+            warnings.append("Decision Gate is enabled in observer-only audit mode.")
+            if self.decision_gate_minimum_probability is None:
+                warnings.append("Decision Gate observer enabled but minimum probability is missing.")
+            if self.decision_gate_minimum_confidence is None:
+                warnings.append("Decision Gate observer enabled but minimum confidence is missing.")
+        if self.decision_gate_audit_rotation_bytes < 1024 * 1024:
+            warnings.append("Decision Gate audit rotation size is below 1 MB; runtime clamps it to 1 MB.")
+        if self.decision_gate_audit_max_archives < 0:
+            warnings.append("Decision Gate audit archive limit is negative; runtime clamps it to 0.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -422,4 +475,11 @@ class PlatformConfig:
             simulated_outcome_horizon_seconds=self.simulated_outcome_horizon_seconds,
             platform_decisions_file=self.platform_decisions_file,
             platform_signals_file=self.platform_signals_file,
+            decision_gate_observer_enabled=self.decision_gate_observer_enabled,
+            decision_gate_audit_file=self.decision_gate_audit_file,
+            decision_gate_audit_rotation_bytes=self.decision_gate_audit_rotation_bytes,
+            decision_gate_audit_max_archives=self.decision_gate_audit_max_archives,
+            decision_gate_minimum_probability=self.decision_gate_minimum_probability,
+            decision_gate_minimum_confidence=self.decision_gate_minimum_confidence,
+            decision_gate_confidence_tolerance=self.decision_gate_confidence_tolerance,
         )

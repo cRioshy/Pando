@@ -48,7 +48,16 @@ class CompactEventPayloadContractTests(unittest.TestCase):
                     },
                     "api_token": "must-not-be-copied",
                 },
-                "features": {"training_only": [1, 2, 3]},
+                "features": {
+                    "training_only": [1, 2, 3],
+                    "metadata": {"data_quality": {
+                        "schema_name": "pandorickki.feature-data-quality",
+                        "schema_version": 1,
+                        "status": "PASS",
+                        "order": {"status": "VERIFIED", "reason": "sorted"},
+                        "warmup": {"status": "READY", "available_candles": 240},
+                    }},
+                },
                 "market_data_diagnostics": {"attempts": ["large"]},
             },
         }
@@ -66,6 +75,36 @@ class CompactEventPayloadContractTests(unittest.TestCase):
         for forbidden in FORBIDDEN_FIELDS:
             self.assertNotIn(f'"{forbidden}"', encoded)
         self.assertNotIn("must-not-be-copied", encoded)
+
+    def test_carries_only_compact_feature_quality_projection(self) -> None:
+        self.current_event["payload"]["features"] = {
+            "training_only": [1, 2, 3],
+            "metadata": {
+                "data_quality": {
+                    "schema_name": "pandorickki.feature-data-quality",
+                    "schema_version": 1,
+                    "status": "PASS",
+                    "input_rows": 240,
+                    "accepted_rows": 240,
+                    "output_rows": 240,
+                    "dropped_rows": 0,
+                    "duplicate_rows": 0,
+                    "timestamped_rows": 240,
+                    "order": {"status": "VERIFIED", "reason": "sorted", "reordered": False},
+                    "warmup": {"status": "READY", "available_candles": 240},
+                    "violations": {"secret_bulk": 99},
+                    "warnings": ["bulk warning"],
+                }
+            },
+        }
+
+        compact = compact_market_payload(self.current_event)
+
+        self.assertEqual(compact["feature_quality"]["status"], "PASS")
+        self.assertEqual(compact["feature_quality"]["order"]["status"], "VERIFIED")
+        self.assertNotIn("violations", compact["feature_quality"])
+        self.assertNotIn("warnings", compact["feature_quality"])
+        self.assertNotIn('"features"', json.dumps(compact))
 
     def test_contract_declares_all_fields_needed_by_current_consumers(self) -> None:
         compact = compact_market_payload(self.current_event)

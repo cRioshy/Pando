@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 FEATURE_DATA_QUALITY_SCHEMA = "pandorickki.feature-data-quality"
@@ -40,6 +40,42 @@ class FeatureDataQualityResult:
 
     candles: list[dict[str, Any]]
     report: dict[str, Any]
+
+
+def project_feature_data_quality(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return the bounded quality projection used beyond the feature boundary."""
+
+    report: Any = value.get("feature_quality")
+    if not isinstance(report, Mapping) and value.get("schema_name") == FEATURE_DATA_QUALITY_SCHEMA:
+        report = value
+    if not isinstance(report, Mapping):
+        features = value.get("features")
+        metadata = features.get("metadata") if isinstance(features, Mapping) else None
+        report = metadata.get("data_quality") if isinstance(metadata, Mapping) else None
+    if not isinstance(report, Mapping):
+        return None
+
+    order = report.get("order")
+    warmup = report.get("warmup")
+    return {
+        "schema_name": report.get("schema_name"),
+        "schema_version": report.get("schema_version"),
+        "status": report.get("status"),
+        "input_rows": report.get("input_rows"),
+        "accepted_rows": report.get("accepted_rows"),
+        "output_rows": report.get("output_rows"),
+        "dropped_rows": report.get("dropped_rows"),
+        "duplicate_rows": report.get("duplicate_rows"),
+        "timestamped_rows": report.get("timestamped_rows"),
+        "order": {
+            "status": order.get("status") if isinstance(order, Mapping) else None,
+            "reason": order.get("reason") if isinstance(order, Mapping) else None,
+        },
+        "warmup": {
+            "status": warmup.get("status") if isinstance(warmup, Mapping) else None,
+            "available_candles": warmup.get("available_candles") if isinstance(warmup, Mapping) else None,
+        },
+    }
 
 
 _TIMESTAMP_KEYS = ("timestamp", "open_time", "openTime", "time", "datetime", "date")

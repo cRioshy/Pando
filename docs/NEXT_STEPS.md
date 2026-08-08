@@ -16,7 +16,9 @@ Stand: 8. August 2026
 - Der Feature-Datenqualitätsvertrag Version 1 wurde über PR #22 nach `main` gemergt; `origin/main` steht auf `14e19bf`. Nach kontrolliertem Neustart liefen vier vollständige Crypto-/Stock-Zyklen mit allen zehn Services `OK`, null Sitzungsfehlern, NeuroBrain Queue/Drops null sowie Telegram aus/Dry-Run.
 - Direkte Qualitätsprüfung: Crypto `PASS/VERIFIED/READY` mit 240/240 Binance-Kerzen und null Verstößen; Stock-Einzelsnapshot erwartungsgemäß `WARN/UNVERIFIED/WARMING` ohne Featurefehler.
 - Der fachliche Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 ist lokal implementiert und mit zehn Vertragstests sowie 261/261 Gesamttests geprüft. Er arbeitet ausschließlich als aufrufbare Observer-Referenz, verlangt explizite Schwellen, blockiert unvollständige Qualität/Fakten/Risiken fail-closed und kann weder Telegram noch Orders freigeben.
-- Nächster technischer Schritt ist die kompakte `feature_quality`-Projektion vom Analyseereignis bis zur Brain-/Decision-Grenze. Danach wird das Gate als separater auditierender Observer integriert; der bestehende Decision-/Signalpfad bleibt bis zur Liveauswertung unverändert.
+- **Lokal umgesetzt:** Die kompakte `feature_quality`-Projektion erreicht Brain, Decision und Signal; der separate `decision_gate_observer` auditiert mit begrenzter Rotation und bleibt standardmäßig deaktiviert. Der bestehende Decision-/Signalpfad ist unverändert.
+- **Verifikation:** Gezielte Suite 35/35 und vollständige Wiederholung 265/265 bestanden. Der einmalige Windows-Temp-Cleanupfehler war nicht reproduzierbar.
+- **Nächster Schritt:** Fachliche Probability-/Confidence-Schwellen bestätigen lassen und erst dann den Observer für eine kontrollierte, rein beobachtende Liveauswertung aktivieren.
 
 ## Verbindliche Reihenfolge
 

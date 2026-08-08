@@ -37,6 +37,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | Telegram | Markt, Symbol, Richtung, Wahrscheinlichkeit, Preis und optionale Tradefelder | bleibt deaktiviert beziehungsweise Dry-Run |
 | Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
 | NeuroBrain | Topic, Quelle, IDs sowie je Schema Markt-/Symbol- oder Learning-/Aggregatfelder | behält seine kleine Kopfsicht und speichert daneben die topicbasiert passende kompakte Version-1-Projektion |
+| Decision Gate Observer | Markt, Symbol, Richtung, Probability, Confidence, Preis, Fakten, Risiko, `feature_quality` und Quell-ID | bewertet nur und kann keine Signals, Telegram-Nachrichten oder Orders freigeben |
 
 ## Version 1
 
@@ -47,7 +48,7 @@ Pflichtfelder jeder Projektion:
 - `market_type`
 - `symbol`
 
-Die gemeinsame Feldmenge enthält bei Verfügbarkeit Event-/Decision-/Signal-IDs, Markt- und Richtungsdaten, Preise und Preisstatus, Quell- und Empfangszeiten, kompakte `facts`, `indicators`, `risk`, `market_context`, `public_result` sowie simulierte Tradefelder. Nicht vorhandene optionale Felder werden nicht künstlich befüllt.
+Die gemeinsame Feldmenge enthält bei Verfügbarkeit Event-/Decision-/Signal-IDs, Markt- und Richtungsdaten, Preise und Preisstatus, Quell- und Empfangszeiten, kompakte `facts`, `indicators`, `risk`, `market_context`, `public_result`, `feature_quality` sowie simulierte Tradefelder. `feature_quality` enthält nur Status/Zähler sowie Order- und Warmupstatus; vollständige Features, Warnlisten und Verletzungsdetails werden nicht übernommen. Nicht vorhandene optionale Felder werden nicht künstlich befüllt.
 
 Verboten sind in jeder Verschachtelung:
 

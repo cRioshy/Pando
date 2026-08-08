@@ -14,6 +14,7 @@ from typing import Any, Mapping
 from feature_data_quality_contract import (
     FEATURE_DATA_QUALITY_SCHEMA,
     FEATURE_DATA_QUALITY_VERSION,
+    project_feature_data_quality,
 )
 
 
@@ -73,37 +74,7 @@ def project_feature_quality(candidate: Mapping[str, Any]) -> dict[str, Any] | No
     `feature_quality`, without forwarding the full feature block.
     """
 
-    report = candidate.get("feature_quality")
-    if not isinstance(report, Mapping):
-        features = candidate.get("features")
-        metadata = features.get("metadata") if isinstance(features, Mapping) else None
-        report = metadata.get("data_quality") if isinstance(metadata, Mapping) else None
-    if not isinstance(report, Mapping):
-        return None
-
-    order = report.get("order")
-    warmup = report.get("warmup")
-    return {
-        "schema_name": report.get("schema_name"),
-        "schema_version": report.get("schema_version"),
-        "status": report.get("status"),
-        "input_rows": report.get("input_rows"),
-        "accepted_rows": report.get("accepted_rows"),
-        "output_rows": report.get("output_rows"),
-        "dropped_rows": report.get("dropped_rows"),
-        "duplicate_rows": report.get("duplicate_rows"),
-        "timestamped_rows": report.get("timestamped_rows"),
-        "order": {
-            "status": order.get("status") if isinstance(order, Mapping) else None,
-            "reason": order.get("reason") if isinstance(order, Mapping) else None,
-        },
-        "warmup": {
-            "status": warmup.get("status") if isinstance(warmup, Mapping) else None,
-            "available_candles": (
-                warmup.get("available_candles") if isinstance(warmup, Mapping) else None
-            ),
-        },
-    }
+    return project_feature_data_quality(candidate)
 
 
 def evaluate_decision_gate(
