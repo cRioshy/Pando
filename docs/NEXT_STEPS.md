@@ -13,7 +13,7 @@ Stand: 8. August 2026
 - Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
 - Die Abschlussdokumentation aus PR #20 wurde nach ausdrücklicher Freigabe gemergt; `origin/main` steht auf `b8af62f`.
 - Draft-PR #21 enthält ausschließlich den Merge-Abschlussnachtrag und bleibt offen sowie ungemergt: `https://github.com/cRioshy/Pando/pull/21`.
-- Der Feature-Datenqualitätsvertrag Version 1 ist auf `agent/feature-data-quality-contract` implementiert: 30/30 gezielte und 251/251 vollständige Tests sowie ein isolierter Realtest mit 240/240 validen Binance-Kerzen bestanden.
+- Der Feature-Datenqualitätsvertrag Version 1 ist auf `agent/feature-data-quality-contract` als lokaler Commit `9470b47` implementiert: 30/30 gezielte und 251/251 vollständige Tests sowie ein isolierter Realtest mit 240/240 validen Binance-Kerzen bestanden. Die öffentliche Veröffentlichung wartet auf ausdrückliche Freigabe.
 - Nächster technischer Schritt nach Merge und Plattform-Liveprüfung ist der fachliche Decision-Gate-Vertrag.
 
 ## Verbindliche Reihenfolge

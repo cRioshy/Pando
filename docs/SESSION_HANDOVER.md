@@ -86,13 +86,14 @@ Den nächsten freigegebenen Entwicklungsschritt umsetzen: einen versionierten, r
 
 ### Nicht abgeschlossene Punkte
 
-- Änderungen sind noch nicht committed oder veröffentlicht.
+- Implementierung und Dokumentation sind lokal als Commit `9470b47` (`Implement feature data quality contract`) gesichert.
+- Der Push in das öffentliche Repository `cRioshy/Pando` wurde vom Sicherheitscheck gestoppt, weil für die öffentliche Veröffentlichung der 13 Code-, Test- und Dokumentationsdateien noch eine ausdrückliche Benutzerfreigabe erforderlich ist. Es wurde kein Umgehungsversuch unternommen.
 - Vollständiger Plattformneustart mit dem neuen Branch steht noch aus; der isolierte öffentliche Crypto-Realtest ist bestanden.
 - Das fachliche Decision Gate wurde bewusst noch nicht begonnen.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Diff und Scope abschließend prüfen, den Feature-Datenqualitätsstand committen und als Draft-PR gegen `main` veröffentlichen. Nach Merge Pandorickki kontrolliert neu starten und neue Crypto-/Stock-`metadata.data_quality` prüfen. Erst danach den fachlichen Decision-Gate-Vertrag entwerfen.
+Nach ausdrücklicher Freigabe für die öffentliche Veröffentlichung Commit `9470b47` auf `agent/feature-data-quality-contract` zu `cRioshy/Pando` pushen und einen Draft-PR gegen `main` erstellen. Nach Merge Pandorickki kontrolliert neu starten und neue Crypto-/Stock-`metadata.data_quality` prüfen. Erst danach den fachlichen Decision-Gate-Vertrag entwerfen.
 
 ---
 
