@@ -81,6 +81,14 @@ Stand: 8. August 2026
 - **Vorbereitung:** `docs/EVENT_PAYLOAD_CONTRACT.md` und `event_payload_contract.py` definieren Version 1. Tracker und Graph bevorzugen die kompakten Ersatzfelder; vier Regressionstests sichern Priorität und Legacy-Kompatibilität.
 - **Liveergebnis:** Drei saubere Produktionszyklen bestätigten kompakte Brain-, Decision-, Signal- und marktbezogene NeuroBrain-Zeilen ohne verbotene Bulk-Felder sowie eine vollständige ID-Kette. Bestehende History wurde nicht umgeschrieben oder gelöscht.
 
+### KP-018 – Lokaler Client-Abbruch erzeugt einen lauten Server-Traceback
+
+- **Priorität:** niedrig
+- **Status:** offen; einmalig beim kontrollierten Neustart beobachtet
+- **Beobachtung:** Eine aggressive lokale Readiness-Abfrage mit kurzem Timeout trennte die Verbindung während der HTTP-Antwort. `ThreadingHTTPServer` protokollierte daraufhin einmal `ConnectionResetError: [WinError 10054]` als vollständigen Traceback.
+- **Auswirkung:** Kein fachlicher Dienstfehler: Plattform und alle zehn Services blieben `OK`, der Sitzungsfehlerzähler blieb null, und in mehr als vier anschließenden Marktzyklen trat der Fehler nicht erneut auf.
+- **Nächster Fix:** Nur bei erneuter Beobachtung den HTTP-Request-Handler so härten, dass erwartbare lokale Client-Abbrüche kompakt protokolliert werden. Keine Priorität vor dem Feature-Datenqualitätsvertrag.
+
 ## Behoben oder entschärft
 
 ### KP-R15 – UI-Reconnect, STALE und Lifecycle waren unvollständig

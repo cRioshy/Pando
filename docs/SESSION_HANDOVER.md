@@ -1,5 +1,98 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Gemergten `main`-Stand kontrolliert neu starten und live prüfen
+
+### Datum und Uhrzeit
+
+8. August 2026, 16:54 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den frisch konsolidierten und dokumentierten `main`-Stand kontrolliert neu starten und im realen lokalen Betrieb prüfen, ob Webdienst, Marktadapter, interne Services, NeuroBrain, Storage und Sicherheitskonfiguration sauber laufen. Keine Produktlogik ändern, keine echten Trades aktivieren und keine History löschen.
+
+### Durchgeführte Arbeiten
+
+- `main` als sauber und bytegleich mit `origin/main` auf `381229a66c5ac8ed121297457fa4315155c55176` bestätigt.
+- Runtime-Preflight mit der projektlokalen Python-3.12.13-Umgebung ausgeführt und die laufende Instanz über Health-, Status- und Konfigurations-API geprüft.
+- Den eingebauten Control-Center-Stop verwendet. Port 8000 wurde nach 15,041 Sekunden frei; PID 4648 endete anschließend selbstständig, ohne harten Prozessabbruch.
+- Starterkonfiguration aus `start_pandorick_web.bat` geprüft und genau einen neuen versteckten Prozess über `.venv\Scripts\python.exe main.py --headless --web` gestartet. Telegram blieb deaktiviert und im Dry-Run; Live-Crypto und Live-Aktien blieben aktiviert.
+- Sechs vollständige Crypto- und Stockzyklen über die lokalen APIs beobachtet. Livepreise, Servicezustände, Journal, NeuroBrain-Queue und Telegram-Zähler geprüft.
+- Storage-Endpunkt gezielt ausgewertet: physische und logische Summen, Scanfortschritt und die zwei bekannten beschädigten Stock-Backup-JSONs geprüft.
+- Server-stdout/stderr sowie den Git-Arbeitsbaum geprüft. Ein einmaliger lokaler `ConnectionResetError` aus der aggressiven Readiness-Abfrage wurde als niedrig priorisiertes KP-018 dokumentiert; danach keine Wiederholung.
+- Die Browser-Steuerung gemäß Browser-Skill vorbereitet. Der Zugriff auf `http://127.0.0.1:8000/` wurde von der Browser-Sicherheitsrichtlinie blockiert und nicht umgangen; deshalb erfolgte die Sichtprüfung in dieser Aufgabe über die lokalen HTTP-APIs und Serverlogs.
+- Die vier Übergabedokumente als lokalen Commit auf `agent/document-post-merge-live-verification` gesichert. Die geplante Veröffentlichung wurde vor dem Push gestoppt, weil `gh auth status` den gespeicherten Token als ungültig meldete.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine Projektdateien. Die Runtime erzeugte ausschließlich ignorierte Log- und Betriebsdaten im vorhandenen Runtime-Bereich.
+
+### Ausgeführte Befehle
+
+- Git-Status-, Branch-, Remote- und Commit-Prüfungen.
+- `.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Lokale HTTP-Abfragen gegen `/api/health`, `/api/status`, `/api/control/stop` und `/api/statistics/storage`. Ein zusätzlicher Probeaufruf von `/api/config` lieferte erwartungsgemäß `404`; die öffentliche Telegram-Konfiguration wurde anschließend aus `telegram_status` des Statusendpunkts gelesen.
+- Kontrollierter Start von `.venv\Scripts\python.exe main.py --headless --web` mit den geprüften Starter-Umgebungsvariablen und getrennten Runtime-Logs.
+- Prozess-, Port-, Log-, Storage- und Arbeitsbaumprüfungen mit PowerShell, `netstat`, `rg` und Git.
+- GitHub-Vorprüfung mit `gh --version`, `gh auth status`, Remote-, Branch- und Scopeprüfung. Kein Push und kein PR-Aufruf nach dem fehlgeschlagenen Authentifizierungscheck.
+
+### Ausgeführte Tests
+
+- Runtime-Preflight.
+- Kontrollierter vollständiger Prozess-Stop und Neustart.
+- Health-/WebSocket-/Statistik-Smoke-Test über `/api/health`.
+- Live-Smoke-Test über sechs vollständige Crypto- und Stockzyklen.
+- Service-, Preis-, NeuroBrain-, Fehlerjournal-, Telegram- und Storage-API-Prüfungen.
+- Serverlog- und Git-Sauberkeitsprüfung.
+- Keine erneute vollständige Unittest-Suite, da kein Produktcode geändert wurde und der identische Merge-Stand unmittelbar vor Integration bereits 243/243 Tests bestanden hatte.
+
+### Tatsächliche Testergebnisse
+
+- Runtime-Preflight bestanden: Python 3.12.13 aus `.venv`; Legacy-Crypto-Pfad verfügbar.
+- Kontrollierter Stop erfolgreich; Portfreigabe nach 15,041 Sekunden, kein `Stop-Process` oder anderer harter Abbruch.
+- Neue Instanz läuft seit 16:48:40 Uhr; API meldet `web_running=true`, `websocket_active=true` und `statistics_active=true`.
+- Plattform und genau zehn Services `OK`; keine `STALE`-, `ERROR`- oder sonstigen Nicht-OK-Services; Sitzungsfehlerzähler null.
+- Crypto und Stock jeweils sechs vollständige Zyklen; Crypto je Zyklus drei und Stock fünf Ergebnisse.
+- Aktuelle Binance-Preise beobachtet: BTCUSDT etwa 65.156, ETHUSDT etwa 1.924,4 und XRPUSDT etwa 1,0449 USDT.
+- NeuroBrain: Worker aktiv, Queue-Tiefe null, Drops null, fehlgeschlagene Events null und Status-Schreibfehler null.
+- Fehlerjournal gesund: 183 historische Ereignisse, zehn Fingerprints, null fehlgeschlagene Schreibvorgänge und kein neuer Servicefehler dieser Sitzung.
+- Telegram: `enabled=false`, `dry_run=true`, null versendete Nachrichten. Keine reale Orderausführung aktiviert.
+- Storage: physisch 145 Dateien, 2.548.436 Datensätze und 10,52 GB; `totals_status=VERIFIED`, JSONL-Index 100 Prozent. Der Scan meldet 145 abgeschlossene Dateiverweise und zwei Warnungen in bekannten beschädigten historischen Stock-Backup-JSONs.
+- Server-stdout blieb leer. Stderr enthielt genau einen `WinError 10054` aus einem lokalen Readiness-Client-Abbruch; sechs Marktzyklen erzeugten keinen weiteren Traceback.
+- Git-Arbeitsbaum war vor der verpflichtenden Dokumentationsaktualisierung sauber.
+
+### Bekannte Fehler
+
+- KP-018: einmaliger lauter HTTP-Server-Traceback nach lokalem Client-Abbruch; ohne Service- oder Betriebswirkung und ohne Wiederholung.
+- Die zwei bekannten beschädigten historischen Stock-Backup-JSONs halten den Storage-Scan auf `DEGRADED`, obwohl die physischen Gesamtwerte `VERIFIED` sind. Sie wurden nicht verändert.
+- Die weiteren offenen Punkte aus `docs/KNOWN_PROBLEMS.md` bestehen unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architektur oder Produktlogik geändert.
+- Für den Neustart ausschließlich der vorhandene Lifecycle und die dokumentierte Starterkonfiguration verwendet.
+- Browser-Sicherheitsrichtlinie nicht umgangen; lokale API- und Logsignale dienen als verifizierte Betriebsgrundlage dieser Aufgabe.
+- Telegram bleibt deaktiviert und im Dry-Run. Reale Trades und automatische Orderausführung bleiben ausgeschlossen.
+
+### Nicht abgeschlossene Punkte
+
+- Keine visuelle Browser- oder Browser-Konsolenprüfung in dieser Sitzung, weil die Browser-Steuerung die lokale URL blockierte. Die WebSocket-Aktivität wurde über den Health-Endpunkt bestätigt.
+- Der lokale Dokumentationscommit ist noch nicht auf GitHub veröffentlicht. Der Benutzer muss `gh auth login -h github.com` ausführen und anschließend `gh auth status` erneut bestätigen; erst danach Branch pushen und einen Draft-PR gegen `main` erstellen.
+- KP-018 wird nur bei erneuter Beobachtung technisch bearbeitet.
+- Der Feature-Datenqualitätsvertrag ist noch nicht begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Zuerst nach erneuter GitHub-Anmeldung den lokalen Dokumentationscommit auf `origin/agent/document-post-merge-live-verification` pushen und einen Draft-PR gegen `main` erstellen. Danach den bestehenden Feature-Engine-Datenfluss und alle Consumer read-only inventarisieren und daraus einen versionierten Datenqualitätsvertrag für Sortierung, Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup ableiten. Vor dieser Vertragsanalyse weder Decision Gate noch Telegram-Kette implementieren.
+
+---
+
 ## Aktuelle Aufgabe: Konsolidierten Entwicklungsstand nach `main` mergen
 
 ### Datum und Uhrzeit
