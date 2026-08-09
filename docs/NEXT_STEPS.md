@@ -7,6 +7,7 @@ Stand: 9. August 2026
 - PandorickKi wurde am 9. August 2026 um 18:23 Uhr nach dem kurzen Verification-Lauf wieder normal gestartet. Health, Webserver, WebSocket, Statistik und alle elf normalen Services sind `OK`.
 - Stock-Verification bleibt im normalen Start ausdrücklich deaktiviert; Telegram und Orders bleiben gesperrt. Der siebentägige Lauf wurde nicht gestartet.
 - Veröffentlichungskontrolle des lokalen Verification-Stands: 297/297 Tests in 55,246 Sekunden bestanden; Syntax-, Diff- und Secret-Prüfung sauber.
+- Implementierungscommit `53f1c8fe650889aff2d867f7f9dc75ac9799184a` ist auf `origin/agent/integrate-decision-gate-observer` veröffentlicht. PR #23 ist wieder `OPEN`, `Draft`, `CLEAN` und `MERGEABLE`; `main` blieb unverändert.
 
 ## Stock Live-Shadow-Verification
 

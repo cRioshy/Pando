@@ -1,5 +1,70 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Stock-Verification veröffentlichen und PR als Draft sichern
+
+### Datum und Uhrzeit
+
+9. August 2026, 19:25 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den vollständig geprüften lokalen Stock-Live-Shadow-Verification-Stand auf dem bestehenden Arbeitsbranch veröffentlichen, Draft-PR #23 aktualisieren und `main` unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- Arbeitsbaum, Branch, Remote, ignorierte Runtime-Dateien und Veröffentlichungsscope geprüft.
+- Vollständige Tests, Syntax-, Diff-, Secret- und Runtime-Health-Prüfung erneut ausgeführt.
+- Ausschließlich die vorgesehenen 24 Code-, Test-, Konfigurations- und Dokumentationsdateien explizit gestaged.
+- Implementierungscommit `53f1c8fe650889aff2d867f7f9dc75ac9799184a` erstellt und auf `origin/agent/integrate-decision-gate-observer` gepusht.
+- PR #23 wieder auf Draft gesetzt und Titel/Beschreibung auf Stock-Pipeline plus Shadow-Verification aktualisiert.
+- `main` weder ausgecheckt noch verändert oder gemergt.
+
+### Veränderte Dateien
+
+- In diesem Abschluss ausschließlich `docs/SESSION_HANDOVER.md` und `docs/NEXT_STEPS.md`; der vorherige Commit enthält die bereits dort vollständig aufgelisteten 24 Implementierungsdateien.
+
+### Neue Dateien
+
+- Keine zusätzlichen Dateien in diesem Abschluss.
+
+### Ausgeführte Befehle
+
+- `gh --version`, `gh auth status`, `git status -sb`, `git remote -v`, `git diff --name-status`, `git diff --stat`, `git diff --check`
+- `.venv\\Scripts\\python.exe -m unittest discover -s tests -q`
+- `python -m py_compile ...`, `node --check web/static/control_center.js`
+- Secret-Scan über alle geänderten und nicht ignorierten neuen Dateien
+- explizites `git add`, `git diff --cached --check`, `git commit`, `git push -u origin agent/integrate-decision-gate-observer`
+- `gh pr ready 23 --undo`, `gh pr edit 23 ...`, `gh pr view 23 ...`
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Vollständige Suite: 297/297 Tests in 55,246 Sekunden bestanden.
+- Python- und JavaScript-Syntax: bestanden.
+- Arbeitsbaum- und Staging-Diffprüfung: keine Inhaltsfehler; nur erwartete Windows-LF/CRLF-Hinweise.
+- Secret-Scan: null Treffer.
+- Laufender PandorickKi-Dienst nach der Prüfung weiterhin Health `OK`.
+- GitHub: PR #23 `OPEN`, `isDraft=true`, `CLEAN` und `MERGEABLE` gegen `main`.
+
+### Bekannte Fehler
+
+- Keine neuen Fehler bei Veröffentlichung oder PR-Aktualisierung.
+- Bereits dokumentierte KP-019-Cleanupfluktuation und Stock-Datengrenzen bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine zusätzliche Architekturänderung durch die Veröffentlichung.
+- Verification bleibt standardmäßig deaktiviert, stock-only und observer-only.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #23 ist absichtlich nicht gemergt.
+- Siebentägiger Verification-Lauf wurde weiterhin nicht gestartet.
+- Zwölf Kurzlauffälle bleiben bis zu einem ausreichend späten öffentlichen Quote `PENDING`.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #23 in Ruhe prüfen. Nicht mergen und den siebentägigen Lauf nicht automatisch starten. Erst nach eigener ausdrücklicher Laufzeitfreigabe Verification mit unverändertem Konfigurationsfingerprint aktivieren und nach ungefähr sieben Tagen wieder stoppen und auswerten.
+
 ## Aktuelle Aufgabe: Control Center nach kontrolliertem Stop wieder starten
 
 ### Datum und Uhrzeit
