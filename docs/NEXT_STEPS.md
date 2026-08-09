@@ -2,6 +2,14 @@
 
 Stand: 9. August 2026
 
+## Veröffentlichung der observer-only Stock-Pipeline
+
+- **Veröffentlicht am 9. August 2026:** Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a` liegt auf `origin/agent/integrate-decision-gate-observer`.
+- Vollständige Testsuite: 289/289 bestanden; Diff-, Scope- und Secret-Prüfung ohne Inhalts- oder Sicherheitsfehler.
+- Draft-PR #23 gegen `main` ist offen und ausdrücklich nicht gemergt: `https://github.com/cRioshy/Pando/pull/23`.
+- `main`, aktiver Legacy-Decision-/Signalpfad, Telegram und Orderausführung wurden nicht verändert.
+- **Nächster Schritt:** Die aktive einmalige read-only US-Marktprüfung am 10. August 2026 um 15:40 Uhr Europe/Berlin abwarten und danach mindestens fünf vollständige Stockzyklen auswerten. Erst anschließend unabhängige Confidence beziehungsweise Score-Kalibrierung planen.
+
 ## Aktuelle Integrationsphase
 
 - **Abgeschlossen am 8. August 2026.** Der vollständig getestete Entwicklungsstand wurde über PR #18 nach `main` integriert: `https://github.com/cRioshy/Pando/pull/18`.

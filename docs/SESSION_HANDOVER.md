@@ -1,5 +1,79 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Observer-only Stock-Pipeline veröffentlichen
+
+### Datum und Uhrzeit
+
+9. August 2026, 17:01 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den bereits implementierten und geprüften öffentlichen Stock-Daten-, Vertrags-, Shadow- und Risikostand kontrolliert auf dem bestehenden Arbeitsbranch veröffentlichen und als Draft-PR gegen `main` bereitstellen. Keine Änderung oder Zusammenführung von `main`.
+
+### Durchgeführte Arbeiten
+
+- GitHub-Anmeldung für `cRioshy` außerhalb der eingeschränkten Netzwerkumgebung erfolgreich verifiziert.
+- Den Veröffentlichungsscope auf 24 bereits geprüfte Code-, Test- und Dokumentationsdateien begrenzt.
+- `.env`, Tokens, Runtime-, History-, Lern- und Marktdaten vom Commit ausgeschlossen.
+- Vollständige Testsuite und Diff-Prüfung erneut erfolgreich ausgeführt.
+- Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a` erstellt und auf `origin/agent/integrate-decision-gate-observer` gepusht.
+- Draft-PR #23 gegen `main` erstellt: `https://github.com/cRioshy/Pando/pull/23`.
+- PR-Zustand anschließend als `OPEN`, `isDraft=true`, Basis `main` und Head `agent/integrate-decision-gate-observer` verifiziert.
+- Kein Merge durchgeführt; `main` blieb unverändert.
+
+### Veränderte Dateien
+
+- Die 24 Dateien des Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a`
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine zusätzlichen Programmdateien während der Veröffentlichung; die elf neuen Stock-Vertrags-, Service-, Dokumentations- und Testdateien sind Bestandteil von Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a`.
+
+### Ausgeführte Befehle
+
+- `gh auth status`
+- `python -m unittest discover -s tests -q`
+- `git status -sb`
+- `git diff --check`
+- explizites `git add -- <24 freigegebene Dateien>`
+- `git diff --cached --name-status`, `--stat` und `--check`
+- `git commit -m "Add observer-only public stock pipeline"`
+- `git push -u origin agent/integrate-decision-gate-observer`
+- `gh pr list`, `gh pr create --draft`, `gh pr view 23`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Vollständige Testsuite: 289/289 bestanden in 46,276 Sekunden.
+- `git diff --check`: keine Inhaltsfehler; ausschließlich erwartete LF/CRLF-Hinweise unter Windows.
+- Vorherige Scope-/Secret-Prüfung: sauber; keine Secrets oder Laufzeitdaten im Commit.
+- Push erfolgreich; Remote-Tracking eingerichtet.
+- Draft-PR #23 erfolgreich als offen und Draft verifiziert.
+
+### Bekannte Fehler
+
+- Keine neue Code- oder Runtime-Störung festgestellt.
+- Die bekannten zwei beschädigten historischen Stock-Backup-JSONs bleiben unverändert bestehen.
+- Die aussagekräftige Quote-Freshness-Auswertung benötigt weiterhin die geöffnete US-Marktphase.
+
+### Getroffene Architekturentscheidungen
+
+- Keine neue Architekturänderung während der Veröffentlichung.
+- Öffentliche Stock-Pipeline, Shadow-Kandidat und Risikoplan bleiben reine Observer; aktiver Legacy-Decision-/Signalpfad, Telegram und Orders bleiben unberührt.
+- Veröffentlichung erfolgte ausschließlich auf dem Arbeitsbranch und als Draft-PR; keine automatische Zusammenführung.
+
+### Nicht abgeschlossene Punkte
+
+- Draft-PR #23 ist offen, Draft und nicht gemergt.
+- Einmalige read-only US-Marktphasenmessung am 10. August 2026 ab 15:40 Uhr Europe/Berlin steht aus.
+- Unabhängige Confidence beziehungsweise belastbare Score-Kalibrierung steht erst nach dieser Messung an.
+- Keine Gate-, Telegram- oder Orderkopplung.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #23 unverändert als Draft belassen und am 10. August 2026 ab 15:40 Uhr Europe/Berlin die bereits aktive read-only Automation mindestens fünf vollständige Stockzyklen messen lassen. Danach Freshness, Shadow-Verteilung, Risikopläne und Reason Codes auswerten, bevor eine unabhängige Confidence oder Score-Kalibrierung geplant wird.
+
 ## Aktuelle Aufgabe: US-Marktphasenprüfung terminieren
 
 ### Datum und Uhrzeit
