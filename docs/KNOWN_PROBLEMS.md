@@ -33,6 +33,22 @@ Stand: 8. August 2026
 - **Sicherheitsregel:** Der Vertrag setzt stets `ready_for_telegram=false` und `order_execution_allowed=false`. Daraus niemals automatische oder reale Orders ableiten.
 - **Nächster Fix:** Audit über einen längeren Zeitraum auswerten und zuerst die vorgelagerten Stock-Preis-/Qualitäts-/Risikofelder als eigenen Vertrag prüfen. Den bestehenden Signalpfad noch nicht umschalten.
 
+### KP-021 – Confidence ist derzeit keine unabhängige Gate-Messgröße
+
+- **Priorität:** mittel
+- **Status:** offen, durch Liveaudit bestätigt
+- **Beobachtung:** `BrainAdapter` setzt `confidence` gleich `probability`. Im 272-Kandidaten-Snapshot waren Probability und Confidence deshalb stets identisch; beide 60er-Schwellen prüfen faktisch dieselbe Zahl.
+- **Auswirkung:** `DG_CONFIDENCE_CONFLICT` kann im heutigen Brain-Pfad keine Abweichung zweier unabhängiger Bewertungen erkennen. Eine produktive Freigabe würde die Sicherheit der doppelten Prüfung überschätzen.
+- **Nächster Fix:** Vor jeder Gate-Umschaltung einen fachlichen Confidence-Vertrag definieren: unabhängige Quelle und Kalibrierung oder ehrliche Entfernung/Umbenennung der redundanten Freigaberegel.
+
+### KP-022 – Stock kann den sicheren Gate-Vertrag derzeit nicht erfüllen
+
+- **Priorität:** mittel
+- **Status:** offen, fail-closed abgefangen
+- **Beobachtung:** Im Snapshot waren 170/170 Stock-Kandidaten `WARN/UNVERIFIED/WARMING`. Alle 31 Stock-LONG-Kandidaten scheiterten zusätzlich an Stop und Take-Profit, weil `StockAdapter._normalize_decision()` keinen normalisierten `risk`-Block erzeugt. SPCX hatte in 34/34 Fällen keinen positiven Livepreis.
+- **Auswirkung:** Auch Stock-Kandidaten über Probability 60 bleiben korrekt blockiert. Ein Lockern der Gate-Regeln würde unvollständige Daten freigeben.
+- **Nächster Fix:** Eigenen Stock-Datenvertrag für zeitgestempelte Kerzenhistorie, aktuellen Preis und vollständigen richtungskonsistenten Risikoplan entwerfen und testen; Gate unverändert lassen.
+
 ### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
 
 - **Priorität:** niedrig

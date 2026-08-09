@@ -1,5 +1,86 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Erste erweiterte Decision-Gate-Liveauswertung
+
+### Datum und Uhrzeit
+
+9. August 2026, 10:44 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den weiterlaufenden 60/60/0-Decision-Gate-Observer vollständig read-only auswerten: Markt-, Symbol-, Richtungs-, Probability-, Qualitäts- und Reason-Code-Verteilung, qualifizierte Fälle, Schema-/Policytreue, Duplikate, unsichere Freigaben und aktuelle Systemgesundheit. Keine Gate-Regel, keinen Adapter, keinen Signalpfad und keine Runtime-History verändern.
+
+### Durchgeführte Arbeiten
+
+- Auditfenster vom ersten korrekten Netzwerkstart bis `2026-08-09T08:40:38Z` eingefroren und sämtliche 272 Datensätze eingelesen.
+- Eindeutigkeit, Gate-/Policy-Schema, Observer-/Releasezustand und Telegram-/Orderflags geprüft.
+- Verteilung nach Markt, Symbol, Richtung, Probability, Preis, Datenqualität und Reason Codes berechnet.
+- Zwei technisch qualifizierte ETHUSDT-LONG-Fälle einzeln geprüft; beide blieben ohne Telegram- oder Orderfreigabe.
+- Tatsächlichen Stock- und Brain-Code gegen die Auditbefunde geprüft.
+- Bestätigt, dass Stock keinen normalisierten `risk`-Block erzeugt und Brain `confidence` direkt gleich `probability` setzt.
+- Einen eingefrorenen Bericht erstellt und Systemzustand, bekannte Probleme und nächste Schritte aktualisiert.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `docs/DECISION_GATE_AUDIT_REPORT.md`
+
+### Ausgeführte Befehle
+
+- Pflicht- und Gate-Dokumentation sowie Branch/Commit/Status erneut geprüft.
+- Read-only PowerShell-Auswertungen von `data/decision_gate_audit.jsonl`, `data/service_errors.jsonl` und `/api/status`.
+- Codeprüfung mit `rg` und `Get-Content` in `adapters/stock_adapter.py`, `decision_gate_contract.py`, `event_payload_contract.py` und dem Brain-Pfad.
+- Eingefrorenen Snapshot mit expliziter Start-/Endzeit erneut gezählt.
+- `git diff --check`, Status- und Scopeprüfung.
+
+### Ausgeführte Tests
+
+- Keine Softwaretests, weil ausschließlich Runtime-Daten gelesen und technische Dokumentation ergänzt wurde.
+- Reproduzierbare Snapshot-Verifikation für Anzahl, Marktaufteilung, Quell-ID-Eindeutigkeit, Qualification und Sicherheitsflags.
+- Live-Health-/Service-/Telegramprüfung.
+
+### Tatsächliche Testergebnisse
+
+- Snapshot: 272 Datensätze, 272 eindeutige Quell-IDs, 102 Crypto, 170 Stock, 2 `QUALIFIED`, 270 `BLOCKED`, 0 unsichere Freigaben.
+- Alle 272 Einträge Schema Version 1, Policy 60/60/0, `OBSERVER_ONLY`; keine Schema- oder Policyabweichung.
+- Crypto: 102/102 `PASS/VERIFIED/READY`, 2 qualifizierte ETHUSDT-LONG-Fälle mit 62,90 und 60,90 Probability/Confidence.
+- Stock: 170/170 `WARN/UNVERIFIED/WARMING`, 31 LONG-Fälle mit ungültigem/fehlendem Stop und Take-Profit, 34 SPCX-Fälle ohne positiven Preis.
+- Häufigste Gründe: Probability/Confidence unter 60 und ungeeignete Richtung je 239; Stock-Qualität/Order/Warmup je 170.
+- Plattform und alle elf Services weiterhin `OK`; Gate gesund, Telegram deaktiviert/Dry-Run und null gesendete Nachrichten; seit dem korrekten Netzwerkstart keine neuen Dienstfehler.
+- Snapshot-Nachprüfung bestätigte exakt 272/2/102/170/272/0 für Gesamt, Qualified, Crypto, Stock, eindeutige IDs und unsichere Freigaben.
+
+### Bekannte Fehler
+
+- KP-021: Confidence ist derzeit keine unabhängige Messgröße, sondern entspricht Probability.
+- KP-022: Stock kann den sicheren Gate-Vertrag wegen Einzelsnapshot, fehlendem Risikoplan und SPCX-Preisloch nicht erfüllen.
+- KP-004 und KP-005 bleiben offen: Gate ist Observer, aktiver Decision-/Signalpfad ungefiltert; Telegram bleibt deshalb deaktiviert/Dry-Run.
+- Der Zeitraum von knapp 39 Minuten ist noch keine belastbare Langzeit- oder Outcome-Bewertung.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architektur- oder Produktentscheidung geändert.
+- 60/60/0 bleibt unverändert diagnostisch; Gate-Regeln werden nicht gelockert, um unvollständige Stock-Daten passieren zu lassen.
+- Qualifizierte Observerergebnisse bleiben technische Kandidaten, keine Meldungs-, Trade- oder Orderfreigaben.
+- Der Bericht verwendet ein festes Zeitfenster, damit weiterlaufende Append-only-Daten die dokumentierten Zahlen nicht nachträglich verändern.
+
+### Nicht abgeschlossene Punkte
+
+- Keine mehrstündige, tägliche oder mehrtägige Verteilung und keine Outcome-Zuordnung der qualifizierten Fälle.
+- Noch kein eigener Stock-Datenvertrag für Kerzen, Preis und Risiko.
+- Noch kein unabhängiger Confidence-Vertrag.
+- Keine Umschaltung von Gate, Decision Core, Telegram oder Orders.
+- Dokumentationsänderungen sind lokal und noch nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Observer unverändert weiterlaufen lassen und nach einem deutlich längeren Zeitfenster denselben eingefrorenen Snapshot einschließlich späterer simulierter Outcomes wiederholen. Parallel zunächst nur den Stock-Datenvertrag und einen ehrlichen unabhängigen Confidence-Begriff entwerfen; Implementierung erst nach separater Freigabe.
+
 ## Aktuelle Aufgabe: Decision-Gate-Observer diagnostisch mit 60/60 aktivieren
 
 ### Datum und Uhrzeit

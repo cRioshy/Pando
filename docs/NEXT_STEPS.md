@@ -20,6 +20,9 @@ Stand: 8. August 2026
 - **Verifikation:** Gezielte Suite 35/35 und vollständige Wiederholung 265/265 bestanden. Der einmalige Windows-Temp-Cleanupfehler war nicht reproduzierbar.
 - **Liveverifikation:** Vier vollständige Zyklen, 11/11 Services `OK`, 32 eindeutige Audits (12 Crypto, 20 Stock), 0 `QUALIFIED`, 32 `BLOCKED`, null Telegram-/Orderfreigaben, Telegram aus/Dry-Run und keine neuen Dienstfehler seit dem freigegebenen Netzwerkstart.
 - **Nächster Schritt:** Audit zunächst weiter sammeln und anschließend die Reason-Code-Verteilung über einen längeren Zeitraum auswerten. Vor jeder Gate-Umschaltung zuerst den Stock-Datenvertrag für aktuellen Preis, zeitgestempelte Kerzen und vollständigen Risikoplan untersuchen; noch nichts am aktiven Signal- oder Telegrampfad ändern.
+- **Erste erweiterte Auswertung abgeschlossen:** eingefrorener 39-Minuten-Snapshot mit 272 Kandidaten, 2 technisch qualifizierten ETHUSDT-LONG-Fällen, 270 Blockierungen und null unsicheren Freigaben. Bericht: `docs/DECISION_GATE_AUDIT_REPORT.md`.
+- **Neue nachgewiesene Grenzen:** Confidence dupliziert derzeit Probability; Stock erfüllt wegen Einzelsnapshot, fehlendem normalisierten Risikoplan und SPCX-Preisloch den sicheren Gate-Vertrag nicht.
+- **Nächster Schritt präzisiert:** Observer weiterlaufen lassen und später Outcome-bezogen erneut auswerten. Parallel zuerst einen reinen Stock-Datenvertrag entwerfen; noch keine Implementierung oder Lockerung ohne separate Freigabe.
 
 ## Verbindliche Reihenfolge
 
