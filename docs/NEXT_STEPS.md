@@ -2,6 +2,22 @@
 
 Stand: 9. August 2026
 
+## Aktueller Betrieb
+
+- PandorickKi wurde am 9. August 2026 um 18:23 Uhr nach dem kurzen Verification-Lauf wieder normal gestartet. Health, Webserver, WebSocket, Statistik und alle elf normalen Services sind `OK`.
+- Stock-Verification bleibt im normalen Start ausdrücklich deaktiviert; Telegram und Orders bleiben gesperrt. Der siebentägige Lauf wurde nicht gestartet.
+- Veröffentlichungskontrolle des lokalen Verification-Stands: 297/297 Tests in 55,246 Sekunden bestanden; Syntax-, Diff- und Secret-Prüfung sauber.
+
+## Stock Live-Shadow-Verification
+
+- **Implementiert und kurz kontrolliert verifiziert:** Version-1-Vertrag, deterministische IDs, append-only/restart-safe Ledger, Decision-/Tracker-Verknüpfung, getrennte Legacy-/Shadow-Outcomes, read-only 7-Tage-Aggregation, Detail-API und Control-Center-Bereich.
+- Crypto ist ausdrücklich ausgeschlossen; produktive Stock-, Brain-, Decision-, Signal-, Outcome-, Learning-, Telegram- und Orderlogik blieb unverändert.
+- Gezielte Tests: 34/34 bestanden. Der abschließende Gesamtlauf bestand mit 297/297 Tests in 42,693 Sekunden; JavaScript-Syntax und `git diff --check` waren sauber. Ein dazwischenliegender Gesamtlauf traf einmalig den bereits dokumentierten KP-019-Windows-Fehler (`WinError 145`) beim Aufräumen eines temporären Learning-Report-Verzeichnisses; der betroffene Test bestand isoliert mit 1/1 und die unmittelbar folgende vollständige Wiederholung mit 297/297.
+- Kontrollierter Lauf: genau drei Zyklen, anschließend automatischer Stop; alle zwölf Dienste `OK`, 15 eindeutige Fälle und 15 Decision-Links, 12 `PENDING`, 3 erwartete `SPCX`-`UNKNOWN`, keine Rohkerzen oder `raw_result`, alle Telegram-/Order-/Active-Decision-Flags `false`, Port 8000 geschlossen.
+- Der normale Starter aktiviert die Verification weiterhin nicht automatisch. Der siebentägige Lauf wurde nicht gestartet.
+- Draft-PR #23 bleibt offen und Draft; `main` ist unverändert.
+- **Nächster Schritt:** Ergebnisbericht prüfen. Erst nach ausdrücklicher Freigabe Verification für ungefähr sieben Tage mit unverändertem Konfigurationsfingerprint aktivieren; keine automatische Optimierung oder Gate-Umschaltung.
+
 ## Veröffentlichung der observer-only Stock-Pipeline
 
 - **Veröffentlicht am 9. August 2026:** Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a` liegt auf `origin/agent/integrate-decision-gate-observer`.

@@ -1,5 +1,178 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Control Center nach kontrolliertem Stop wieder starten
+
+### Datum und Uhrzeit
+
+9. August 2026, 18:23 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+PandorickKi nach dem vereinbarten Ende des kurzen Stock-Verification-Laufs wieder im normalen Dauerbetrieb unter `http://127.0.0.1:8000/` bereitstellen, ohne den siebentägigen Verification-Lauf oder Telegram-/Orderfreigaben zu aktivieren.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation und tatsächlichen Webstarter geprüft.
+- Bestätigt, dass Port 8000 vor dem Start nicht belegt war.
+- PandorickKi verborgen im Hintergrund mit Live-Crypto, Live-Stocks, NeuroBrain und observer-only Decision Gate gestartet.
+- `PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED=0`, Telegram deaktiviert und Dry-Run ausdrücklich gesetzt.
+- Health-, Status- und Verification-Summary-API read-only geprüft.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Zwei ignorierte leere Runtime-Logdateien unter `runtime_logs/` für Standardausgabe und Standardfehler des Hintergrundprozesses.
+
+### Ausgeführte Befehle
+
+- Pflichtdokumente und `start_pandorick_web.bat` mit PowerShell gelesen.
+- Port 8000 mit `Get-NetTCPConnection` geprüft.
+- Projektlokales `.venv\\Scripts\\python.exe main.py --headless --web` über verborgenen `Start-Process` gestartet.
+- `GET /api/health`, `GET /api/status` und `GET /api/shadow-verification/summary?days=7&limit=1` aufgerufen.
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Kein Code geändert; daher keine neue Code-Testsuite erforderlich.
+- Runtime-Health: `OK`; `web_running`, `websocket_active` und `statistics_active` sind `true`.
+- Alle elf normalen Services melden `OK`.
+- Stock-Verification meldet `enabled=false`, Stock-only/observer-only und null Fälle dieses normalen Starts.
+- `ready_for_telegram=false` und `order_execution_allowed=false`.
+- Unmittelbare Veröffentlichungskontrolle des gesamten lokalen Verification-Stands: 297/297 Tests in 55,246 Sekunden bestanden; Python-/JavaScript-Syntax und `git diff --check` bestanden, Secret-Scan ohne Treffer, Runtime anschließend weiterhin `OK`.
+
+### Bekannte Fehler
+
+- Keine neuen Fehler beim Neustart festgestellt.
+- Die bereits dokumentierten bekannten Probleme bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung.
+- Normaler Dauerbetrieb bleibt vom separat freizugebenden siebentägigen Verification-Lauf getrennt.
+
+### Nicht abgeschlossene Punkte
+
+- Lokale Stock-Verification-Änderungen sind weiterhin nicht committed oder gepusht.
+- Der siebentägige Verification-Lauf wurde weiterhin nicht gestartet.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Control Center im bereits geöffneten Browser neu laden. Danach entweder PandorickKi normal weiterlaufen lassen oder nach separater Freigabe den Implementierungsstand committen und Draft-PR #23 aktualisieren; den siebentägigen Lauf weiterhin nicht ohne eigene ausdrückliche Freigabe starten.
+
+## Aktuelle Aufgabe: Stock-only Live-Shadow-Verification implementieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 17:45 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Eine ausschließlich beobachtende Stock-Live-Shadow-Verification mit zuerst definiertem Verification-/Outcome-Vertrag, append-only/restart-safe/idempotenter Persistenz, read-only API/UI und kurzem kontrolliertem Lauf implementieren. Crypto, produktive Decisions, bestehende Outcomes, Learning, Telegram, Orders und `main` unverändert lassen; keinen siebentägigen Lauf starten.
+
+### Durchgeführte Arbeiten
+
+- Pflicht-, Event-, Learning-, Feature-, Gate- und alle Stock-Verträge vollständig gelesen und gegen Codepfade geprüft.
+- Vor Änderungen den tatsächlichen Legacy-, Shadow-, ID-, Outcome-, Storage- und Control-Center-Fluss dokumentiert.
+- Vertrag `pandorickki.stock-shadow-verification` Version 1 erstellt.
+- Deterministische `verification_id` aus Symbol, Quell-/Quote-/Kerzenzeit, Observer-Version und secret-freiem Konfigurationsfingerprint umgesetzt.
+- Getrennte Legacy-/Shadow-Ergebnisse mit festem 24h-Forward-Mark-to-Market und 0,05-%-Neutralband implementiert; strikt späterer Quote-Zeitstempel erforderlich.
+- `StockAdapter` um separates kompaktes `STOCK_SHADOW_OBSERVED` mit gemeinsamer `source_event_id` ergänzt; aktiver `STOCK_ANALYSIS_FINISHED`-Payload bleibt frei von Shadow-/Auditfeldern.
+- Optionalen `StockShadowVerificationAdapter` mit append-only Recordtypen, Ledger-Rotation, Archivlimit, Restart-Rekonstruktion, Source-Alias-, Decision-, Tracker- und Outcome-Verknüpfung ergänzt.
+- Crypto-Events werden ausdrücklich ignoriert; unbekannte/HOLD-Daten bleiben `UNKNOWN`.
+- Read-only Summary `GET /api/shadow-verification/summary?days=7`, Detailroute und Control-Center-Bereich ergänzt.
+- Normalen Starter bewusst nicht aktiviert; `.env.example` dokumentiert sichere deaktivierte Standards.
+- Laufenden Altprozess kontrolliert über die Websteuerung gestoppt.
+- Neuen Stand mit genau drei Livezyklen und temporär aktivierter Verification ausgeführt; Prozess stoppte danach selbst.
+- Ledger anschließend read-only auf Einträge, Eindeutigkeit, Stock-Scope, Sicherheitsflags und verbotene Bulkfelder geprüft.
+- Draft-PR #23 blieb Draft; kein Commit, Push, Merge oder `main`-Eingriff in dieser Aufgabe.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `AGENTS.md`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `orchestrator.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/EVENT_PAYLOAD_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `tests/test_config.py`
+- `tests/test_stock_adapter.py`
+- `tests/test_web_control_center.py`
+- `web/api.py`
+- `web/routes.py`
+- `web/static/control_center.css`
+- `web/static/control_center.html`
+- `web/static/control_center.js`
+
+### Neue Dateien
+
+- `stock_shadow_verification_contract.py`
+- `adapters/stock_shadow_verification_adapter.py`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+- `tests/test_stock_shadow_verification_contract.py`
+- `tests/test_stock_shadow_verification_adapter.py`
+
+### Ausgeführte Befehle
+
+- vollständige `Get-Content`-/`rg`-Prüfung der Pflichtdokumente, Verträge und relevanten Codepfade
+- `git status -sb`, `git branch --show-current`, `git remote -v`, `git diff --stat`, `git diff --check`
+- `python -m py_compile ...`
+- `node --check web/static/control_center.js`
+- gezielte und vollständige `python -m unittest`-Läufe
+- kontrollierter `POST /api/control/stop` mit Portfreigabeprüfung
+- temporär konfigurierter `python main.py --headless --web --cycles 3 --interval 1`
+- read-only PowerShell-Auswertung von `data/stock_shadow_verification.jsonl`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Gezielte Suite: 34/34 bestanden.
+- Vollständige Suite: abschließender Lauf 297/297 bestanden in 42,693 Sekunden. Ein dazwischenliegender Lauf traf einmalig den bereits dokumentierten KP-019-Windows-Fehler (`WinError 145`) beim `TemporaryDirectory`-Cleanup des Learning-Report-Tests; der betroffene Test bestand anschließend isoliert mit 1/1 und die unmittelbar folgende vollständige Suite mit 297/297. Ein früherer vollständiger Lauf hatte ebenfalls 297/297 bestanden.
+- Python-Syntaxprüfung: bestanden.
+- JavaScript `node --check`: bestanden.
+- `git diff --check`: keine Inhaltsfehler, nur erwartete Windows-LF/CRLF-Hinweise.
+- Kontrollierter Lauf: Exit 0, Health `OK`; zwölf Dienste einschließlich Verification `OK`.
+- Ledger: 30 append-only Einträge, davon 15 `VERIFICATION_CREATED` und 15 `LEGACY_DECISION_LINKED`; 15 eindeutige Stockfälle, ein Konfigurationsfingerprint.
+- Verteilung: Qualität 9 `DEGRADED`, 6 `REJECTED`; Legacy 13 HOLD/2 LONG; Shadow 6 LONG/3 SHORT/3 HOLD/3 unbekannt; Gate 9 BLOCK/3 HOLD/3 UNKNOWN; Vergleich 9 `LEGACY_HOLD_SHADOW_ACTION`, 3 MATCH, 3 UNCOMPARABLE.
+- Outcome: 12 PENDING; drei `SPCX`-Fälle wegen fehlender öffentlicher Daten UNKNOWN. Aufgrund 24h-Horizont erwartungsgemäß noch keine abgeschlossenen Forward-Outcomes.
+- Keine `candles`-Liste und kein `raw_result` im Ledger; alle Telegram-, Order- und Active-Decision-Flags false.
+- Port 8000 nach dem Lauf geschlossen; kein Dauer- oder 7-Tage-Prozess aktiv.
+
+### Bekannte Fehler
+
+- Zwei historische beschädigte Stock-Backup-JSONs bleiben unverändert.
+- `SPCX` besitzt weiterhin keinen belegbaren öffentlichen Ticker und bleibt UNKNOWN/REJECTED.
+- Version-1-Outcome ist absichtlich Forward-Mark-to-Market und kein Stop-/Zielpfad-Backtest.
+- KP-019 trat in einem dazwischenliegenden Gesamtlauf einmalig als `WinError 145` beim `TemporaryDirectory`-Cleanup des Learning-Report-Tests auf; der isolierte Test und die unmittelbare vollständige Wiederholung bestanden. Nur bei erneuter Reproduktion weiter instrumentieren.
+
+### Getroffene Architekturentscheidungen
+
+- Stock-only; keine vorgetäuschte Crypto-Shadow-Auswertung.
+- Eigenes append-only Verification-Ledger statt Umschreiben von Legacy-, Decision- oder Outcome-History.
+- Gemeinsame `source_event_id` als primäre technische Verbindung; deterministische fachliche Fall-ID für Restart-Idempotenz.
+- Bestehende `decision_id` und Tracker-Outcomes nur read-only additiv verknüpfen.
+- Legacy und Shadow getrennt bewerten; fehlende Daten nie als Erfolg zählen.
+- Diskrete Quotes erlauben nur Forward-Mark-to-Market, keine Behauptung über Stop-/Zielberührungen.
+- API/UI verwenden bestehende REST-, WebSocket-, Polling- und Reconnect-Architektur und übertragen keine Rohkerzen.
+- Feature ist standardmäßig deaktiviert; Aktivierung nur für ausdrücklich freigegebene Läufe.
+
+### Nicht abgeschlossene Punkte
+
+- Änderungen sind noch nicht committed oder gepusht; Draft-PR #23 enthält diesen neuen lokalen Stand noch nicht.
+- Siebentägiger Live-Shadow-Lauf wurde nicht gestartet.
+- 12 Kurzlauffälle bleiben bis zu einem strikt späteren Quote nach Ablauf des 24h-Horizonts PENDING.
+- Keine Confidence-Kalibrierung, Gate-Umschaltung, Telegram-Kopplung oder Orderfunktion.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den vorliegenden Implementierungs- und Kurzlaufbericht prüfen. Nach separater Freigabe zuerst den vollständigen Diff-/Secret-Scope erneut prüfen, den Stand auf demselben Arbeitsbranch committen und Draft-PR #23 aktualisieren. Den ungefähr siebentägigen Verification-Lauf erst nach einer weiteren ausdrücklichen Laufzeitfreigabe mit unverändertem Konfigurationsfingerprint aktivieren.
+
 ## Aktuelle Aufgabe: Observer-only Stock-Pipeline veröffentlichen
 
 ### Datum und Uhrzeit

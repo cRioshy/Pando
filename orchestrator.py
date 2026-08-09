@@ -17,6 +17,7 @@ from adapters.decision_gate_audit_adapter import DecisionGateAuditAdapter
 from adapters.neurobrain_receiver_adapter import NeuroBrainReceiverAdapter
 from adapters.outcome_tracker import OutcomeTracker
 from adapters.stock_adapter import StockAdapter
+from adapters.stock_shadow_verification_adapter import StockShadowVerificationAdapter
 from adapters.telegram_adapter import TelegramAdapter
 from config import PlatformConfig
 from decision_gate_contract import DecisionGatePolicy
@@ -27,6 +28,10 @@ from shared_state import SharedState
 from stock_data_contract import StockDataPolicy
 from stock_shadow_candidate import StockShadowPolicy
 from stock_shadow_risk import StockShadowRiskPolicy
+from stock_shadow_verification_contract import (
+    StockShadowVerificationPolicy,
+    configuration_fingerprint,
+)
 
 
 class ServiceAdapter(Protocol):
@@ -458,6 +463,33 @@ class Orchestrator:
     def _default_adapters(self) -> list[ServiceAdapter]:
         """Return safe placeholders for Phase 3 ground-system validation."""
 
+        verification_policy = StockShadowVerificationPolicy(
+            horizon_seconds=self.config.stock_shadow_verification_horizon_seconds,
+            neutral_band_percent=self.config.stock_shadow_verification_neutral_band_percent,
+        )
+        verification_fingerprint = configuration_fingerprint(
+            {
+                "stock_data_minimum_candles": self.config.stock_data_minimum_candles,
+                "stock_data_full_warmup_candles": self.config.stock_data_full_warmup_candles,
+                "stock_data_maximum_candle_age_seconds": self.config.stock_data_maximum_candle_age_seconds,
+                "stock_data_maximum_quote_age_seconds": self.config.stock_data_maximum_quote_age_seconds,
+                "stock_data_maximum_future_skew_seconds": self.config.stock_data_maximum_future_skew_seconds,
+                "stock_data_maximum_entry_deviation_percent": self.config.stock_data_maximum_entry_deviation_percent,
+                "stock_shadow_long_bullish_score": self.config.stock_shadow_long_bullish_score,
+                "stock_shadow_short_bullish_score": self.config.stock_shadow_short_bullish_score,
+                "stock_shadow_risk_atr_multiplier": self.config.stock_shadow_risk_atr_multiplier,
+                "stock_shadow_risk_minimum_distance_percent": self.config.stock_shadow_risk_minimum_distance_percent,
+                "stock_shadow_risk_targets": [
+                    self.config.stock_shadow_risk_target_1_multiple,
+                    self.config.stock_shadow_risk_target_2_multiple,
+                    self.config.stock_shadow_risk_target_3_multiple,
+                ],
+                "stock_shadow_risk_price_decimals": self.config.stock_shadow_risk_price_decimals,
+                "verification_observer_version": verification_policy.observer_version,
+                "verification_horizon_seconds": verification_policy.horizon_seconds,
+                "verification_neutral_band_percent": verification_policy.neutral_band_percent,
+            }
+        )
         return [
             CryptoAdapter(
                 self.event_bus,
@@ -504,6 +536,20 @@ class Orchestrator:
                 outcomes_file=self.config.trade_outcomes_file,
                 evaluation_horizon_seconds=self.config.simulated_outcome_horizon_seconds,
                 ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+            ),
+            *(
+                [
+                    StockShadowVerificationAdapter(
+                        self.event_bus,
+                        ledger_file=self.config.stock_shadow_verification_file,
+                        policy=verification_policy,
+                        config_fingerprint=verification_fingerprint,
+                        ledger_rotation_bytes=self.config.stock_shadow_verification_rotation_bytes,
+                        ledger_max_archives=self.config.stock_shadow_verification_max_archives,
+                    )
+                ]
+                if self.config.stock_shadow_verification_enabled
+                else []
             ),
             *(
                 [

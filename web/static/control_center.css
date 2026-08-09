@@ -180,6 +180,12 @@ select {
   font-size: 12px;
 }
 
+.shadow-detail {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
 button.active {
   border-color: var(--accent);
   color: var(--accent);

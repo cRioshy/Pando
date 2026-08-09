@@ -163,6 +163,90 @@ function renderMarket(tableId, analyses, options = {}) {
   });
 }
 
+function renderShadowVerification(view) {
+  const data = view || {};
+  const summary = data.summary || {};
+  const quality = summary.data_quality || {};
+  const outcomes = summary.outcomes || {};
+  setText("shadowCases", summary.shadow_cases || 0);
+  setText("shadowAgreement", summary.agreement || 0);
+  setText("shadowDisagreement", summary.disagreement || 0);
+  setText("shadowGateBlocks", summary.gate_blocks || 0);
+  setText("shadowDegraded", quality.DEGRADED || 0);
+  setText("shadowRejected", quality.REJECTED || 0);
+  setText("shadowPending", outcomes.PENDING || 0);
+  setText("shadowCompleted", outcomes.COMPLETED || 0);
+  setText(
+    "shadowVerificationMode",
+    data.enabled ? `Stocks · observer-only · ${data.days || 7} Tage` : "Stocks · observer-only · deaktiviert"
+  );
+
+  const body = $("shadowVerificationRows");
+  if (!body) return;
+  body.innerHTML = "";
+  const records = data.records || [];
+  if (!records.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="10" class="empty">Keine Stock-Verification-Daten</td>';
+    body.appendChild(tr);
+    return;
+  }
+  records.forEach((record) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>";
+    const legacy = record.legacy || {};
+    const shadow = record.shadow || {};
+    const risk = shadow.risk || {};
+    const comparison = record.comparison || {};
+    const outcome = record.outcome || {};
+    const reasons = shadow.reason_codes || [];
+    tr.children[0].textContent = time(record.analysis_timestamp);
+    tr.children[1].textContent = record.symbol || "-";
+    tr.children[2].textContent = (record.data_quality || {}).status || "UNKNOWN";
+    tr.children[3].textContent = legacy.decision || "UNKNOWN";
+    tr.children[4].textContent = `${shadow.decision || "UNKNOWN"} / ${shadow.gate_status || "UNKNOWN"}`;
+    tr.children[5].textContent = risk.stop_loss
+      ? `Stop ${price(risk.stop_loss)} / TP1 ${price((risk.take_profit || [])[0])}`
+      : "-";
+    tr.children[6].textContent = comparison.decisions_match === true
+      ? "MATCH"
+      : (comparison.decisions_match === false ? "CONFLICT" : "UNKNOWN");
+    tr.children[7].textContent = outcome.status || "UNKNOWN";
+    tr.children[8].textContent = reasons[0] || "-";
+    const button = document.createElement("button");
+    button.className = "small";
+    button.textContent = "Öffnen";
+    button.addEventListener("click", () => loadShadowVerificationDetail(record.verification_id).catch(() => {}));
+    tr.children[9].appendChild(button);
+    body.appendChild(tr);
+  });
+}
+
+function renderShadowVerificationDetail(record) {
+  if (!record) {
+    renderRows("shadowVerificationDetail", [], "Kein Detail ausgewählt");
+    return;
+  }
+  const legacy = record.legacy || {};
+  const shadow = record.shadow || {};
+  const quality = record.data_quality || {};
+  const outcome = record.outcome || {};
+  renderRows("shadowVerificationDetail", [
+    ["Verification ID", record.verification_id],
+    ["Zeit", record.analysis_timestamp],
+    ["Symbol", record.symbol],
+    ["Legacy", `${legacy.decision || "UNKNOWN"} | ${percent(legacy.confidence)}`],
+    ["Legacy Decision ID", legacy.decision_id || "-"],
+    ["Shadow", `${shadow.decision || "UNKNOWN"} | Score ${percent(shadow.score)}`],
+    ["Shadow Gate", shadow.gate_status || "UNKNOWN"],
+    ["Data Quality", `${quality.status || "UNKNOWN"} | ${quality.contract_status || "UNKNOWN"}`],
+    ["Reasons", (shadow.reason_codes || []).join(", ") || "-"],
+    ["Agreement", (record.comparison || {}).disagreement_type || "UNKNOWN"],
+    ["Outcome", `${outcome.status || "UNKNOWN"} | Legacy ${(outcome.legacy || {}).status || "UNKNOWN"} | Shadow ${(outcome.shadow || {}).status || "UNKNOWN"}`],
+    ["Config Fingerprint", record.config_fingerprint || "-"],
+  ], "Kein Detail ausgewählt");
+}
+
 function renderStatistics(statistics) {
   const analyses = (statistics && statistics.analyses) || {};
   const developer = (statistics && statistics.developer) || {};
@@ -1251,6 +1335,7 @@ function render(snapshot) {
   renderMarket("cryptoRows", snapshot.last_crypto_analysis || {}, { crypto: true });
   renderMarket("stockRows", snapshot.last_stock_analysis || {});
   renderMarket("commodityRows", snapshot.last_commodity_analysis || {});
+  renderShadowVerification(snapshot.shadow_verification || {});
 
   const brain = snapshot.last_brain_decision || {};
   const learning = snapshot.last_learning_update || {};
@@ -1307,6 +1392,16 @@ async function loadLearningReport() {
   const { response, data } = await fetchJsonWithTimeout("/api/learning-report", 8000);
   if (!response.ok) throw new Error(data.error || "Learning report failed");
   renderLearningReport(data.learning_report);
+}
+
+async function loadShadowVerificationDetail(verificationId) {
+  if (!verificationId) return;
+  const { response, data } = await fetchJsonWithTimeout(
+    `/api/shadow-verification/${encodeURIComponent(verificationId)}`,
+    8000
+  );
+  if (!response.ok) throw new Error(data.error || "Shadow verification detail failed");
+  renderShadowVerificationDetail(data.record);
 }
 
 async function loadStatistics() {

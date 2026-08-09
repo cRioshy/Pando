@@ -28,6 +28,7 @@ from stock_shadow_risk import StockShadowRiskPolicy, build_stock_shadow_risk
 STOCK_SERVICE_STARTED = "STOCK_SERVICE_STARTED"
 STOCK_MARKET_DATA_UPDATED = "STOCK_MARKET_DATA_UPDATED"
 STOCK_ANALYSIS_FINISHED = "STOCK_ANALYSIS_FINISHED"
+STOCK_SHADOW_OBSERVED = "STOCK_SHADOW_OBSERVED"
 STOCK_SERVICE_ERROR = "STOCK_SERVICE_ERROR"
 STOCK_SERVICE_STOPPED = "STOCK_SERVICE_STOPPED"
 SERVICE_HEARTBEAT = "SERVICE_HEARTBEAT"
@@ -685,7 +686,58 @@ class StockAdapter:
             },
         )
         event.payload["event_id"] = event.event_id
+        self._publish_shadow_observation(result, source_event=event)
         self.event_bus.publish(event)
+
+    def _publish_shadow_observation(self, result: dict[str, Any], *, source_event: Event) -> None:
+        """Publish one compact internal observer projection with the active source id."""
+
+        shadow = result.get("stock_shadow_candidate")
+        audit = result.get("stock_data_audit")
+        risk = result.get("stock_shadow_risk")
+        comparison = result.get("stock_shadow_comparison")
+        if not all(isinstance(item, dict) for item in (shadow, audit, risk, comparison)):
+            return
+        legacy = comparison.get("legacy") if isinstance(comparison, dict) else None
+        facts = shadow.get("facts") if isinstance(shadow, dict) else None
+        observation = {
+            "asset_type": "stock",
+            "symbol": result.get("symbol"),
+            "cycle_id": self._correlation_id,
+            "source_event_id": source_event.event_id,
+            "analysis_timestamp": source_event.created_at,
+            "source_timestamp": result.get("source_timestamp"),
+            "quote_timestamp": result.get("price_timestamp"),
+            "latest_candle_timestamp": facts.get("latest_candle_timestamp")
+            if isinstance(facts, dict)
+            else None,
+            "entry_price": result.get("current_price") or result.get("price"),
+            "legacy": {
+                "direction": legacy.get("direction") if isinstance(legacy, dict) else result.get("direction"),
+                "probability": legacy.get("probability")
+                if isinstance(legacy, dict)
+                else result.get("probability"),
+            },
+            "shadow": dict(shadow),
+            "data_audit": dict(audit),
+            "shadow_risk": dict(risk),
+            "ready_for_telegram": False,
+            "order_execution_allowed": False,
+            "affects_active_decision": False,
+        }
+        observer_event = Event(
+            topic=STOCK_SHADOW_OBSERVED,
+            source=self.name,
+            payload={
+                "event_type": STOCK_SHADOW_OBSERVED,
+                "source": self.name,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "payload": observation,
+                "correlation_id": self._correlation_id,
+            },
+        )
+        observer_event.payload["event_id"] = observer_event.event_id
+        self.event_bus.publish(observer_event)
 
     def _publish_analysis_if_new(self, result: dict[str, Any]) -> bool:
         """Publish a normalized result unless its dedupe key was already seen."""

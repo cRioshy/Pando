@@ -21,6 +21,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 |---|---|---|
 | `CryptoAdapter` | `CRYPTO_ANALYSIS_FINISHED` | normalisierte Markt-, Preis-, Fakten-, Indikator-, Risiko- und Featurefelder plus vollständiges `raw_result` |
 | `StockAdapter` | `STOCK_ANALYSIS_FINISHED` | normalisierte Markt-, Preis-, Fakten-, Indikator-, Risiko- und Featurefelder plus vollständiges `raw_result` |
+| `StockAdapter` | `STOCK_SHADOW_OBSERVED` | kompakte interne Stock-only Observerprojektion aus Legacy-Sicht, öffentlichem Shadow, Daten-Audit und Shadow-Risiko; gemeinsame `source_event_id`, keine Rohkerzen und kein `raw_result` |
 | `CommodityAdapter` | `COMMODITY_ANALYSIS_FINISHED` | normalisierte Quote; `raw_result` ist derzeit leer |
 | `BrainAdapter` | `BRAIN_DECISION_RECEIVED` | persistiert und publiziert für neue Analysen ausschließlich die kompakte Version-1-Projektion |
 | `DecisionSignalAdapter` | `DECISION_CREATED`, `SIGNAL_CREATED` | persistiert und publiziert beide Stufen als kompakte Version-1-Projektion mit erhaltenen IDs |
@@ -38,6 +39,7 @@ Die ausführbare Referenz liegt in `event_payload_contract.py`. `compact_market_
 | Learning Graph | Symbol, Richtung, Indikatornamen und Ergebnislabel | bevorzugt `public_result`; alte Payloads verwenden weiterhin `raw_result.result` als Legacy-Fallback |
 | NeuroBrain | Topic, Quelle, IDs sowie je Schema Markt-/Symbol- oder Learning-/Aggregatfelder | behält seine kleine Kopfsicht und speichert daneben die topicbasiert passende kompakte Version-1-Projektion |
 | Decision Gate Observer | Markt, Symbol, Richtung, Probability, Confidence, Preis, Fakten, Risiko, `feature_quality` und Quell-ID | bewertet nur und kann keine Signals, Telegram-Nachrichten oder Orders freigeben |
+| Stock Shadow Verification | `source_event_id`, spätere `decision_id`, kompakte Legacy-/Shadow-/Qualitäts-/Risiko- und Outcome-Projektion | append-only Stock-Vergleich; verändert keine Decision, kein Signal, bestehendes Outcome, Telegram oder Orders |
 
 ## Version 1
 
@@ -74,6 +76,8 @@ Der Observer-Vertrag ist für kompakte Ereignisse ohne singulären Markt-/Symbol
 | `AI_LEARNING_UPDATED`, aggregiertes `STOCK_MARKET_DATA_UPDATED` | `pandorickki.compact-observer-event` v1 |
 | einzelwertige Crypto-/Commodity-Market-Updates | `pandorickki.compact-market-event` v1, Markt-Typ aus Topic ergänzt |
 | Analysis-, Brain-, Decision-, Signal- und simulierte Trade-Topics | `pandorickki.compact-market-event` v1 |
+
+`STOCK_SHADOW_OBSERVED` ist absichtlich kein Markt- oder NeuroBrain-Payload. Das Topic wird nur vom optionalen `StockShadowVerificationAdapter` konsumiert. Der aktive `STOCK_ANALYSIS_FINISHED`-Payload bleibt weiterhin ohne Shadow-, Audit- oder Providerfelder. Das separate Verification-Ledger verwendet den Vertrag `pandorickki.stock-shadow-verification` Version 1 und enthält niemals vollständige Kerzenlisten oder `raw_result`.
 
 ## Ersatz für heutige Raw-Abhängigkeiten
 

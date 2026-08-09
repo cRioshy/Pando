@@ -148,6 +148,12 @@ class PlatformConfig:
     decision_gate_minimum_probability: float | None = None
     decision_gate_minimum_confidence: float | None = None
     decision_gate_confidence_tolerance: float = 0.0
+    stock_shadow_verification_enabled: bool = False
+    stock_shadow_verification_file: Path = PROJECT_ROOT / "data" / "stock_shadow_verification.jsonl"
+    stock_shadow_verification_rotation_bytes: int = 20 * 1024 * 1024
+    stock_shadow_verification_max_archives: int = 8
+    stock_shadow_verification_horizon_seconds: float = 86400.0
+    stock_shadow_verification_neutral_band_percent: float = 0.05
 
     def __post_init__(self) -> None:
         """Align derived brain event defaults with a custom data directory."""
@@ -182,6 +188,16 @@ class PlatformConfig:
         default_gate_audit = PROJECT_ROOT / "data" / "decision_gate_audit.jsonl"
         if self.decision_gate_audit_file == default_gate_audit and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "decision_gate_audit_file", self.data_dir / "decision_gate_audit.jsonl")
+        default_shadow_verification = PROJECT_ROOT / "data" / "stock_shadow_verification.jsonl"
+        if (
+            self.stock_shadow_verification_file == default_shadow_verification
+            and self.data_dir != PROJECT_ROOT / "data"
+        ):
+            object.__setattr__(
+                self,
+                "stock_shadow_verification_file",
+                self.data_dir / "stock_shadow_verification.jsonl",
+            )
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -390,6 +406,26 @@ class PlatformConfig:
             decision_gate_confidence_tolerance=_env_float(
                 "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE", 0.0
             ),
+            stock_shadow_verification_enabled=_env_bool(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED", False
+            ),
+            stock_shadow_verification_file=_env_path(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE",
+                data_dir / "stock_shadow_verification.jsonl",
+            ),
+            stock_shadow_verification_rotation_bytes=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ROTATION_BYTES",
+                20 * 1024 * 1024,
+            ),
+            stock_shadow_verification_max_archives=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_MAX_ARCHIVES", 8
+            ),
+            stock_shadow_verification_horizon_seconds=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_HORIZON_SECONDS", 86400.0
+            ),
+            stock_shadow_verification_neutral_band_percent=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT", 0.05
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -446,6 +482,16 @@ class PlatformConfig:
             warnings.append("Decision Gate audit rotation size is below 1 MB; runtime clamps it to 1 MB.")
         if self.decision_gate_audit_max_archives < 0:
             warnings.append("Decision Gate audit archive limit is negative; runtime clamps it to 0.")
+        if self.stock_shadow_verification_enabled and not self.stock_data_observer_enabled:
+            warnings.append("Stock shadow verification requires the stock data observer.")
+        if self.stock_shadow_verification_horizon_seconds <= 0:
+            warnings.append("Stock shadow verification horizon must be positive.")
+        if self.stock_shadow_verification_neutral_band_percent < 0:
+            warnings.append("Stock shadow verification neutral band must be non-negative.")
+        if self.stock_shadow_verification_rotation_bytes < 1024 * 1024:
+            warnings.append("Stock shadow verification rotation size is below 1 MB; runtime clamps it to 1 MB.")
+        if self.stock_shadow_verification_max_archives < 0:
+            warnings.append("Stock shadow verification archive limit is negative; runtime clamps it to 0.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -579,4 +625,10 @@ class PlatformConfig:
             decision_gate_minimum_probability=self.decision_gate_minimum_probability,
             decision_gate_minimum_confidence=self.decision_gate_minimum_confidence,
             decision_gate_confidence_tolerance=self.decision_gate_confidence_tolerance,
+            stock_shadow_verification_enabled=self.stock_shadow_verification_enabled,
+            stock_shadow_verification_file=self.stock_shadow_verification_file,
+            stock_shadow_verification_rotation_bytes=self.stock_shadow_verification_rotation_bytes,
+            stock_shadow_verification_max_archives=self.stock_shadow_verification_max_archives,
+            stock_shadow_verification_horizon_seconds=self.stock_shadow_verification_horizon_seconds,
+            stock_shadow_verification_neutral_band_percent=self.stock_shadow_verification_neutral_band_percent,
         )

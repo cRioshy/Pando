@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 import time
 import unittest
@@ -12,6 +13,7 @@ from pathlib import Path
 from adapters.stock_candle_service import StockCandleSnapshot
 from adapters.stock_adapter import (
     STOCK_ANALYSIS_FINISHED,
+    STOCK_SHADOW_OBSERVED,
     STOCK_SERVICE_ERROR,
     STOCK_SERVICE_STOPPED,
     StockAdapter,
@@ -109,7 +111,9 @@ class StockAdapterTest(unittest.TestCase):
         self.assertEqual(health["stock_shadow_risk_blocked"], 0)
 
         seen = []
+        shadow_seen = []
         adapter.event_bus.subscribe(STOCK_ANALYSIS_FINISHED, seen.append)
+        adapter.event_bus.subscribe(STOCK_SHADOW_OBSERVED, shadow_seen.append)
         adapter._publish_analysis_finished(
             {
                 "symbol": "AAPL",
@@ -129,6 +133,13 @@ class StockAdapterTest(unittest.TestCase):
         self.assertFalse(any(key.startswith("stock_shadow_") for key in published))
         self.assertNotIn("stock_data_audit", published)
         self.assertNotIn("stock_candle_source", published)
+        self.assertEqual(len(shadow_seen), 1)
+        observer_payload = shadow_seen[0].payload["payload"]
+        self.assertEqual(observer_payload["source_event_id"], seen[0].event_id)
+        self.assertFalse(observer_payload["affects_active_decision"])
+        self.assertFalse(observer_payload["ready_for_telegram"])
+        self.assertFalse(observer_payload["order_execution_allowed"])
+        self.assertNotIn('"candles":', json.dumps(observer_payload).lower())
 
     def test_observer_requires_explicit_stock_data_policy(self) -> None:
         with self.assertRaises(ValueError):

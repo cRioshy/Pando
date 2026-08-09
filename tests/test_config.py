@@ -37,6 +37,10 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_2_MULTIPLE": "2.5",
                 "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_3_MULTIPLE": "4",
                 "PANDORICKKI_STOCK_SHADOW_RISK_PRICE_DECIMALS": "3",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED": "1",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE": "C:/tmp/pandorickki-data/verification.jsonl",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_HORIZON_SECONDS": "7200",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT": "0.1",
                 "PANDORICKKI_COMMODITIES_ENABLED": "1",
                 "PANDORICKKI_DATA_DIR": "C:/tmp/pandorickki-data",
                 "PANDORICKKI_CONTROL_CENTER_ENABLED": "0",
@@ -84,6 +88,10 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.5)
         self.assertEqual(config.stock_shadow_risk_target_3_multiple, 4.0)
         self.assertEqual(config.stock_shadow_risk_price_decimals, 3)
+        self.assertTrue(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_file, Path("C:/tmp/pandorickki-data/verification.jsonl"))
+        self.assertEqual(config.stock_shadow_verification_horizon_seconds, 7200.0)
+        self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.1)
         self.assertTrue(config.commodities_enabled)
         self.assertEqual(config.commodity_symbols, ["GC=F", "CL=F"])
         self.assertEqual(config.data_dir, Path("C:/tmp/pandorickki-data"))
@@ -137,6 +145,9 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.0)
         self.assertEqual(config.stock_shadow_risk_target_3_multiple, 3.0)
         self.assertEqual(config.stock_shadow_risk_price_decimals, 4)
+        self.assertFalse(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_horizon_seconds, 86400.0)
+        self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.05)
         self.assertFalse(config.commodities_enabled)
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
@@ -186,6 +197,21 @@ class PlatformConfigTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Orchestrator(config=PlatformConfig(decision_gate_observer_enabled=True))
+
+    def test_stock_shadow_verification_is_optional_and_stock_only(self) -> None:
+        config = PlatformConfig(
+            stock_data_observer_enabled=True,
+            stock_shadow_verification_enabled=True,
+        )
+        names = [adapter.name for adapter in Orchestrator(config=config).adapters]
+
+        self.assertIn("stock_shadow_verification", names)
+        self.assertLess(names.index("outcome_tracker"), names.index("stock_shadow_verification"))
+        self.assertLess(names.index("stock_shadow_verification"), names.index("stock"))
+        self.assertNotIn(
+            "stock_shadow_verification",
+            [adapter.name for adapter in Orchestrator(config=PlatformConfig()).adapters],
+        )
 
     def test_html_control_center_contains_switch_commands(self) -> None:
         html = (Path(__file__).resolve().parents[1] / "control_center.html").read_text(encoding="utf-8")

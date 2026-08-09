@@ -4,6 +4,16 @@ Stand: 9. August 2026
 
 ## Offen
 
+### KP-023 – Live-Shadow-Outcome ist zunächst nur Forward-Mark-to-Market
+
+- **Priorität:** mittel
+- **Status:** Version-1-Vertrag implementiert; siebentägige Beobachtung noch nicht freigegeben oder gestartet
+- **Beobachtung:** Diskrete öffentliche Quotes beweisen keinen vollständigen Intraday-Pfad. Version 1 bewertet deshalb nach 24 Stunden den ersten strikt späteren Quote-Zeitstempel und behauptet keine Stop-/Zielberührung.
+- **Auswirkung:** Legacy/Shadow-WIN, LOSS und NEUTRAL sind vergleichbare Richtungs-Mark-to-Market-Ergebnisse, aber kein vollständiger Trade-Backtest. HOLD oder fehlende Daten bleiben `UNKNOWN`; fehlende spätere Quotes bleiben `PENDING`.
+- **Kurzlauf:** Drei Zyklen erzeugten 15 eindeutige Stockfälle und 15 Decision-Links. 12 Fälle sind erwartungsgemäß `PENDING`; drei `SPCX`-Fälle bleiben wegen fehlendem öffentlichem Ticker `UNKNOWN`. Es gab 9 `LEGACY_HOLD_SHADOW_ACTION`, 3 `MATCH` und 3 nicht vergleichbare Fälle.
+- **Sicherheitsregel:** Aus der Verification keine automatische Regel-, Gate-, Telegram- oder Orderänderung ableiten und keine Aussage „Shadow ist besser“ automatisch erzeugen.
+- **Nächster Schritt:** Siebentägigen Lauf nur nach ausdrücklicher Freigabe starten; Konfigurationsfingerprint stabil halten und danach ausschließlich deskriptiv auswerten.
+
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
 - **Priorität:** niedrig

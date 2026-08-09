@@ -17,12 +17,19 @@ flowchart LR
     RISK --> SD
     SD -->|"interner Daten-Audit"| AUDIT["Stock-Datenstatus READY / BLOCKED"]
     SD -->|"BLOCKED"| DIAG["Reason Codes, keine Freigabe"]
-    SHADOW -. "keine Publikation / Persistenz" .-> BUS["EventBus / Brain"]
+    SHADOW -. "nicht im aktiven Payload" .-> BUS["Aktiver EventBus / Brain"]
+    COMPARE --> OBS["Kompaktes STOCK_SHADOW_OBSERVED mit source_event_id"]
+    OBS --> VERIFY["StockShadowVerificationAdapter: stock-only"]
+    VERIFY --> VLEDGER["Append-only Verification-Ledger"]
+    BUS -. "decision_id / späterer Quote" .-> VERIFY
+    VLEDGER --> VAPI["Read-only Summary / Detail / Control Center"]
     AUDIT -. "keine Gate-Kopplung" .-> GATE["Decision-Gate-Observer"]
     DIAG -.-> SAFE["Telegram false / Orders false"]
 ```
 
-`StockAdapter` baut aus öffentlichen Daten den kompakten Shadow-Kandidaten, ergänzt LONG/SHORT über den getrennten ATR-Risikovertrag und vergleicht ihn mit der Legacy-Placeholder-Decision. `affects_active_decision` ist fest `false`. Vor `STOCK_ANALYSIS_FINISHED` werden Audit, Shadow, Vergleich, Risiko und Providerdiagnostik aus dem aktiven Payload entfernt. Der bestehende Legacy-Feature-, Decision- und Signalfluss verwendet weder Auditkerzen noch Shadow-Richtung oder -Risiko. Nur kompakte Telemetriezähler sind im Servicezustand sichtbar; historische Kerzen bleiben außerhalb aller Event- und History-Payloads.
+`StockAdapter` baut aus öffentlichen Daten den kompakten Shadow-Kandidaten, ergänzt LONG/SHORT über den getrennten ATR-Risikovertrag und vergleicht ihn mit der Legacy-Placeholder-Decision. `affects_active_decision` ist fest `false`. Vor `STOCK_ANALYSIS_FINISHED` werden Audit, Shadow, Vergleich, Risiko und Providerdiagnostik weiterhin aus dem aktiven Payload entfernt. Additiv entsteht ausschließlich bei vorhandenem Audit eine separate kompakte `STOCK_SHADOW_OBSERVED`-Projektion mit derselben `source_event_id`. Der optionale Verification-Adapter persistiert daraus append-only Fälle, verknüpft die spätere `decision_id` und beobachtet spätere öffentliche Quotes. Der bestehende Legacy-Feature-, Decision-, Signal-, Outcome-, Learning-, Telegram- und Orderfluss verwendet weder Auditkerzen noch Shadow-Richtung oder -Risiko. Rohkerzen bleiben außerhalb aller Event- und History-Payloads.
+
+Summary-Projektionen werden generationsgebunden im Speicher gecacht und nur nach einem neuen append-only Ledger-Eintrag invalidiert. Dadurch lösen der bestehende 1-Sekunden-Poll und WebSocket-Snapshots während eines mehrtägigen Laufs keine vollständige Neuaggregation bei unverändertem Datenstand aus.
 
 ## Systemkontext
 
@@ -46,6 +53,10 @@ flowchart LR
     DG -. keine aktive Freigabe .-> DC
     CA --> EB["Synchroner In-Process EventBus"]
     SA --> EB
+    SA -. "kompakter Stock-Observer" .-> SV["StockShadowVerificationAdapter"]
+    EB -. "decision_id / spätere Stock-Quotes" .-> SV
+    SV --> VL["Append-only Verification-Ledger"]
+    VL --> WEB
     CO --> EB
     EB --> BA["BrainAdapter: persistieren und weiterleiten"]
     BA --> EB
@@ -128,6 +139,8 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Legacy-Kerzen für aktive Features; separater öffentlicher Shadow-/Auditpfad | Börsenorder, Shadow-Umschaltung |
 | `stock_shadow_candidate.py` | Versionierter observer-only Score aus öffentlichen Tageskerzen und Kurs, kompakte Fakten/Indikatoren | Kalibrierte Probability, Confidence, Risiko, Eventpublikation, Freigabe |
 | `stock_shadow_risk.py` | Expliziter ATR14-Plan mit öffentlichem Entry, Stop und 1R/2R/3R-Zielen | Positionsgröße, aktive Decision, Telegram-/Orderfreigabe |
+| `stock_shadow_verification_contract.py` | Deterministische Fall-ID, Statusprojektionen und getrenntes 24h-Forward-Mark-to-Market für Legacy/Shadow | Stop-/Zielpfad-Backtest, Crypto-Vergleich, Kausalitätsaussage |
+| `StockShadowVerificationAdapter` | Append-only Stock-Ledger, Restart-Rekonstruktion, Source-/Decision-/Tracker-Verknüpfung, Summary/Detail | Mutation produktiver Decisions/Outcomes, Learning, Telegram, Orders |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
@@ -152,6 +165,7 @@ flowchart TD
     EVENTS --> SIG["Signal JSONL, größenrotiert"]
     EVENTS --> OUT["Outcome JSONL, größenrotiert"]
     EVENTS --> GATE["Decision-Gate-Audit JSONL, 5 MiB + max. 4 Archive"]
+    EVENTS --> VERIFY["Stock Shadow Verification JSONL, 20 MiB + max. 8 Archive"]
     EVENTS --> MP["Kompakte Marktprojektion v1"]
     EVENTS --> OP["Kompakte Observer-Projektion v1"]
     MP --> NEURO["NeuroBrain Inbox JSONL"]
@@ -159,7 +173,7 @@ flowchart TD
     ERRORS["Nur Fehlerereignisse"] --> ERRLOG["service_errors.jsonl, 5 MiB + max. 4 Archive"]
     ERRORS --> ERRSUM["service_error_summary.json, atomar + max. 500 Fingerprints"]
     OPEN["Offene simulierte Trades"] --> JSON["Konfliktresistent atomar ersetztes JSON"]
-    BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
+    BRAIN & DEC & SIG & OUT & VERIFY & NEURO --> SCAN["StorageStatisticsService"]
     SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
     SCAN --> UNIQUE["Einmaliger Scan je aufgelöstem physischen Pfad"]
     UNIQUE --> LOGICAL["Logische Kategorien und Dateiverweise"]

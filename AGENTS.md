@@ -28,6 +28,8 @@ Vor Änderungen am öffentlichen Aktien-Shadow-Kandidaten, seiner Direction, Pro
 
 Vor Änderungen am öffentlichen Stock-Shadow-Risikoplan, an ATR-, Stop-, Ziel-, Chance-Risiko- oder Rundungsregeln muss zusätzlich `docs/STOCK_SHADOW_RISK.md` gelesen werden. Der Plan bleibt observer-only und darf nicht in den aktiven Event-, Telegram- oder Orderpfad gelangen.
 
+Vor Änderungen an Stock-Live-Shadow-Verification, deren IDs, Persistenz, Outcome-Horizont, Aggregaten oder Control-Center-Projektion muss zusätzlich `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md` gelesen werden. Die Verification bleibt stock-only, append-only und observer-only; Crypto, produktive Decisions, bestehende Outcomes, Telegram und Orders dürfen dadurch nicht verändert werden.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.
