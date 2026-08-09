@@ -98,6 +98,23 @@ class PlatformConfig:
     crypto_candle_limit: int = 240
     stock_test_mode: bool = True
     stock_live_price_display: bool = False
+    stock_data_observer_enabled: bool = False
+    stock_daily_candle_limit: int = 260
+    stock_candle_cache_ttl_seconds: float = 900.0
+    stock_data_minimum_candles: int = 200
+    stock_data_full_warmup_candles: int = 200
+    stock_data_maximum_candle_age_seconds: float = 345600.0
+    stock_data_maximum_quote_age_seconds: float = 900.0
+    stock_data_maximum_future_skew_seconds: float = 30.0
+    stock_data_maximum_entry_deviation_percent: float = 0.5
+    stock_shadow_long_bullish_score: float = 60.0
+    stock_shadow_short_bullish_score: float = 40.0
+    stock_shadow_risk_atr_multiplier: float = 1.0
+    stock_shadow_risk_minimum_distance_percent: float = 0.5
+    stock_shadow_risk_target_1_multiple: float = 1.0
+    stock_shadow_risk_target_2_multiple: float = 2.0
+    stock_shadow_risk_target_3_multiple: float = 3.0
+    stock_shadow_risk_price_decimals: int = 4
     commodities_enabled: bool = False
     commodity_symbols: list[str] = field(default_factory=lambda: ["GC=F", "SI=F", "CL=F", "BZ=F"])
     cycle_interval: float = 60.0
@@ -250,6 +267,47 @@ class PlatformConfig:
             crypto_candle_limit=_env_int("PANDORICKKI_CRYPTO_CANDLE_LIMIT", 240),
             stock_test_mode=_env_bool("PANDORICKKI_STOCK_TEST_MODE", True),
             stock_live_price_display=_env_bool("PANDORICKKI_STOCK_LIVE_PRICE_DISPLAY", False),
+            stock_data_observer_enabled=_env_bool("PANDORICKKI_STOCK_DATA_OBSERVER_ENABLED", False),
+            stock_daily_candle_limit=_env_int("PANDORICKKI_STOCK_DAILY_CANDLE_LIMIT", 260),
+            stock_candle_cache_ttl_seconds=_env_float("PANDORICKKI_STOCK_CANDLE_CACHE_TTL_SECONDS", 900.0),
+            stock_data_minimum_candles=_env_int("PANDORICKKI_STOCK_DATA_MINIMUM_CANDLES", 200),
+            stock_data_full_warmup_candles=_env_int("PANDORICKKI_STOCK_DATA_FULL_WARMUP_CANDLES", 200),
+            stock_data_maximum_candle_age_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_CANDLE_AGE_SECONDS", 345600.0
+            ),
+            stock_data_maximum_quote_age_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_QUOTE_AGE_SECONDS", 900.0
+            ),
+            stock_data_maximum_future_skew_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_FUTURE_SKEW_SECONDS", 30.0
+            ),
+            stock_shadow_long_bullish_score=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_LONG_BULLISH_SCORE", 60.0
+            ),
+            stock_shadow_short_bullish_score=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_SHORT_BULLISH_SCORE", 40.0
+            ),
+            stock_shadow_risk_atr_multiplier=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_ATR_MULTIPLIER", 1.0
+            ),
+            stock_shadow_risk_minimum_distance_percent=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_MINIMUM_DISTANCE_PERCENT", 0.5
+            ),
+            stock_shadow_risk_target_1_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_1_MULTIPLE", 1.0
+            ),
+            stock_shadow_risk_target_2_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_2_MULTIPLE", 2.0
+            ),
+            stock_shadow_risk_target_3_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_3_MULTIPLE", 3.0
+            ),
+            stock_shadow_risk_price_decimals=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_RISK_PRICE_DECIMALS", 4
+            ),
+            stock_data_maximum_entry_deviation_percent=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_ENTRY_DEVIATION_PERCENT", 0.5
+            ),
             commodities_enabled=_env_bool("PANDORICKKI_COMMODITIES_ENABLED", False),
             commodity_symbols=_env_list(
                 "PANDORICKKI_COMMODITY_SYMBOLS",
@@ -396,6 +454,28 @@ class PlatformConfig:
             warnings.append("Crypto dashboard prices use live spot ticker when reachable.")
         if self.stock_live_price_display:
             warnings.append("Stock dashboard prices use Yahoo Finance when reachable.")
+        if self.stock_data_observer_enabled:
+            warnings.append("Stock daily candles are enabled in read-only contract observer mode.")
+        if self.stock_daily_candle_limit < self.stock_data_minimum_candles:
+            warnings.append("Stock daily candle limit is below the stock-data minimum candle count.")
+        if self.stock_data_full_warmup_candles < self.stock_data_minimum_candles:
+            warnings.append("Stock data full warmup is below the minimum candle count.")
+        if self.stock_shadow_long_bullish_score <= 50:
+            warnings.append("Stock shadow LONG score must be greater than 50.")
+        if self.stock_shadow_short_bullish_score >= 50:
+            warnings.append("Stock shadow SHORT score must be below 50.")
+        if self.stock_shadow_risk_atr_multiplier <= 0:
+            warnings.append("Stock shadow risk ATR multiplier must be positive.")
+        if self.stock_shadow_risk_minimum_distance_percent <= 0:
+            warnings.append("Stock shadow minimum risk distance must be positive.")
+        if not (
+            0 < self.stock_shadow_risk_target_1_multiple
+            < self.stock_shadow_risk_target_2_multiple
+            < self.stock_shadow_risk_target_3_multiple
+        ):
+            warnings.append("Stock shadow risk targets must be positive and strictly increasing.")
+        if not 0 <= self.stock_shadow_risk_price_decimals <= 8:
+            warnings.append("Stock shadow risk price decimals must be from 0 through 8.")
         if self.commodities_enabled:
             warnings.append("Commodities use free Yahoo Finance futures prices when reachable.")
         if self.telegram_enabled and not self.telegram_dry_run:
@@ -449,6 +529,23 @@ class PlatformConfig:
             crypto_candle_limit=self.crypto_candle_limit,
             stock_test_mode=self.stock_test_mode,
             stock_live_price_display=self.stock_live_price_display,
+            stock_data_observer_enabled=self.stock_data_observer_enabled,
+            stock_daily_candle_limit=self.stock_daily_candle_limit,
+            stock_candle_cache_ttl_seconds=self.stock_candle_cache_ttl_seconds,
+            stock_data_minimum_candles=self.stock_data_minimum_candles,
+            stock_data_full_warmup_candles=self.stock_data_full_warmup_candles,
+            stock_data_maximum_candle_age_seconds=self.stock_data_maximum_candle_age_seconds,
+            stock_data_maximum_quote_age_seconds=self.stock_data_maximum_quote_age_seconds,
+            stock_data_maximum_future_skew_seconds=self.stock_data_maximum_future_skew_seconds,
+            stock_data_maximum_entry_deviation_percent=self.stock_data_maximum_entry_deviation_percent,
+            stock_shadow_long_bullish_score=self.stock_shadow_long_bullish_score,
+            stock_shadow_short_bullish_score=self.stock_shadow_short_bullish_score,
+            stock_shadow_risk_atr_multiplier=self.stock_shadow_risk_atr_multiplier,
+            stock_shadow_risk_minimum_distance_percent=self.stock_shadow_risk_minimum_distance_percent,
+            stock_shadow_risk_target_1_multiple=self.stock_shadow_risk_target_1_multiple,
+            stock_shadow_risk_target_2_multiple=self.stock_shadow_risk_target_2_multiple,
+            stock_shadow_risk_target_3_multiple=self.stock_shadow_risk_target_3_multiple,
+            stock_shadow_risk_price_decimals=self.stock_shadow_risk_price_decimals,
             commodities_enabled=self.commodities_enabled,
             commodity_symbols=list(self.commodity_symbols),
             cycle_interval=self.cycle_interval,

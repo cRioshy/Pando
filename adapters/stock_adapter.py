@@ -17,8 +17,12 @@ from typing import Any
 from uuid import uuid4
 
 from adapters.stock_price_service import StockPriceService
+from adapters.stock_candle_service import StockCandleService
 from event_bus import Event, EventBus
 from features.feature_engine import FeatureEngine, FeatureEngineError
+from stock_data_contract import StockDataPolicy, evaluate_stock_data
+from stock_shadow_candidate import StockShadowPolicy, build_stock_shadow_candidate
+from stock_shadow_risk import StockShadowRiskPolicy, build_stock_shadow_risk
 
 
 STOCK_SERVICE_STARTED = "STOCK_SERVICE_STARTED"
@@ -72,6 +76,23 @@ class StockAdapterStatus:
     duplicate_results: int = 0
     test_mode: bool = False
     live_price_display: bool = False
+    stock_data_audits: int = 0
+    stock_data_ready: int = 0
+    stock_data_blocked: int = 0
+    stock_candle_successes: int = 0
+    stock_candle_failures: int = 0
+    last_stock_data_status: str | None = None
+    last_stock_data_reason_codes: list[str] = field(default_factory=list)
+    stock_shadow_candidates: int = 0
+    stock_shadow_long: int = 0
+    stock_shadow_short: int = 0
+    stock_shadow_hold: int = 0
+    last_stock_shadow_direction: str | None = None
+    last_stock_shadow_probability: float | None = None
+    stock_shadow_risk_plans: int = 0
+    stock_shadow_risk_blocked: int = 0
+    last_stock_shadow_risk_status: str | None = None
+    last_stock_shadow_risk_reason_codes: list[str] = field(default_factory=list)
     missing_fields: list[str] = field(default_factory=list)
 
 
@@ -87,6 +108,13 @@ class StockAdapter:
         *,
         test_mode: bool = False,
         live_price_display: bool = False,
+        stock_data_observer_enabled: bool = False,
+        daily_candle_limit: int = 260,
+        candle_cache_ttl_seconds: float = 900.0,
+        stock_data_policy: StockDataPolicy | None = None,
+        stock_shadow_policy: StockShadowPolicy | None = None,
+        stock_shadow_risk_policy: StockShadowRiskPolicy | None = None,
+        candle_service: StockCandleService | None = None,
         suppress_output: bool = True,
         cycle_timeout_seconds: float = 45.0,
     ) -> None:
@@ -97,6 +125,17 @@ class StockAdapter:
         self.status.live_price_display = live_price_display
         self.test_mode = test_mode
         self.live_price_display = live_price_display
+        self.stock_data_observer_enabled = stock_data_observer_enabled
+        self.daily_candle_limit = max(int(daily_candle_limit), 1)
+        if stock_data_observer_enabled and stock_data_policy is None:
+            raise ValueError("stock_data_policy is required when the stock data observer is enabled")
+        if stock_data_observer_enabled and stock_shadow_policy is None:
+            raise ValueError("stock_shadow_policy is required when the stock data observer is enabled")
+        if stock_data_observer_enabled and stock_shadow_risk_policy is None:
+            raise ValueError("stock_shadow_risk_policy is required when the stock data observer is enabled")
+        self.stock_data_policy = stock_data_policy
+        self.stock_shadow_policy = stock_shadow_policy
+        self.stock_shadow_risk_policy = stock_shadow_risk_policy
         self.suppress_output = suppress_output
         self.cycle_timeout_seconds = max(cycle_timeout_seconds, 0.01)
         self._stock_main: ModuleType | None = None
@@ -109,6 +148,9 @@ class StockAdapter:
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._cycle_task: asyncio.Task[list[Any]] | None = None
         self._price_service = StockPriceService()
+        self._candle_service = candle_service or StockCandleService(
+            cache_ttl_seconds=candle_cache_ttl_seconds
+        )
         self._feature_engine = FeatureEngine()
         self._last_live_price_source: str | None = None
         self._last_live_price_timestamp: str | None = None
@@ -230,6 +272,26 @@ class StockAdapter:
             "duplicate_results": self.status.duplicate_results,
             "test_mode": self.status.test_mode,
             "live_price_display": self.status.live_price_display,
+            "stock_data_observer_enabled": self.stock_data_observer_enabled,
+            "stock_data_audits": self.status.stock_data_audits,
+            "stock_data_ready": self.status.stock_data_ready,
+            "stock_data_blocked": self.status.stock_data_blocked,
+            "stock_candle_successes": self.status.stock_candle_successes,
+            "stock_candle_failures": self.status.stock_candle_failures,
+            "last_stock_data_status": self.status.last_stock_data_status,
+            "last_stock_data_reason_codes": list(self.status.last_stock_data_reason_codes),
+            "stock_shadow_candidates": self.status.stock_shadow_candidates,
+            "stock_shadow_long": self.status.stock_shadow_long,
+            "stock_shadow_short": self.status.stock_shadow_short,
+            "stock_shadow_hold": self.status.stock_shadow_hold,
+            "last_stock_shadow_direction": self.status.last_stock_shadow_direction,
+            "last_stock_shadow_probability": self.status.last_stock_shadow_probability,
+            "stock_shadow_risk_plans": self.status.stock_shadow_risk_plans,
+            "stock_shadow_risk_blocked": self.status.stock_shadow_risk_blocked,
+            "last_stock_shadow_risk_status": self.status.last_stock_shadow_risk_status,
+            "last_stock_shadow_risk_reason_codes": list(
+                self.status.last_stock_shadow_risk_reason_codes
+            ),
         }
 
     async def get_status(self) -> dict[str, Any]:
@@ -367,6 +429,14 @@ class StockAdapter:
                 "market_impact": facts.get("market_impact") if isinstance(facts, dict) else None,
             },
         )
+        stock_data_audit = self._build_stock_data_audit(
+            symbol=raw.get("symbol"),
+            direction=direction,
+            legacy_probability=raw.get("final_probability"),
+            current_price=display_price,
+            price_source=price_source,
+            price_timestamp=self._last_live_price_timestamp,
+        )
         result = {
             "market_type": "stock",
             "symbol": required("symbol", raw.get("symbol")),
@@ -386,6 +456,13 @@ class StockAdapter:
             "price_timestamp": self._last_live_price_timestamp,
             "features": feature_payload.get("features"),
             "feature_error": feature_payload.get("feature_error"),
+            "stock_data_audit": stock_data_audit.get("audit"),
+            "stock_shadow_candidate": stock_data_audit.get("shadow_candidate"),
+            "stock_shadow_comparison": stock_data_audit.get("comparison"),
+            "stock_shadow_risk": stock_data_audit.get("shadow_risk"),
+            "stock_candle_source": stock_data_audit.get("candle_source"),
+            "stock_candle_count": stock_data_audit.get("candle_count", 0),
+            "stock_candle_error": stock_data_audit.get("candle_error"),
             "source_timestamp": source_timestamp,
             "received_at": datetime.now(UTC).isoformat(),
             "raw_result": raw,
@@ -432,6 +509,132 @@ class StockAdapter:
             return {"features": None, "feature_error": f"Feature engine failed: {exc}"}
         return {"features": features.to_dict(), "feature_error": None}
 
+    def _build_stock_data_audit(
+        self,
+        *,
+        symbol: Any,
+        direction: str | None,
+        legacy_probability: Any,
+        current_price: float | None,
+        price_source: str,
+        price_timestamp: str | None,
+    ) -> dict[str, Any]:
+        """Evaluate public daily candles separately from the active legacy decision path."""
+
+        if (
+            not self.stock_data_observer_enabled
+            or self.stock_data_policy is None
+            or self.stock_shadow_policy is None
+            or self.stock_shadow_risk_policy is None
+        ):
+            return {
+                "audit": None,
+                "shadow_candidate": None,
+                "comparison": None,
+                "shadow_risk": None,
+                "candle_source": None,
+                "candle_count": 0,
+                "candle_error": None,
+            }
+        snapshot = self._candle_service.fetch_daily_candles(
+            str(symbol or ""),
+            limit=self.daily_candle_limit,
+        )
+        diagnostics = self._candle_service.diagnostics()
+        candles = snapshot.candles if snapshot is not None else None
+        shadow = build_stock_shadow_candidate(
+            symbol=symbol,
+            candles=candles,
+            current_price=current_price,
+            price_source=price_source,
+            price_timestamp=price_timestamp,
+            candle_source=snapshot.source if snapshot is not None else None,
+            timeframe=snapshot.timeframe if snapshot is not None else "1d",
+            policy=self.stock_shadow_policy,
+        )
+        shadow_risk = build_stock_shadow_risk(
+            shadow,
+            policy=self.stock_shadow_risk_policy,
+        )
+        shadow["risk"] = shadow_risk.get("risk")
+        audit = evaluate_stock_data(
+            {
+                "market_type": "stock",
+                "symbol": symbol,
+                "timeframe": snapshot.timeframe if snapshot is not None else "1d",
+                # This audit evaluates only the separated public-data shadow candidate.
+                "source_kind": shadow.get("source_kind"),
+                "direction": shadow.get("direction"),
+                "candles": candles,
+                "current_price": current_price,
+                "price_source": price_source,
+                "price_timestamp": price_timestamp,
+                "risk": shadow_risk.get("risk"),
+            },
+            policy=self.stock_data_policy,
+        )
+        self.status.stock_data_audits += 1
+        if audit["status"] == "READY":
+            self.status.stock_data_ready += 1
+        else:
+            self.status.stock_data_blocked += 1
+        if snapshot is None:
+            self.status.stock_candle_failures += 1
+        else:
+            self.status.stock_candle_successes += 1
+        self.status.last_stock_data_status = str(audit["status"])
+        self.status.last_stock_data_reason_codes = list(audit["reason_codes"])
+        if shadow.get("status") == "CALCULATED":
+            self.status.stock_shadow_candidates += 1
+            shadow_direction = str(shadow.get("direction") or "HOLD")
+            if shadow_direction == "LONG":
+                self.status.stock_shadow_long += 1
+            elif shadow_direction == "SHORT":
+                self.status.stock_shadow_short += 1
+            else:
+                self.status.stock_shadow_hold += 1
+            self.status.last_stock_shadow_direction = shadow_direction
+            probability = shadow.get("probability")
+            self.status.last_stock_shadow_probability = (
+                float(probability) if isinstance(probability, (int, float)) else None
+            )
+        if shadow_risk.get("status") == "CALCULATED":
+            self.status.stock_shadow_risk_plans += 1
+        else:
+            self.status.stock_shadow_risk_blocked += 1
+        self.status.last_stock_shadow_risk_status = str(shadow_risk.get("status") or "BLOCKED")
+        self.status.last_stock_shadow_risk_reason_codes = list(
+            shadow_risk.get("reason_codes") or []
+        )
+        return {
+            "audit": audit,
+            "shadow_candidate": shadow,
+            "shadow_risk": shadow_risk,
+            "comparison": {
+                "mode": "OBSERVER",
+                "legacy": {
+                    "source_kind": "LEGACY_PLACEHOLDER",
+                    "direction": direction,
+                    "probability": legacy_probability,
+                },
+                "public_shadow": {
+                    "source_kind": "PUBLIC_LIVE",
+                    "direction": shadow.get("direction"),
+                    "probability": shadow.get("probability"),
+                    "probability_kind": shadow.get("probability_kind"),
+                },
+                "direction_matches": (
+                    direction == shadow.get("direction")
+                    if direction in {"LONG", "SHORT", "HOLD"} and shadow.get("direction") is not None
+                    else None
+                ),
+                "affects_active_decision": False,
+            },
+            "candle_source": snapshot.source if snapshot is not None else None,
+            "candle_count": len(snapshot.candles) if snapshot is not None else 0,
+            "candle_error": diagnostics.get("last_error"),
+        }
+
     def _fetch_live_stock_price(self, symbol: Any) -> float | None:
         """Fetch a public stock quote for dashboard display."""
 
@@ -456,6 +659,18 @@ class StockAdapter:
     def _publish_analysis_finished(self, result: dict[str, Any]) -> None:
         """Publish one normalized STOCK_ANALYSIS_FINISHED event."""
 
+        observer_only_fields = {
+            "stock_data_audit",
+            "stock_shadow_candidate",
+            "stock_shadow_comparison",
+            "stock_shadow_risk",
+            "stock_candle_source",
+            "stock_candle_count",
+            "stock_candle_error",
+        }
+        active_result = {
+            key: value for key, value in result.items() if key not in observer_only_fields
+        }
         event = Event(
             topic=STOCK_ANALYSIS_FINISHED,
             source=self.name,
@@ -465,7 +680,7 @@ class StockAdapter:
                 "timestamp": datetime.now(UTC).isoformat(),
                 "symbol": result["symbol"],
                 "timeframe": result["timeframe"],
-                "payload": result,
+                "payload": active_result,
                 "correlation_id": self._correlation_id,
             },
         )

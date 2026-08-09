@@ -1,6 +1,6 @@
 # Nächste Schritte
 
-Stand: 8. August 2026
+Stand: 9. August 2026
 
 ## Aktuelle Integrationsphase
 
@@ -19,10 +19,16 @@ Stand: 8. August 2026
 - **Lokal und live umgesetzt:** Die kompakte `feature_quality`-Projektion erreicht Brain, Decision und Signal. Der separate `decision_gate_observer` ist im Web-Starter nach ausdrücklicher Freigabe diagnostisch mit Probability 60, Confidence 60 und Toleranz 0 aktiv; der bestehende Decision-/Signalpfad ist unverändert.
 - **Verifikation:** Gezielte Suite 35/35 und vollständige Wiederholung 265/265 bestanden. Der einmalige Windows-Temp-Cleanupfehler war nicht reproduzierbar.
 - **Liveverifikation:** Vier vollständige Zyklen, 11/11 Services `OK`, 32 eindeutige Audits (12 Crypto, 20 Stock), 0 `QUALIFIED`, 32 `BLOCKED`, null Telegram-/Orderfreigaben, Telegram aus/Dry-Run und keine neuen Dienstfehler seit dem freigegebenen Netzwerkstart.
-- **Nächster Schritt:** Audit zunächst weiter sammeln und anschließend die Reason-Code-Verteilung über einen längeren Zeitraum auswerten. Vor jeder Gate-Umschaltung zuerst den Stock-Datenvertrag für aktuellen Preis, zeitgestempelte Kerzen und vollständigen Risikoplan untersuchen; noch nichts am aktiven Signal- oder Telegrampfad ändern.
+- **Historischer Gate-Audit-Schritt abgeschlossen:** Reason Codes wurden ausgewertet und der Stock-Datenvertrag anschließend um öffentliche Kerzen, Shadow und observer-only Risikoplan ergänzt. Aktiver Signal- und Telegrampfad blieben unverändert.
 - **Erste erweiterte Auswertung abgeschlossen:** eingefrorener 39-Minuten-Snapshot mit 272 Kandidaten, 2 technisch qualifizierten ETHUSDT-LONG-Fällen, 270 Blockierungen und null unsicheren Freigaben. Bericht: `docs/DECISION_GATE_AUDIT_REPORT.md`.
-- **Neue nachgewiesene Grenzen:** Confidence dupliziert derzeit Probability; Stock erfüllt wegen Einzelsnapshot, fehlendem normalisierten Risikoplan und SPCX-Preisloch den sicheren Gate-Vertrag nicht.
-- **Nächster Schritt präzisiert:** Observer weiterlaufen lassen und später Outcome-bezogen erneut auswerten. Parallel zuerst einen reinen Stock-Datenvertrag entwerfen; noch keine Implementierung oder Lockerung ohne separate Freigabe.
+- **Weiterhin nachgewiesene Grenzen:** Confidence dupliziert derzeit Probability; `SPCX` besitzt keinen belegten öffentlichen Ticker. Der öffentliche Stockpfad bleibt am Wochenende wegen Quote-Freshness korrekt blockiert.
+- **Stock-Datenvertrag integriert:** `pandorickki.stock-data` Version 1 prüft den getrennten öffentlichen Shadow einschließlich Risikoplan mit expliziter Policy und Reason Codes. Telegram und Orders bleiben immer gesperrt.
+- **Read-only Tageskerzenprovider und Audit erledigt:** Yahoo query1/query2, 15-Minuten-Cache, Tickerblock für `SPCX`, kompakte Service-Telemetrie und strikt lokale Kerzenprüfung sind aktiv. Echt: AAPL 260/260 `PASS/VERIFIED/READY`; erster Plattformzyklus 4 erfolgreiche Historien, 1 erwarteter SPCX-Block, 0/5 `READY`. 44/44 gezielte und 278/278 Gesamttests bestanden.
+- **Stock-Shadow-Kandidat erledigt und live geprüft:** `pandorickki.stock-shadow-candidate` Version 1 berechnet kompakte Fakten, Direction und einen ausdrücklich unkalibrierten Heuristikscore vollständig aus öffentlichen Kerzen und Kurs. Legacy und Shadow bleiben getrennt vergleichbar; `affects_active_decision=false`, keine Publikation/Persistenz und keine Telegram-/Orderfreigabe. Der Risikoplan wird ausschließlich durch den separaten Shadow-Risikovertrag ergänzt.
+- **Observer-only Stock-Risikoplan erledigt:** `pandorickki.stock-shadow-risk` Version 1 verwendet öffentlichen Entry, ATR14/0,5-%-Mindestdistanz, Stop bei 1R und Ziele bei 1R/2R/3R. HOLD/ungültige Daten blockieren. Shadow-, Risiko- und Auditfelder werden vor dem aktiven Event entfernt. 37/37 gezielte und 289/289 Gesamttests bestanden.
+- **Liveprüfung abgeschlossen:** Zwei vollständige Zyklen lieferten 8 öffentliche Shadows, 6 gültige LONG-/SHORT-Risikopläne, 2 HOLD-Blocks und 2 erwartete `SPCX`-Blocks. Plattform/Services gesund, 0 Sitzungsfehler, 0 STALE, NeuroBrain Queue/Drops 0 und Telegram-Sendungen 0. Die Daten-Audits blieben am Sonntag aufgrund Quote-Freshness/HOLD/SPCX sicher blockiert.
+- **Marktphasenprüfung vorbereitet:** Einmalige lokale Automation für Montag, 10. August 2026, 15:40 Uhr Europe/Berlin ist als App-Bestätigungskarte vorbereitet. Nach Bestätigung beobachtet sie mindestens fünf Zyklen read-only und verändert weder Code noch Prozesse, Gate, Telegram oder Orders.
+- **Nächster Schritt:** Automationskarte bestätigen und die Messung abwarten. Danach anhand der frischen Marktwerte eine unabhängige Confidence oder ehrliche Score-Kalibrierung planen. Keine Gate-, Telegram- oder Orderkopplung.
 
 ## Verbindliche Reihenfolge
 

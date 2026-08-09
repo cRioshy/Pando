@@ -1,6 +1,6 @@
 # Bekannte Probleme
 
-Stand: 8. August 2026
+Stand: 9. August 2026
 
 ## Offen
 
@@ -44,10 +44,15 @@ Stand: 8. August 2026
 ### KP-022 – Stock kann den sicheren Gate-Vertrag derzeit nicht erfüllen
 
 - **Priorität:** mittel
-- **Status:** offen, fail-closed abgefangen
+- **Status:** Datenvertrag, read-only Kerzen-Audit, öffentlicher Shadow-Kandidat und observer-only ATR-Risikoplan integriert; unabhängige Confidence und aktive Gate-Kopplung weiterhin offen
 - **Beobachtung:** Im Snapshot waren 170/170 Stock-Kandidaten `WARN/UNVERIFIED/WARMING`. Alle 31 Stock-LONG-Kandidaten scheiterten zusätzlich an Stop und Take-Profit, weil `StockAdapter._normalize_decision()` keinen normalisierten `risk`-Block erzeugt. SPCX hatte in 34/34 Fällen keinen positiven Livepreis.
 - **Auswirkung:** Auch Stock-Kandidaten über Probability 60 bleiben korrekt blockiert. Ein Lockern der Gate-Regeln würde unvollständige Daten freigeben.
-- **Nächster Fix:** Eigenen Stock-Datenvertrag für zeitgestempelte Kerzenhistorie, aktuellen Preis und vollständigen richtungskonsistenten Risikoplan entwerfen und testen; Gate unverändert lassen.
+- **Vertrag vom 9. August 2026:** `pandorickki.stock-data` Version 1 verlangt eine öffentliche Livequelle, vollständige Zeitstempel, explizite Kerzen-/Warmupgrenzen, eine aktuelle jüngste Kerze, frischen positiven Preis und normalisierten Richtungs-Risikoplan. Die Referenz ist ausschließlich als read-only Audit in den Adapter integriert und nicht mit dem aktiven Feature-/Decision-/Signalpfad gekoppelt.
+- **Liveaudit:** AAPL lieferte 260/260 `PASS/VERIFIED/READY`. Im ersten Plattformzyklus wurden vier von fünf Symbolhistorien geladen; `SPCX` blieb ohne Provideraufruf blockiert. 0/5 Kandidaten waren `READY`, weil aktive Richtung/Probability weiter aus Placeholder-Daten stammen und `risk` fehlt.
+- **Shadow-Stand:** Version 1 berechnet Fakten, Direction und einen transparenten `UNVALIDATED_HEURISTIC_SCORE` ausschließlich aus öffentlichen Daten. Legacy und Shadow werden mit `affects_active_decision=false` verglichen; die aktive Placeholder-Decision wird nicht aufgewertet. 283/283 Tests bestanden.
+- **Risikoplan-Stand:** Version 1 verwendet öffentlichen Entry, ATR14 mit 0,5-%-Mindestdistanz sowie 1R/2R/3R-Ziele. Er bleibt vollständig außerhalb des aktiven Eventpfads. 289/289 Tests bestanden.
+- **Liveprüfung:** Zwei Sonntagszyklen lieferten 8 Shadows und 6 gültige Pläne; HOLD und `SPCX` blockierten. Alle Daten-Audits blieben wegen Quote-Freshness beziehungsweise fehlender Eignung sicher blockiert. Plattformfehler, STALE und Telegram-Sendungen blieben null.
+- **Nächster Fix:** Über eine echte Marktphase Shadow-/Risikoplan- und Daten-Audit-Verteilungen beobachten. Danach eine unabhängige Confidence beziehungsweise ehrliche Kalibrierungsstrategie definieren; keine Gate-Umschaltung. `SPCX` weiter blockieren.
 
 ### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
 

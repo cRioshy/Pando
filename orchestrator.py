@@ -24,6 +24,9 @@ from event_bus import Event, EventBus
 from health_monitor import HealthMonitor, HealthReport
 from service_error_journal import ServiceErrorJournal
 from shared_state import SharedState
+from stock_data_contract import StockDataPolicy
+from stock_shadow_candidate import StockShadowPolicy
+from stock_shadow_risk import StockShadowRiskPolicy
 
 
 class ServiceAdapter(Protocol):
@@ -329,6 +332,24 @@ class Orchestrator:
                 "cycles",
                 "published_results",
                 "test_mode",
+                "stock_data_observer_enabled",
+                "stock_data_audits",
+                "stock_data_ready",
+                "stock_data_blocked",
+                "stock_candle_successes",
+                "stock_candle_failures",
+                "last_stock_data_status",
+                "last_stock_data_reason_codes",
+                "stock_shadow_candidates",
+                "stock_shadow_long",
+                "stock_shadow_short",
+                "stock_shadow_hold",
+                "last_stock_shadow_direction",
+                "last_stock_shadow_probability",
+                "stock_shadow_risk_plans",
+                "stock_shadow_risk_blocked",
+                "last_stock_shadow_risk_status",
+                "last_stock_shadow_risk_reason_codes",
                 "queue_depth",
                 "queue_capacity",
                 "batch_size",
@@ -509,6 +530,33 @@ class Orchestrator:
                 self.config.stock_project_path,
                 test_mode=self.config.stock_test_mode,
                 live_price_display=self.config.stock_live_price_display,
+                stock_data_observer_enabled=self.config.stock_data_observer_enabled,
+                daily_candle_limit=self.config.stock_daily_candle_limit,
+                candle_cache_ttl_seconds=self.config.stock_candle_cache_ttl_seconds,
+                stock_data_policy=StockDataPolicy(
+                    minimum_candles=self.config.stock_data_minimum_candles,
+                    full_warmup_candles=self.config.stock_data_full_warmup_candles,
+                    maximum_candle_age_seconds=self.config.stock_data_maximum_candle_age_seconds,
+                    maximum_quote_age_seconds=self.config.stock_data_maximum_quote_age_seconds,
+                    maximum_future_skew_seconds=self.config.stock_data_maximum_future_skew_seconds,
+                    maximum_entry_deviation_percent=self.config.stock_data_maximum_entry_deviation_percent,
+                ),
+                stock_shadow_policy=StockShadowPolicy(
+                    minimum_candles=self.config.stock_data_minimum_candles,
+                    full_warmup_candles=self.config.stock_data_full_warmup_candles,
+                    long_bullish_score=self.config.stock_shadow_long_bullish_score,
+                    short_bullish_score=self.config.stock_shadow_short_bullish_score,
+                ),
+                stock_shadow_risk_policy=StockShadowRiskPolicy(
+                    atr_multiplier=self.config.stock_shadow_risk_atr_multiplier,
+                    minimum_distance_percent=self.config.stock_shadow_risk_minimum_distance_percent,
+                    take_profit_multiples=(
+                        self.config.stock_shadow_risk_target_1_multiple,
+                        self.config.stock_shadow_risk_target_2_multiple,
+                        self.config.stock_shadow_risk_target_3_multiple,
+                    ),
+                    price_decimals=self.config.stock_shadow_risk_price_decimals,
+                ),
                 cycle_timeout_seconds=self.config.adapter_cycle_timeout_seconds,
             ),
             *(

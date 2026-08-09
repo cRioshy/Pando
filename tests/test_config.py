@@ -24,6 +24,19 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY": "1",
                 "PANDORICKKI_STOCK_TEST_MODE": "0",
                 "PANDORICKKI_STOCK_LIVE_PRICE_DISPLAY": "1",
+                "PANDORICKKI_STOCK_DATA_OBSERVER_ENABLED": "1",
+                "PANDORICKKI_STOCK_DAILY_CANDLE_LIMIT": "300",
+                "PANDORICKKI_STOCK_CANDLE_CACHE_TTL_SECONDS": "600",
+                "PANDORICKKI_STOCK_DATA_MINIMUM_CANDLES": "210",
+                "PANDORICKKI_STOCK_DATA_FULL_WARMUP_CANDLES": "220",
+                "PANDORICKKI_STOCK_SHADOW_LONG_BULLISH_SCORE": "64",
+                "PANDORICKKI_STOCK_SHADOW_SHORT_BULLISH_SCORE": "36",
+                "PANDORICKKI_STOCK_SHADOW_RISK_ATR_MULTIPLIER": "1.25",
+                "PANDORICKKI_STOCK_SHADOW_RISK_MINIMUM_DISTANCE_PERCENT": "0.75",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_1_MULTIPLE": "1.5",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_2_MULTIPLE": "2.5",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_3_MULTIPLE": "4",
+                "PANDORICKKI_STOCK_SHADOW_RISK_PRICE_DECIMALS": "3",
                 "PANDORICKKI_COMMODITIES_ENABLED": "1",
                 "PANDORICKKI_DATA_DIR": "C:/tmp/pandorickki-data",
                 "PANDORICKKI_CONTROL_CENTER_ENABLED": "0",
@@ -58,6 +71,19 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.crypto_symbols, ["BTCUSDT", "SOLUSDT"])
         self.assertFalse(config.stock_test_mode)
         self.assertTrue(config.stock_live_price_display)
+        self.assertTrue(config.stock_data_observer_enabled)
+        self.assertEqual(config.stock_daily_candle_limit, 300)
+        self.assertEqual(config.stock_candle_cache_ttl_seconds, 600.0)
+        self.assertEqual(config.stock_data_minimum_candles, 210)
+        self.assertEqual(config.stock_data_full_warmup_candles, 220)
+        self.assertEqual(config.stock_shadow_long_bullish_score, 64.0)
+        self.assertEqual(config.stock_shadow_short_bullish_score, 36.0)
+        self.assertEqual(config.stock_shadow_risk_atr_multiplier, 1.25)
+        self.assertEqual(config.stock_shadow_risk_minimum_distance_percent, 0.75)
+        self.assertEqual(config.stock_shadow_risk_target_1_multiple, 1.5)
+        self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.5)
+        self.assertEqual(config.stock_shadow_risk_target_3_multiple, 4.0)
+        self.assertEqual(config.stock_shadow_risk_price_decimals, 3)
         self.assertTrue(config.commodities_enabled)
         self.assertEqual(config.commodity_symbols, ["GC=F", "CL=F"])
         self.assertEqual(config.data_dir, Path("C:/tmp/pandorickki-data"))
@@ -103,6 +129,14 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.crypto_live_price_display)
         self.assertTrue(config.stock_test_mode)
         self.assertFalse(config.stock_live_price_display)
+        self.assertFalse(config.stock_data_observer_enabled)
+        self.assertEqual(config.stock_daily_candle_limit, 260)
+        self.assertEqual(config.stock_shadow_risk_atr_multiplier, 1.0)
+        self.assertEqual(config.stock_shadow_risk_minimum_distance_percent, 0.5)
+        self.assertEqual(config.stock_shadow_risk_target_1_multiple, 1.0)
+        self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.0)
+        self.assertEqual(config.stock_shadow_risk_target_3_multiple, 3.0)
+        self.assertEqual(config.stock_shadow_risk_price_decimals, 4)
         self.assertFalse(config.commodities_enabled)
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)

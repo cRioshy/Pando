@@ -1,5 +1,464 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: US-Marktphasenprüfung terminieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 14:48 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Die nächste aussagekräftige observer-only Laufzeitanalyse während einer geöffneten US-Marktphase vorbereiten, ohne aktuellen Code, Runtime, Gate, Telegram oder Orders zu verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation und aktuellen Livezustand erneut geprüft.
+- Einmalige lokale Codex-Automation für Montag, 10. August 2026, 15:40 Uhr Europe/Berlin vorbereitet.
+- Auftrag auf mindestens fünf vollständige Stockzyklen, Quote-Freshness, Shadow-Verteilung, Risikopläne, Datenstatus/Reason Codes und Sicherheitsgrenzen begrenzt.
+- Festgelegt, dass die Automation bei nicht erreichbarem Dienst nichts startet oder verändert, sondern nur den Blocker berichtet.
+- Code-, Prozess-, Gate-, Telegram- und Orderänderungen ausdrücklich ausgeschlossen.
+- Die Automationskarte wurde in der App zur Benutzerbestätigung angezeigt.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- keine
+
+### Ausgeführte Befehle
+
+- vollständige Lektüre der fünf Pflichtdokumente
+- `git status --short`
+- read-only Abruf von `http://127.0.0.1:8000/api/status`
+- lokale Projektliste der Codex-App abgerufen
+- einmalige zeitgebundene Automation als Bestätigungskarte vorbereitet
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Keine neuen Codetests erforderlich, da kein Programmcode verändert wurde.
+- Aktueller Runtime-Preflight: `running=true`, Plattform `OK`, Fehler 0, STALE 0.
+- Bei der Planung: 6 Stockzyklen, 24 Shadows, 18 Risikopläne, 30 sichere Daten-Blocks; Telegram aus/Dry-Run mit 0 Sendungen.
+- Automationskarte erfolgreich gerendert; Aktivierung steht bis zur Benutzerbestätigung aus.
+
+### Bekannte Fehler
+
+- Keine neue Runtime-Störung festgestellt.
+- Die aussagekräftige Freshness-Prüfung ist erst während der geöffneten US-Marktphase möglich.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung.
+- Die spätere Prüfung ist reine Beobachtung und darf keine Prozesse selbst starten.
+- Nur verpflichtende Zustands-/Übergabedokumente dürfen nach der späteren Analyse aktualisiert werden; Programmcode bleibt unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Benutzer muss die angezeigte Automationskarte bestätigen.
+- Marktphasenprüfung und Messbericht stehen noch aus.
+- Keine Gate-, Telegram- oder Orderkopplung.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Automationskarte bestätigen. Am 10. August 2026 ab 15:40 Uhr Europe/Berlin mindestens fünf Stockzyklen observer-only erfassen und anschließend die tatsächlichen Freshness-, Shadow-, Risiko- und Daten-Audit-Ergebnisse berichten.
+
+## Aktuelle Aufgabe: Observer-only Stock-Shadow-Risikoplan integrieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 14:42 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Für LONG-/SHORT-Stock-Shadows einen normalisierten Risikoplan ausschließlich aus derselben öffentlichen Kerzen-/Kurs-Sicht ableiten. Keine Änderung am aktiven Legacy-Feature-/Decision-/Signalpfad, keine Gate-Umschaltung, keine Telegram-Freigabe und keine Orders.
+
+### Durchgeführte Arbeiten
+
+- Pflicht-, Stock-, Shadow-, Feature-, Event- und Gate-Dokumentation vollständig gelesen und gegen den aktuellen Code geprüft.
+- Den tatsächlichen Legacy-Risikoplan untersucht: Entry am Kurs, ATR mit 0,5-%-Mindestdistanz, Stop bei 1R, Ziele bei 1R/2R/3R.
+- `pandorickki.stock-shadow-risk` Version 1 als reinen, fail-closed Observervertrag implementiert.
+- Explizite Policy für ATR-Multiplikator, Mindestdistanz, drei Zielmultiplikatoren und Rundungsstellen ergänzt.
+- Entry aus öffentlichem Kurs und ATR14 aus exakt derselben validierten öffentlichen Shadow-Datensicht verwendet.
+- LONG-/SHORT-Level richtungssicher normalisiert; HOLD, unberechneter Shadow, ungültiger ATR/Entry sowie unmögliche Level blockieren.
+- Risikoplan in den internen Stock-Daten-Audit eingespeist, ohne den aktiven Pfad umzuschalten.
+- Telemetrie für berechnete/blockierte Risikopläne und letzten Status ergänzt.
+- Sicherheitsgrenze gehärtet: Audit, Shadow, Vergleich, Risiko und Providerfelder werden vor `STOCK_ANALYSIS_FINISHED` entfernt. Sie gelangen nicht auf den EventBus und nicht in Brain, Decision, NeuroBrain, Telegram oder History.
+- Konfiguration, `.env.example` und Web-Starter mit expliziten Standardwerten ergänzt.
+- Dokumentation und dauerhafte Arbeitsregeln aktualisiert.
+- PandorickKi geordnet gestoppt, finalen Code mit unveränderten Sicherheitswerten neu gestartet und zwei Produktionszyklen geprüft.
+- Externes Legacy-Stockprojekt nicht verändert.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `AGENTS.md`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/STOCK_DATA_CONTRACT.md`
+- `docs/STOCK_SHADOW_CANDIDATE.md`
+- `orchestrator.py`
+- `start_pandorick_web.bat`
+- `tests/test_config.py`
+- `tests/test_stock_adapter.py`
+
+### Neue Dateien
+
+- `stock_shadow_risk.py`
+- `tests/test_stock_shadow_risk.py`
+- `docs/STOCK_SHADOW_RISK.md`
+
+### Ausgeführte Befehle
+
+- vollständige `Get-Content`-Lektüre aller Pflicht- und Zusatzverträge
+- `git status --short`, `git branch --show-current`
+- `rg`-Suche nach ATR-, Stop-, Ziel-, CRV- und Consumerpfaden
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_shadow_risk tests.test_stock_shadow_candidate tests.test_stock_adapter tests.test_config tests.test_stock_data_contract tests.test_stock_candle_service -v`
+- gezielte Suite nach Eventgrenzen-Härtung erneut mit `-q`
+- `./.venv/Scripts/python.exe -m py_compile stock_shadow_risk.py stock_shadow_candidate.py adapters/stock_adapter.py config.py orchestrator.py`
+- `./.venv/Scripts/python.exe -m unittest discover -s tests -q`
+- `git diff --check`
+- `POST http://127.0.0.1:8000/api/control/stop`
+- versteckter Start mit `./.venv/Scripts/python.exe main.py --headless --web` und expliziten sicheren Observer-/Telegramwerten
+- wiederholte read-only Abrufe von `/api/status` und Prüfung der veröffentlichten Stock-Sicht
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Gezielte Suite: 37/37 bestanden; finale Wiederholung 1,416 Sekunden.
+- Gesamtsuite: 289/289 bestanden in 47,395 Sekunden.
+- Python-Kompilationsprüfung: bestanden.
+- `git diff --check`: keine Whitespacefehler; nur erwartete LF/CRLF-Hinweise.
+- Zwei Livezyklen: Plattform gesund, Services gesund beziehungsweise während Momentaufnahme aktiv laufend; Sitzungsfehler 0, STALE 0.
+- Stock: 10 Audits, 8 erfolgreiche öffentliche Historien, 2 erwartete `SPCX`-Blocks.
+- Shadow: 8 Kandidaten, 4 LONG, 2 SHORT, 2 HOLD.
+- Risiko: 6 gültige LONG-/SHORT-Pläne, 4 sichere Blocks aus 2 HOLD plus 2 `SPCX`.
+- Daten-Audit: 0 `READY`, 10 `BLOCKED`; am Sonntag sind öffentliche Yahoo-Quotetimestamps vom Freitag und damit nach der 900-Sekunden-Policy korrekt stale. HOLD und `SPCX` blockieren zusätzlich.
+- In der über `/api/status` sichtbaren aktiven Stock-Publikation kam kein `stock_shadow`, `stock_data_audit` oder `stock_candle_source` vor.
+- NeuroBrain: Queue 0, Drops 0, Fehler 0.
+- Fehlerjournal: gesund, Schreibfehler 0.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+### Bekannte Fehler
+
+- KP-021 bleibt offen: Brain-Confidence dupliziert Probability; der Shadow-Risikoplan erzeugt bewusst keine Confidence.
+- KP-022 bleibt für eine aktive Gate-Kette offen: Öffentliche Stockdaten und Risiko sind observer-only und nicht mit dem Decision Gate gekoppelt.
+- `SPCX` besitzt weiterhin keinen belegten öffentlichen Ticker und bleibt blockiert.
+- Die 900-Sekunden-Quote-Freshness blockiert Stock-Daten-Audits außerhalb einer frischen Marktphase erwartungsgemäß.
+- Zwei historische Stock-Backup-JSONs bleiben beschädigt und unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Version 1 übernimmt das nachgewiesene Legacy-Grundprinzip, bezieht aber keinen Wert aus dem Legacy-Snapshot.
+- Risikodistanz ist `max(ATR14 × 1,0; 0,5 % Entry)`; Ziele liegen bei 1R/2R/3R; Rundung erfolgt auf vier Dezimalstellen.
+- Der Stock-Datenvertrag darf den Plan intern als Datenreife prüfen. Ein `READY` wäre keine Decision-, Telegram- oder Orderfreigabe.
+- Observerfelder werden vor jeder aktiven Stock-Eventpublikation explizit entfernt.
+- Keine Positionsgröße, reale Ausführung, Gate-Kopplung oder Telegram-Kopplung wurde ergänzt.
+
+### Nicht abgeschlossene Punkte
+
+- Noch keine Beobachtung während einer geöffneten US-Marktphase mit frischen Kurszeitstempeln.
+- Noch keine unabhängige Confidence und keine statistische Kalibrierung des Heuristikscores.
+- Keine aktive Stock-Gate-, Signal-, Telegram- oder Orderkopplung.
+- Der gesamte gestapelte Provider-/Stock-Vertrags-/Shadow-/Risikostand ist lokal, uncommitted und noch nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Während einer geöffneten US-Marktphase den unveränderten observer-only Stand über mehrere Zyklen auswerten: Reason-Code-Verteilung, Shadow-Richtungen, Risikodistanzen, 1R/2R/3R-Level und `stock_data READY/BLOCKED`. Danach eine unabhängige Confidence oder ehrliche Score-Kalibrierung als separaten Vertrag planen. Bis dahin keine Gate-Umschaltung, keine Telegram-Kopplung und keine Orders.
+
+## Aktuelle Aufgabe: Öffentlichen Stock-Shadow-Kandidaten observer-only integrieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 12:16 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Einen vollständig vom aktiven Legacy-Aktienpfad getrennten Shadow-Kandidaten aus öffentlichen Tageskerzen und öffentlichem Kurs erstellen. Fakten, Direction und Probability müssen kompakt und vergleichbar auditiert werden, ohne Feature-/Decision-/Signalpfad, Decision Gate, Telegram oder Orders zu verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflicht- und Vertragsdokumentation sowie tatsächlichen Adapter-, Config- und Orchestratorcode erneut geprüft.
+- `pandorickki.stock-shadow-candidate` Version 1 als pure observer-only Berechnung implementiert.
+- Explizite Policy mit mindestens 200 Kerzen sowie LONG-/SHORT-Bullish-Score-Schwellen ergänzt.
+- Öffentliche Kerzen strikt über den bestehenden Feature-Datenqualitätsvertrag normalisiert und fail-closed geprüft.
+- Transparente Version-1-Komponenten für Kurs/SMA20, SMA20/SMA50, SMA50/SMA200, 20-Tage-Rendite und RSI14 ergänzt; SMA-, RSI-, ATR- und Volumenwerte kompakt projiziert.
+- Score ausdrücklich als `UNVALIDATED_HEURISTIC_SCORE`, nicht als kalibrierte Wahrscheinlichkeit oder Confidence gekennzeichnet.
+- Shadow-Kandidat ohne Rohkerzen, Risikoplan, Eventpublikation oder Persistenz in den getrennten Stock-Auditpfad integriert.
+- Legacy- und Shadow-Sicht mit Quellen, Direction, Probability und `direction_matches` vergleichbar gemacht; `affects_active_decision` ist fest `false`.
+- Service-Telemetrie für Kandidatenzahl sowie LONG/SHORT/HOLD und letzte Shadow-Sicht ergänzt.
+- Web-Starter behält alle Sicherheitswerte bei und setzt die Observer-Schwellen ausdrücklich auf 60/40.
+- Dokumentation und dauerhafte Arbeitsregeln aktualisiert.
+- PandorickKi geordnet über die Control-API gestoppt, als versteckter Prozess mit Live-Crypto/-Aktien, Stock-Observer und Decision-Gate-Observer neu gestartet.
+- Zwei vollständige Produktionszyklen kontrolliert, die Neutralitätskante korrigiert und den final getesteten Stand erneut geordnet geladen und über einen weiteren vollständigen Zyklus geprüft; externes Legacy-Projekt nicht verändert.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `AGENTS.md`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `orchestrator.py`
+- `start_pandorick_web.bat`
+- `tests/test_config.py`
+- `tests/test_stock_adapter.py`
+
+### Neue Dateien
+
+- `stock_shadow_candidate.py`
+- `tests/test_stock_shadow_candidate.py`
+- `docs/STOCK_SHADOW_CANDIDATE.md`
+
+Die bereits im selben uncommitteten Arbeitsstand vorhandenen neuen Provider-/Stock-Vertragsdateien bleiben ebenfalls erhalten und wurden nicht zurückgesetzt.
+
+### Ausgeführte Befehle
+
+- `git status --short`
+- gezielte `rg`-/`Get-Content`-Prüfungen der Adapter-, Config-, Orchestrator-, Vertrags-, Test- und Dokumentationspfade
+- zunächst `python -m pytest ...` (nicht ausführbar: globales `python` fehlt)
+- `./.venv/Scripts/python.exe -m pytest ...` (nicht ausführbar: `pytest` ist in der Projekt-venv nicht installiert)
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_shadow_candidate tests.test_stock_adapter tests.test_config tests.test_stock_data_contract tests.test_stock_candle_service -q`
+- `./.venv/Scripts/python.exe -m unittest discover -s tests -q`
+- `git diff --stat`
+- `git diff --check`
+- `POST http://127.0.0.1:8000/api/control/stop`
+- versteckter Neustart mit `./.venv/Scripts/python.exe main.py --headless --web` und den bestehenden sicheren Runtimevariablen
+- wiederholte read-only Abrufe von `/api/health` und `/api/status`
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Finale gezielte Suite nach Neutralitätskorrektur: 31/31 bestanden in 1,428 Sekunden.
+- Finale Gesamtsuite: 283/283 bestanden in 42,497 Sekunden.
+- `git diff --check`: keine Whitespacefehler; nur erwartete LF/CRLF-Hinweise.
+- Kontrollierter Neustart: Port wurde geordnet freigegeben; kein harter Prozessabbruch.
+- Nach zwei Produktionszyklen: Plattform `OK`, alle 11 Services gesund, Sitzungsfehler 0, STALE-Services 0.
+- Stock: 10 Audits, 0 `READY`, 10 `BLOCKED`; 8 erfolgreiche öffentliche Historien, 2 erwartete `SPCX`-Blocks.
+- Shadow: 8 berechnete Kandidaten, davon 4 LONG, 2 SHORT, 2 HOLD; letzter Score 90,0. Diese Zahlen sind Diagnose, keine Freigabe.
+- NeuroBrain: Queue 0, Drops 0, Fehler 0, Worker aktiv.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+- Finaler Reload nach Neutralitätskorrektur: ein weiterer vollständiger Crypto-/Stock-Zyklus, Plattform und 11/11 Services `OK`, Fehler 0, STALE 0, vier Shadow-Kandidaten, fünf Stock-Audits weiterhin `BLOCKED`, Telegram-Sendungen 0.
+- Bekannte externe Crypto-Legacy-`datetime.utcnow()`-DeprecationWarnings blieben ohne Testfehler.
+
+### Bekannte Fehler
+
+- KP-022 bleibt teilweise offen: Der öffentliche Shadow ist vorhanden, aber ein normalisierter Risikoplan aus derselben öffentlichen Datensicht fehlt absichtlich. Deshalb bleiben alle Stock-Kandidaten sicher blockiert.
+- KP-021 bleibt offen: Brain-Confidence dupliziert Probability; der Shadow erzeugt bewusst keine angeblich unabhängige Confidence.
+- `SPCX` besitzt weiterhin keinen belegten öffentlichen Ticker und wird vor einem Provideraufruf blockiert.
+- Zwei historische Stock-Backup-JSONs bleiben beschädigt; sie wurden nicht verändert.
+
+### Getroffene Architekturentscheidungen
+
+- Shadow und aktive Legacy-Decision bleiben getrennte Datenobjekte; Übereinstimmung ist nur Beobachtung.
+- Öffentliche Rohkerzen bleiben im In-Memory-Providerpfad und gelangen weder auf den EventBus noch in History.
+- Der Version-1-Score ist transparent und versioniert, aber ausdrücklich nicht kalibriert.
+- Kein Risikoplan wird geraten oder aus Legacy-Daten übernommen.
+- Decision Gate, aktiver Signalpfad, Telegram und Orders bleiben unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Noch kein normalisierter observer-only Stock-Risikoplan aus öffentlichen Daten.
+- Noch keine fachlich unabhängige Confidence oder statistische Kalibrierung des Shadow-Scores.
+- Keine Gate-Umschaltung und keine Telegram-Kopplung.
+- Der gesamte gestapelte Provider-/Vertrags-/Shadow-Arbeitsstand ist lokal, uncommitted und noch nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Vor einer Umsetzung gemeinsam die observer-only ATR-Risikoregeln festlegen: Entry aus öffentlichem aktuellem Kurs, Stop-/Zielabstände, Mindest-Chance-Risiko-Verhältnis und Rundungsregeln. Danach einen versionierten Risikoplan ausschließlich aus derselben öffentlichen Shadow-Datensicht implementieren, fail-closed testen und nur in den getrennten Audit einspeisen. Aktiven Feature-/Decision-/Signalpfad, Decision Gate, Telegram und Orders nicht umschalten.
+
+## Aktuelle Aufgabe: Öffentlichen Stock-Tageskerzenprovider read-only integrieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 11:51 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Einen öffentlichen read-only Tageskerzenprovider innerhalb von PandorickKi ergänzen, mindestens 200 zeitgestempelte Kerzen gegen den Stock-Datenvertrag prüfen und die Ergebnisse zunächst ausschließlich als getrennten Audit sichtbar machen. Keine Rohkerzen persistieren, keine Placeholder-Decision fachlich aufwerten und Decision Core, Gate-Freigabe, Telegram sowie Orders unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- `StockCandleService` mit öffentlichen Yahoo-Chartdaten, query1/query2-Fallback, Tickerprüfung, sicherer Diagnostik und begrenztem 15-Minuten-In-Memory-Cache implementiert.
+- Provider liefert normalisierte Tages-OHLCV-Zeilen einschließlich Provider-Zeitstempel; keine private API, kein Token und kein Schreibzugriff.
+- Stock-Audit optional und standardmäßig deaktiviert konfigurierbar gemacht; Web-Starter aktiviert ihn ausdrücklich mit 260 Kerzen und dem dokumentierten 200-Kerzen-Vertrag.
+- `StockAdapter` ruft den Provider nur im Observermodus auf und bewertet die Historie getrennt mit `pandorickki.stock-data`.
+- Ehrliche Quellklassifikation `MIXED_PLACEHOLDER_DECISION` gesetzt, weil Richtung und Probability weiterhin aus dem Legacy-Placeholder-Snapshot stammen.
+- Auditkerzen weder an die bestehende Feature Engine des aktiven Pfads noch an EventBus, Brain, Decision oder NeuroBrain weitergegeben.
+- Nur kompakte kumulative Audit-/Providerzähler und letzte Reason Codes in die Service-Telemetrie aufgenommen.
+- Externes Legacy-Stockprojekt nicht verändert.
+- Kontrollierten Stop und drei sichere Starts während der schrittweisen Liveprüfung durchgeführt; der finale Prozess läuft mit dem vollständigen Telemetriestand.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `orchestrator.py`
+- `start_pandorick_web.bat`
+- `tests/test_config.py`
+- `tests/test_stock_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/STOCK_DATA_CONTRACT.md`
+
+### Neue Dateien
+
+- `adapters/stock_candle_service.py`
+- `tests/test_stock_candle_service.py`
+
+### Ausgeführte Befehle
+
+- Pflicht-, Stock-, Feature-, Event- und Decision-Gate-Dokumentation gelesen und mit Repository, Config, Orchestrator, Adapter und Legacy-Code abgeglichen.
+- Gezielte Unit-Tests für Provider, Vertrag, Adapter, Konfiguration, Eventvertrag und Decision Gate.
+- Öffentlichen AAPL-Provider einmal isoliert mit expliziter Netzwerkfreigabe read-only aufgerufen.
+- Vollständige Unit-Test-Suite ausgeführt.
+- Plattform jeweils über `/api/control/stop` kontrolliert beendet, mit Telegram aus/Dry-Run und read-only Marktquellen versteckt neu gestartet und über `/api/health` sowie `/api/status` geprüft.
+- Python-Compile-, Diff-, Secret- und Git-Statusprüfung.
+
+### Ausgeführte Tests
+
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_candle_service tests.test_stock_data_contract tests.test_stock_adapter tests.test_config -v`
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_candle_service tests.test_stock_data_contract tests.test_stock_adapter tests.test_config tests.test_event_payload_contract tests.test_decision_gate_contract -q`
+- `./.venv/Scripts/python.exe -m unittest discover -s tests -q`
+- Isolierter öffentlicher AAPL-Test mit 260 Tageskerzen und strikter `FeatureDataQualityPolicy`.
+- Liveprüfung eines vollständigen Plattformzyklus.
+
+### Tatsächliche Testergebnisse
+
+- Erste gezielte Suite: 26/26 bestanden.
+- Erweiterte gezielte Suite: 44/44 bestanden.
+- Finale Gesamtsuite: 278/278 bestanden in 49,163 Sekunden.
+- AAPL real: 260 empfangen, 260 akzeptiert, 0 entfernt, 0 Duplikate, 260 Zeitstempel, `PASS/VERIFIED/READY`.
+- Live: Plattform und 11/11 Services `OK`, null STALE-Services und null Sitzungsfehler.
+- Stock-Zyklus: 5 Ergebnisse, 5 Audits, 4 erfolgreiche Kerzenhistorien, 1 erwarteter Providerblock für `SPCX`, 0 `READY`, 5 `BLOCKED`.
+- Abschließender Dauercheck nach vier Zyklen: 20 Audits, 16 erfolgreiche Historien, 4 erwartete `SPCX`-Blocks, weiterhin 0 `READY`, 20 `BLOCKED`, null Sitzungsfehler und null STALE-Services.
+- Letzter SPCX-Audit: `SD_SOURCE_NOT_LIVE`, `SD_CANDLES_MISSING`, ungültiger/fehlender Preis und Zeitstempel sowie `SD_RISK_MISSING`.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+### Bekannte Fehler
+
+- KP-022 bleibt offen: Öffentliche Kerzen sind vorhanden, aber aktive Richtung/Probability stammen weiter aus Placeholder-Daten und der normalisierte Risikoplan fehlt.
+- `SPCX`/`SPACEX` besitzt keinen unterstützten öffentlichen Börsenticker und bleibt absichtlich blockiert.
+- Der erste isolierte Provideraufruf in der eingeschränkten Sandbox scheiterte erwartungsgemäß mit `WinError 10013`; der freigegebene read-only Netzwerkaufruf bestand. Es entstand daraus kein Plattform-Journaleintrag.
+- Externe Crypto-Legacymodule erzeugen weiterhin `datetime.utcnow()`-DeprecationWarnings in Tests; keine Regression.
+
+### Getroffene Architekturentscheidungen
+
+- Öffentliche Kerzen und Placeholder-Decision werden nicht zu einer scheinbar echten Decision vermischt.
+- Die Tageskerzen verbleiben flüchtig im Provider-/Auditpfad und werden weder persistiert noch publiziert.
+- query1/query2 sind read-only Fallbacks desselben Providers; Cache-Key ist Symbol plus Limit, Cache-TTL standardmäßig 900 Sekunden.
+- Observer ist in sicheren Defaults aus und nur im bestätigten Web-Starter aktiv.
+- Auditstatus `READY` bleibt reine Datenbewertung und kann Telegram oder Orders nicht freigeben.
+
+### Nicht abgeschlossene Punkte
+
+- Noch kein vollständig öffentlicher PandorickKi-Shadow-Kandidat für Richtung/Probability/Fakten.
+- Noch kein normalisierter Stock-Risikoplan aus derselben validierten Datensicht.
+- Keine Weitergabe des Stock-Auditstatus an das Decision Gate.
+- Keine Änderung am aktiven Feature-/Decision-/Signalpfad, Telegram oder Orders.
+- Gesamter aktuelle Arbeitsbaum einschließlich des zuvor definierten Stock-Vertrags ist lokal und noch nicht committed oder veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Einen getrennten, observer-only Stock-Shadow-Kandidaten aus den öffentlichen Tageskerzen und dem öffentlichen Preis definieren. Seine Fakten, Direction und Probability müssen klar von der Legacy-Placeholder-Decision getrennt und vergleichbar auditiert werden. Erst danach einen normalisierten Risikoplan aus genau derselben öffentlichen Datensicht ableiten; keine Gate-Umschaltung.
+
+## Aktuelle Aufgabe: Stock-Datenvertrag Version 1 definieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 11:31 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den tatsächlichen Stock-Datenfluss analysieren und einen belastbaren, fail-closed Datenvertrag für zeitgestempelte Kerzenhistorie, aktuellen Livepreis und normalisierten Richtungs-Risikoplan definieren. Noch keine Runtime-Integration, keine Gate-Umschaltung, keine Telegram-Kopplung und keine Orderausführung.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation sowie Event-, Feature-Qualitäts- und Decision-Gate-Verträge gelesen und gegen den aktuellen Code geprüft.
+- `StockAdapter`, `StockPriceService` und die relevanten externen Legacy-Module für Decision, Snapshot, Risiko und SQLite-Persistenz untersucht.
+- Nachgewiesen, dass der Legacy-Lauf zwar einen ATR-basierten `StockRiskPlan` erzeugt, ihn aber nicht an das zurückgegebene `Decision`-Objekt hängt.
+- Nachgewiesen, dass PandorickKi ohne History auf genau eine nicht zeitgestempelte Faktenkerze zurückfällt und die qualitative Legacy-Risikoampel keinen Stop-/Take-Profit-Plan ersetzt.
+- Ausführbare Referenz `pandorickki.stock-data` Version 1 mit expliziter Policy, deterministischen Reason Codes, strikter Feature-Qualität, Quote-Alterung und Richtungs-Risikoprüfung erstellt.
+- Vertrag absichtlich nicht an Adapter, EventBus, Decision Core oder Gate angeschlossen.
+- Dauerhafte Arbeitsregel, Systemzustand, Architektur, bekanntes Problem KP-022 und nächste Schritte aktualisiert.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- `stock_data_contract.py`
+- `tests/test_stock_data_contract.py`
+- `docs/STOCK_DATA_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- `Get-Content`, `rg`, `git status`, `git branch --show-current` und `git log` für Pflichtdokumentation, Repository- und Codeabgleich.
+- Gezielte Unit-Test-Suite für Stock-Vertrag, Stock-Adapter, Preisservice, Feature-Qualität, Feature Engine und Decision Gate.
+- Vollständige Unit-Test-Erkennung über `python -m unittest discover -s tests -v` und nach der Kerzenalter-Prüfung erneut mit `-q`.
+- Syntax-/Diff-/Statusprüfung mit Python-Compile, `git diff --check` und `git status --short`.
+
+### Ausgeführte Tests
+
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_data_contract -v`
+- `./.venv/Scripts/python.exe -m unittest tests.test_stock_data_contract tests.test_stock_adapter tests.test_stock_price_service tests.test_feature_data_quality_contract tests.test_feature_engine tests.test_decision_gate_contract -v`
+- `./.venv/Scripts/python.exe -m unittest discover -s tests -v`
+- `./.venv/Scripts/python.exe -m unittest discover -s tests -q`
+
+### Tatsächliche Testergebnisse
+
+- Stock-Vertrag: 6/6 bestanden.
+- Gezielte Regressionen: 37/37 bestanden.
+- Finale Gesamtsuite: 271/271 bestanden in 43,734 Sekunden.
+- Der vollständige Referenzfall liefert `READY`, aber unverändert `ready_for_telegram=false` und `order_execution_allowed=false`.
+- Der heutige Einzelsnapshot, Placeholder-Daten, fehlende Preise/Risiken, veraltete Quotes und richtungswidrige Risikopläne werden fail-closed blockiert.
+- Die Gesamtsuite zeigte weiterhin vorhandene `datetime.utcnow()`-DeprecationWarnings im externen Crypto-Legacyprojekt; sie verursachten keinen Testfehler und wurden nicht verändert.
+
+### Bekannte Fehler
+
+- KP-022 bleibt als Runtime-Lücke offen: Der neue Vertrag ist noch nicht an den StockAdapter angeschlossen.
+- `SPCX`/`SPACEX` besitzt weiterhin keinen unterstützten öffentlichen Börsenticker und wird ohne Livepreis blockiert.
+- KP-021 bleibt offen: Confidence dupliziert Probability.
+- KP-004/KP-005 bleiben offen: Der aktive Signalpfad ist nicht gate-gefiltert; Telegram bleibt deshalb deaktiviert/Dry-Run.
+
+### Getroffene Architekturentscheidungen
+
+- Der Vertrag ist eine eigenständige Referenz vor einer späteren Adapterintegration.
+- Kerzen bleiben intern an der Adapter-/Feature-Grenze und gelangen nicht in kompakte Event-, Brain-, Decision- oder NeuroBrain-Payloads.
+- Pflichtgrenzen für Kerzenzahl, Warmup und Quote-Alter werden nicht versteckt, sondern müssen ausdrücklich per Policy gesetzt werden.
+- Die qualitative Legacy-Risikoampel und ein preisbezogener Stop-/Take-Profit-Plan bleiben fachlich getrennt.
+- Das externe Legacy-Projekt wurde nicht verändert.
+
+### Nicht abgeschlossene Punkte
+
+- Noch kein öffentlicher read-only Tageskerzenprovider in PandorickKi.
+- Noch keine Runtime-Projektion des normalisierten Stock-Risikoplans.
+- Noch kein Liveaudit des neuen Stock-Datenvertrags.
+- Keine Gate-, Decision-, Signal-, Telegram- oder Orderänderung.
+- Änderungen sind lokal, uncommitted und noch nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Einen read-only öffentlichen Tageskerzenprovider innerhalb von PandorickKi entwerfen und mit Provider-Fallback, Tickerprüfung, Zeitstempeln und mindestens 200 Kerzen testen. Ihn zunächst nur im StockAdapter gegen `pandorickki.stock-data` auditieren; keine Rohkerzen persistieren und den aktiven Decision-/Signalpfad nicht umschalten.
+
 ## Aktuelle Aufgabe: Erste erweiterte Decision-Gate-Liveauswertung
 
 ### Datum und Uhrzeit

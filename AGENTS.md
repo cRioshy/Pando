@@ -22,6 +22,12 @@ Vor Änderungen an OHLCV-Normalisierung, Feature-Eingängen, Sortierung, Kerzend
 
 Vor Änderungen am Decision Core, an fachlichen Freigaberegeln, `ready_for_telegram`, Signal-/Meldungsfreigaben oder einer späteren Telegram-Kopplung muss zusätzlich `docs/DECISION_GATE_CONTRACT.md` gelesen und gegen Feature-Qualität, Brain-, Decision-, Tracker- und Telegram-Consumer geprüft werden.
 
+Vor Änderungen an Aktien-Kerzenquellen, Livepreisen, Stock-Zeitstempeln oder normalisierten Stock-Risikoplänen muss zusätzlich `docs/STOCK_DATA_CONTRACT.md` gelesen und gegen `StockAdapter`, den externen Legacy-Producer, Feature-Qualität, kompakten Eventvertrag und Decision Gate geprüft werden.
+
+Vor Änderungen am öffentlichen Aktien-Shadow-Kandidaten, seiner Direction, Probability oder seinen Score-Komponenten muss zusätzlich `docs/STOCK_SHADOW_CANDIDATE.md` gelesen werden. Der Shadow bleibt observer-only, unkalibriert und strikt vom aktiven Legacy-Pfad getrennt.
+
+Vor Änderungen am öffentlichen Stock-Shadow-Risikoplan, an ATR-, Stop-, Ziel-, Chance-Risiko- oder Rundungsregeln muss zusätzlich `docs/STOCK_SHADOW_RISK.md` gelesen werden. Der Plan bleibt observer-only und darf nicht in den aktiven Event-, Telegram- oder Orderpfad gelangen.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.

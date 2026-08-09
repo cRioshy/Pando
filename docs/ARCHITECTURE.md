@@ -1,8 +1,28 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 8. August 2026
+Stand: 9. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
+
+## Stock-Datengrenze (read-only Shadow und Audit integriert)
+
+```mermaid
+flowchart LR
+    LEGACY["Legacy Direction + Probability"] --> ACTIVE["Aktiver Stock-Eventpfad unverändert"]
+    PROVIDER["Yahoo Tageskerzen + öffentlicher Kurs"] --> SHADOW["Stock-Shadow v1: Fakten, Direction, unkalibrierter Score"]
+    LEGACY -. "nur vergleichen" .-> COMPARE["Legacy-vs-Shadow Audit"]
+    SHADOW --> COMPARE
+    SHADOW --> RISK["Stock-Shadow-Risiko v1: ATR14, Stop, Ziele"]
+    SHADOW --> SD["Stock-Datenvertrag v1"]
+    RISK --> SD
+    SD -->|"interner Daten-Audit"| AUDIT["Stock-Datenstatus READY / BLOCKED"]
+    SD -->|"BLOCKED"| DIAG["Reason Codes, keine Freigabe"]
+    SHADOW -. "keine Publikation / Persistenz" .-> BUS["EventBus / Brain"]
+    AUDIT -. "keine Gate-Kopplung" .-> GATE["Decision-Gate-Observer"]
+    DIAG -.-> SAFE["Telegram false / Orders false"]
+```
+
+`StockAdapter` baut aus öffentlichen Daten den kompakten Shadow-Kandidaten, ergänzt LONG/SHORT über den getrennten ATR-Risikovertrag und vergleicht ihn mit der Legacy-Placeholder-Decision. `affects_active_decision` ist fest `false`. Vor `STOCK_ANALYSIS_FINISHED` werden Audit, Shadow, Vergleich, Risiko und Providerdiagnostik aus dem aktiven Payload entfernt. Der bestehende Legacy-Feature-, Decision- und Signalfluss verwendet weder Auditkerzen noch Shadow-Richtung oder -Risiko. Nur kompakte Telemetriezähler sind im Servicezustand sichtbar; historische Kerzen bleiben außerhalb aller Event- und History-Payloads.
 
 ## Systemkontext
 
@@ -105,7 +125,9 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 |---|---|---|
 | `CryptoMarketDataService` | Binance-Kerzen, Bitget-Fallback, Retry, optionales Open Interest/Funding | Orders, private APIs |
 | `CryptoAdapter` | Normalisierte Marktdaten an externe Crypto-Analyse übergeben, Preise, maximal 500 Kerzen für Features, Fehlerdiagnose, Ereignisse | Börsenorder |
-| `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
+| `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Legacy-Kerzen für aktive Features; separater öffentlicher Shadow-/Auditpfad | Börsenorder, Shadow-Umschaltung |
+| `stock_shadow_candidate.py` | Versionierter observer-only Score aus öffentlichen Tageskerzen und Kurs, kompakte Fakten/Indikatoren | Kalibrierte Probability, Confidence, Risiko, Eventpublikation, Freigabe |
+| `stock_shadow_risk.py` | Expliziter ATR14-Plan mit öffentlichem Entry, Stop und 1R/2R/3R-Zielen | Positionsgröße, aktive Decision, Telegram-/Orderfreigabe |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
