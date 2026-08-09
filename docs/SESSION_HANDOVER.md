@@ -1,5 +1,92 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Decision-Gate-Observer diagnostisch mit 60/60 aktivieren
+
+### Datum und Uhrzeit
+
+9. August 2026, 10:06 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerbestätigung `60/60 aktivieren` den bereits getesteten Decision-Gate-Audit-Observer dauerhaft im lokalen Web-Starter aktivieren, PandorickKi kontrolliert neu starten und mehrere Livezyklen ausschließlich beobachtend auswerten. Keine Umschaltung von Decision/Signal, Telegram oder Trackern und keine Orderfunktion aktivieren.
+
+### Durchgeführte Arbeiten
+
+- Pflichtdokumentation, Gate-, Event-Payload- und Feature-Qualitätsvertrag sowie aktuellen Branch/Commit und Starter geprüft.
+- In `start_pandorick_web.bat` Observer=aktiv, Minimum Probability=60, Minimum Confidence=60 und Toleranz=0 ergänzt. Telegram bleibt dort ausdrücklich deaktiviert und Dry-Run.
+- Runtime-Preflight, 35 gezielte Gate-/Payload-/Brain-/Decision-/Konfigurationstests und Diffprüfung bestanden.
+- Alten, seit rund 11,5 Stunden laufenden Webprozess über `/api/control/stop` geordnet beendet; Port 8000 wurde ohne harten Prozessabbruch freigegeben.
+- Zwei Starts innerhalb der eingeschränkten Codex-Sandbox wegen erwartbarem `WinError 10013` für öffentliche Provider jeweils kontrolliert beendet. Die sechs daraus entstandenen Fehlerjournalzeilen wurden nicht gelöscht oder verändert.
+- PandorickKi anschließend mit ausdrücklicher Netzwerkfreigabe und identischen sicheren Werten versteckt gestartet.
+- Vier vollständige Crypto-/Stock-Zyklen über API, Auditdatei, Fehlerjournal und Runtime-Logs verifiziert.
+
+### Veränderte Dateien
+
+- `start_pandorick_web.bat`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine Projektdateien.
+- Ignorierte Runtime-Logs `runtime_logs/decision_gate_60_60_*` und das vorgesehene Runtime-Audit `data/decision_gate_audit.jsonl` wurden erzeugt beziehungsweise fortgeschrieben.
+
+### Ausgeführte Befehle
+
+- Pflicht- und Vertragsdokumentation mit `Get-Content`, Code-/Konfigurationsprüfung mit `rg`, Git-Status-/Branch-/Remoteprüfung.
+- `.\.venv\Scripts\python.exe scripts\runtime_preflight.py`.
+- Gezielter Unittest-Lauf für Gate-Vertrag, Audit-Adapter, Konfiguration, Event-Payload, Brain und Decision.
+- Read-only Abrufe von `/api/health` und `/api/status`.
+- Kontrollierte POSTs auf `/api/control/stop` und Portfreigabeprüfung.
+- Versteckter Prozessstart mit expliziten Live-Crypto-/Stock-, NeuroBrain-, Gate- und sicheren Telegramwerten; finaler Start mit freigegebenem Netzwerkzugriff.
+- Read-only JSONL-Auswertung von Gate-Audit und Servicefehlerjournal.
+
+### Ausgeführte Tests
+
+- Runtime-Preflight.
+- 35 gezielte Regressionstests.
+- `git diff --check`.
+- Kontrollierter Stop und Neustart.
+- Vier vollständige Livezyklen.
+- Service-, Crypto-, Stock-, Gate-, Audit-, Journal-, Telegram- und Logprüfung.
+
+### Tatsächliche Testergebnisse
+
+- Preflight bestanden mit Python 3.12.13 aus `.venv` und vorhandener Legacy-Crypto-Pipeline.
+- 35/35 gezielte Tests in 0,467 Sekunden bestanden.
+- Final: Plattform und 11/11 Services `OK`; Crypto vier Zyklen mit je drei Ergebnissen, Stock vier Zyklen mit je fünf Ergebnissen, Gate gesund.
+- Seit dem korrekten Netzwerkstart null neue Dienstfehler; stdout/stderr jeweils 0 Byte.
+- 32 neue eindeutige Gate-Audits: 12 Crypto, 20 Stock, 0 `QUALIFIED`, 32 `BLOCKED`, 0 ungültige Schemas, 0 doppelte Quell-IDs und 0 Telegram-/Orderfreigaben.
+- Richtungen: 18 `HOLD`, 12 `WAIT`, 2 `LONG`. Zwei Kandidaten lagen bei Probability mindestens 60, blockierten aber weiter fail-closed wegen Richtung oder Stock-Preis-/Qualitäts-/Warmup-/Risikomängeln.
+- Auditgröße nach Prüfung 60.764 Byte, keine Rotation erforderlich, keine Archive. Telegram `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+### Bekannte Fehler
+
+- KP-020: Sandbox-Prozesse können Binance/Bitget nicht erreichen; sechs dauerhafte, korrekte Journalzeilen aus den zwei beendeten Versuchen. Der freigegebene Netzwerkprozess ist nicht betroffen.
+- KP-004 bleibt fachlich offen: Observer aktiv, aber der aktive Decision Core wird bewusst noch nicht durch das Gate gefiltert.
+- Stock-Einzelsnapshots bleiben `WARN/UNVERIFIED/WARMING` und liefern dem Gate teilweise keinen positiven Preis beziehungsweise keinen vollständigen Risikoplan.
+- Telegram liegt weiterhin vor der finalen Gate-Kette, bleibt deshalb deaktiviert/Dry-Run.
+
+### Getroffene Architekturentscheidungen
+
+- Die bestätigten 60/60/0-Werte gelten ausschließlich für Diagnose und Klassifikation, nicht als produktive Signal- oder Tradingfreigabe.
+- Der Web-Starter aktiviert den Observer reproduzierbar; die zentrale Konfiguration bleibt sicher standardmäßig deaktiviert, falls andere Einstiegspunkte keine expliziten Werte setzen.
+- Bestehender Decision-/Signalpfad bleibt parallel und unverändert. Gate-Ergebnisse sind Auditdaten, keine Steuerbefehle.
+- Runtime-History, Fehlerjournal und Audit werden nicht gelöscht, bereinigt oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Noch keine Langzeitauswertung der Gate-Verteilung; bislang vier Zyklen/32 Kandidaten.
+- Noch keine Korrektur oder vertragliche Erweiterung der Stock-Preis-, Kerzen- und Risikodaten.
+- Keine Gate-Umschaltung des Decision Core und keine Telegram-Kopplung.
+- Lokale Starter-/Dokumentationsänderungen sind noch nicht veröffentlicht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den Observer zunächst weiterlaufen lassen und nach einem längeren Zeitraum die Reason-Code-Verteilung read-only auswerten. Danach vor jeder Freigabeumschaltung einen eigenen Stock-Datenvertrag für aktuellen Preis, zeitgestempelte Kerzenhistorie und vollständigen richtungskonsistenten Risikoplan entwerfen und testen. Decision-/Signalpfad sowie Telegram bis dahin unverändert lassen.
+
 ## Aktuelle Aufgabe: Kompakte Feature-Qualität und Decision-Gate-Audit-Observer integrieren
 
 ### Datum und Uhrzeit
@@ -64,7 +151,7 @@ Den zuvor definierten Decision-Gate-Vertrag sicher an die bestehende Payloadkett
 
 ### Bekannte Fehler
 
-- KP-018: sporadischer Windows-`TemporaryDirectory`-Cleanupfehler im ersten vollständigen Testlauf; isolierte und vollständige Wiederholung waren grün.
+- KP-019: sporadischer Windows-`TemporaryDirectory`-Cleanupfehler im ersten vollständigen Testlauf; isolierte und vollständige Wiederholung waren grün.
 - Der aktive Decision Core besitzt weiterhin kein produktives Gate und erstellt aus jedem Brain-Ereignis Decision und Signal.
 - Telegram liegt weiterhin nicht hinter einer final freigegebenen Entscheidungskette und muss deaktiviert/Dry-Run bleiben.
 

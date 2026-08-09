@@ -27,19 +27,27 @@ Stand: 8. August 2026
 ### KP-004 – Brain und Decision Core besitzen kein aktives Freigabe-Gate
 
 - **Priorität:** mittel
-- **Status:** Vertrag und separater Audit-Observer am 8. August 2026 implementiert und getestet; produktive Freigabe weiterhin offen
-- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. Der standardmäßig deaktivierte `decision_gate_observer` kann dieselben Brain-Ereignisse parallel fail-closed prüfen und begrenzt auditieren, beeinflusst aber den aktiven Pfad nicht.
+- **Status:** Vertrag und separater Audit-Observer implementiert; seit 9. August 2026 diagnostisch mit 60/60 und Toleranz 0 aktiv; produktive Freigabe weiterhin offen
+- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. Der `decision_gate_observer` prüft dieselben Brain-Ereignisse parallel fail-closed und auditiert begrenzt, beeinflusst aber den aktiven Pfad nicht. Vier Livezyklen ergaben 32/32 `BLOCKED`, null unsichere Freigaben und keinen Observerfehler.
 - **Auswirkung:** Modulnamen können eine fachliche Prüfung suggerieren, die nicht implementiert ist.
 - **Sicherheitsregel:** Der Vertrag setzt stets `ready_for_telegram=false` und `order_execution_allowed=false`. Daraus niemals automatische oder reale Orders ableiten.
-- **Nächster Fix:** Fachliche Probability-/Confidence-Schwellen ausdrücklich festlegen, Observer kontrolliert aktivieren und mehrere Livezyklen ausschließlich auswerten; den bestehenden Signalpfad noch nicht umschalten.
+- **Nächster Fix:** Audit über einen längeren Zeitraum auswerten und zuerst die vorgelagerten Stock-Preis-/Qualitäts-/Risikofelder als eigenen Vertrag prüfen. Den bestehenden Signalpfad noch nicht umschalten.
 
-### KP-018 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
+### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
 
 - **Priorität:** niedrig
 - **Status:** einmalig beobachtet; direkte und vollständige Wiederholung grün
 - **Beobachtung:** Ein Gesamtlauf bestand 264 fachliche Tests, endete aber beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test einmal mit `WinError 145` (Verzeichnis nicht leer). Derselbe Test bestand direkt danach isoliert.
 - **Auswirkung:** Kein Hinweis auf eine fachliche Regression des Decision Gates; die Wiederholung bestand 265/265 Tests.
 - **Nächster Fix:** Nur bei erneuter Reproduktion den noch schreibenden Learning-/Storage-Worker gezielt instrumentieren.
+
+### KP-020 – Sandbox-Starts besitzen keinen Zugriff auf öffentliche Marktdaten
+
+- **Priorität:** niedrig, betriebliche Entwicklungsumgebung
+- **Status:** verstanden und durch kontrollierten Netzwerkstart umgangen
+- **Beobachtung:** Zwei kontrollierte Startversuche innerhalb der eingeschränkten Codex-Sandbox erzeugten sechs neue `CRYPTO_SERVICE_ERROR`-Journalzeilen mit `WinError 10013` für Binance und Bitget. Beide Prozesse wurden geordnet beendet. Beim anschließend ausdrücklich freigegebenen Netzwerkstart arbeiteten Crypto und Stock über vier Zyklen fehlerfrei; seit dessen Start entstand kein neuer Dienstfehler.
+- **Auswirkung:** Kein Produktcodefehler und kein Datenverlust. Ein Sandbox-Prozess kann Live-Crypto jedoch nicht sinnvoll verifizieren.
+- **Nächster Fix:** Live-Crypto-Starts aus Codex weiterhin nur mit der vorgesehenen Netzwerkfreigabe ausführen; Journalzeilen nicht löschen oder umschreiben.
 
 ### KP-005 – Telegram umgeht die finale Entscheidungskette
 

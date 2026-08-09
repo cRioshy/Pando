@@ -16,9 +16,10 @@ Stand: 8. August 2026
 - Der Feature-Datenqualitätsvertrag Version 1 wurde über PR #22 nach `main` gemergt; `origin/main` steht auf `14e19bf`. Nach kontrolliertem Neustart liefen vier vollständige Crypto-/Stock-Zyklen mit allen zehn Services `OK`, null Sitzungsfehlern, NeuroBrain Queue/Drops null sowie Telegram aus/Dry-Run.
 - Direkte Qualitätsprüfung: Crypto `PASS/VERIFIED/READY` mit 240/240 Binance-Kerzen und null Verstößen; Stock-Einzelsnapshot erwartungsgemäß `WARN/UNVERIFIED/WARMING` ohne Featurefehler.
 - Der fachliche Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 ist lokal implementiert und mit zehn Vertragstests sowie 261/261 Gesamttests geprüft. Er arbeitet ausschließlich als aufrufbare Observer-Referenz, verlangt explizite Schwellen, blockiert unvollständige Qualität/Fakten/Risiken fail-closed und kann weder Telegram noch Orders freigeben.
-- **Lokal umgesetzt:** Die kompakte `feature_quality`-Projektion erreicht Brain, Decision und Signal; der separate `decision_gate_observer` auditiert mit begrenzter Rotation und bleibt standardmäßig deaktiviert. Der bestehende Decision-/Signalpfad ist unverändert.
+- **Lokal und live umgesetzt:** Die kompakte `feature_quality`-Projektion erreicht Brain, Decision und Signal. Der separate `decision_gate_observer` ist im Web-Starter nach ausdrücklicher Freigabe diagnostisch mit Probability 60, Confidence 60 und Toleranz 0 aktiv; der bestehende Decision-/Signalpfad ist unverändert.
 - **Verifikation:** Gezielte Suite 35/35 und vollständige Wiederholung 265/265 bestanden. Der einmalige Windows-Temp-Cleanupfehler war nicht reproduzierbar.
-- **Nächster Schritt:** Fachliche Probability-/Confidence-Schwellen bestätigen lassen und erst dann den Observer für eine kontrollierte, rein beobachtende Liveauswertung aktivieren.
+- **Liveverifikation:** Vier vollständige Zyklen, 11/11 Services `OK`, 32 eindeutige Audits (12 Crypto, 20 Stock), 0 `QUALIFIED`, 32 `BLOCKED`, null Telegram-/Orderfreigaben, Telegram aus/Dry-Run und keine neuen Dienstfehler seit dem freigegebenen Netzwerkstart.
+- **Nächster Schritt:** Audit zunächst weiter sammeln und anschließend die Reason-Code-Verteilung über einen längeren Zeitraum auswerten. Vor jeder Gate-Umschaltung zuerst den Stock-Datenvertrag für aktuellen Preis, zeitgestempelte Kerzen und vollständigen Risikoplan untersuchen; noch nichts am aktiven Signal- oder Telegrampfad ändern.
 
 ## Verbindliche Reihenfolge
 
