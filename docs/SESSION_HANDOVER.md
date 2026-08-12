@@ -19,6 +19,8 @@ Den bereits lokal vorhandenen Stock-/Polling-/Verification-Stand vollständig pr
 - Einen in der erweiterten Testsuite sichtbaren Timing-Flake behoben: Ein einmal festgestellter Stock-Timeout bleibt nun bis zum Abschluss des nicht überlappenden Hintergrundjobs explizit markiert. Dadurch bleibt die Folgemeldung deterministisch und der tatsächliche Hintergrundjob unverändert geschützt.
 - Bestehendes geprüftes BEFORE-Backup bestätigt: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_21-01-42_BEFORE.zip`, 1.510.376.788 Byte, 1.017 Einträge, `.git`, `docs`, `tests` und Quellcode enthalten; vollständige Testextraktion erfolgreich.
 - GitHub-Authentifizierung für `cRioshy` außerhalb der Sandbox erfolgreich bestätigt. Der lokale Remote bleibt ausschließlich `https://github.com/cRioshy/Pando.git`.
+- Benutzer bestätigte ausdrücklich, dass `cRioshy/Pando` das korrekte PandorickKi-Repository ist und sich die PANDO-Sperre nur auf das separate Token-Projekt bezieht.
+- Produkt- und Vertragsstand als Commit `95d5d54eee01a5499e28812b41bed4c603b1c8c7` auf `agent/integrate-decision-gate-observer` gepusht. Draft-PR #23 zeigt exakt diesen Head, bleibt `OPEN`, `isDraft=true`, ungemergt und gegen `main` gerichtet. Lokal und Remote waren danach `0/0` synchron.
 
 ### Veränderte Dateien
 
@@ -77,7 +79,7 @@ Den bereits lokal vorhandenen Stock-/Polling-/Verification-Stand vollständig pr
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Nach bestätigtem Push und sauberem Working Tree den neuen Branch `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen. Erst dort den observer-only Market-Regime-Vertrag implementieren; keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
+Den neuen Branch `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen. Erst dort den observer-only Market-Regime-Vertrag implementieren; keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
 
 ## Aktuelle Aufgabe: Stock-/Polling-Freeze beheben und Livebetrieb wiederherstellen
 

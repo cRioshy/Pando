@@ -2,6 +2,12 @@
 
 Stand: 12. August 2026
 
+## Market Regime Contract v1
+
+- **Phase 0 abgeschlossen:** Stock-/Polling-/Verification-Stand mit 50/50 gezielten und 299/299 vollständigen Tests als Commit `95d5d54` auf `agent/integrate-decision-gate-observer` veröffentlicht.
+- Draft-PR #23 bleibt offen, Draft, ungemergt und gegen `main`; lokaler und entfernter Branch sind synchron.
+- **Exakter nächster Schritt:** `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen und dort ausschließlich den observer-only Drei-Achsen-Vertrag für Trend, Volatilität und Trendphase beginnen. Keine Decision-, Gate-, Telegram- oder Orderkopplung.
+
 ## Wiederaufnahme nach PC-Ausfall
 
 - PandorickKi wurde am 12. August 2026 um 12:51 Uhr Europe/Berlin mit unverändertem Verification-Fingerprint sicher wieder gestartet. Die ungefähr zwölfstündige Erfassungslücke bleibt als reale Laufunterbrechung sichtbar; vorhandene Ledgerdaten wurden nicht verändert.
