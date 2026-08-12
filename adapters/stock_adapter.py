@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from adapters.stock_price_service import StockPriceService
@@ -120,6 +120,7 @@ class StockAdapter:
         suppress_output: bool = True,
         cycle_timeout_seconds: float = 45.0,
         nonblocking_cycle: bool = False,
+        regime_submitter: Callable[..., bool] | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.stock_project_path = stock_project_path
@@ -142,6 +143,7 @@ class StockAdapter:
         self.suppress_output = suppress_output
         self.cycle_timeout_seconds = max(cycle_timeout_seconds, 0.01)
         self.nonblocking_cycle = nonblocking_cycle
+        self._regime_submitter = regime_submitter
         self._stock_main: ModuleType | None = None
         self._config: Any = None
         self._provider: Any = None
@@ -490,6 +492,8 @@ class StockAdapter:
             "stock_candle_source": stock_data_audit.get("candle_source"),
             "stock_candle_count": stock_data_audit.get("candle_count", 0),
             "stock_candle_error": stock_data_audit.get("candle_error"),
+            "_market_regime_candles": stock_data_audit.get("regime_candles"),
+            "_market_regime_timeframe": stock_data_audit.get("regime_timeframe"),
             "source_timestamp": source_timestamp,
             "received_at": datetime.now(UTC).isoformat(),
             "raw_result": raw,
@@ -562,6 +566,8 @@ class StockAdapter:
                 "candle_source": None,
                 "candle_count": 0,
                 "candle_error": None,
+                "regime_candles": None,
+                "regime_timeframe": None,
             }
         snapshot = self._candle_service.fetch_daily_candles(
             str(symbol or ""),
@@ -660,6 +666,8 @@ class StockAdapter:
             "candle_source": snapshot.source if snapshot is not None else None,
             "candle_count": len(snapshot.candles) if snapshot is not None else 0,
             "candle_error": diagnostics.get("last_error"),
+            "regime_candles": candles,
+            "regime_timeframe": snapshot.timeframe if snapshot is not None else "1d",
         }
 
     def _fetch_live_stock_price(self, symbol: Any) -> float | None:
@@ -694,6 +702,8 @@ class StockAdapter:
             "stock_candle_source",
             "stock_candle_count",
             "stock_candle_error",
+            "_market_regime_candles",
+            "_market_regime_timeframe",
         }
         active_result = {
             key: value for key, value in result.items() if key not in observer_only_fields
@@ -712,6 +722,14 @@ class StockAdapter:
             },
         )
         event.payload["event_id"] = event.event_id
+        if self._regime_submitter is not None:
+            self._regime_submitter(
+                symbol=result.get("symbol"),
+                asset_type="stock",
+                timeframe=result.get("_market_regime_timeframe") or "1d",
+                candles=result.get("_market_regime_candles"),
+                source_event_id=event.event_id,
+            )
         self._publish_shadow_observation(result, source_event=event)
         self.event_bus.publish(event)
 

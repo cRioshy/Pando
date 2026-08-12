@@ -1,5 +1,110 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Market Regime Contract v1 observer-only implementieren
+
+### Datum und Uhrzeit
+
+12. August 2026, 22:13 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach sauberem Abschluss von Phase 0 auf einem separaten Branch einen deterministischen, restart-sicheren Market-Regime-Observer mit unabhängigen Achsen für Trendrichtung, Volatilität und Trendphase implementieren. Bestehende Decisions, Shadow Decisions, Confidence, Outcomes, Telegram, Orders, Stimpy, Ren, `main` und das separate PANDO-Token-Projekt unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- Branch `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head `4f685522267b33277f1fa3da2444b132dd2cfbff` erstellt.
+- Versionierten Vertrag `pandorickki.market-regime-snapshot` v1 mit endlichen Scores von 0 bis 1 und strikt getrennten Achsen implementiert.
+- Deterministische `feature_snapshot_id`, `regime_id` und einen SHA-256-`config_fingerprint` definiert. `source_event_id` dient nur der Rückverfolgung und nicht der kanonischen Identität.
+- Feature-Quality-Vertrag fail-closed eingebunden: `OK`, confidence-begrenztes `DEGRADED` und vollständiges `UNKNOWN` bei `REJECTED`.
+- Echte Crypto-`15m`-Kerzen und öffentliche Stock-`1d`-Kerzen intern angebunden. Der Stock-Legacy-Einzeilenfallback wird nicht verwendet; fehlende reale Timeframes werden explizit ausgewiesen.
+- Begrenzte Drop-newest-Queue, Batch-Worker, append-only rotierendes JSONL-Ledger, Restart-Deduplizierung und vollständig drainierenden Shutdown umgesetzt.
+- Ausschließlich kompakte `MARKET_REGIME_OBSERVED`-Ereignisse ergänzt; Rohkerzen, vollständige Features, `raw_result`, Secrets und lokale Pfade bleiben außerhalb öffentlicher Payloads.
+- GET-only API mit Filterung, Zeitraum, Limits und Pagination sowie read-only Control-Center-Bereich ohne Tradebuttons oder Empfehlungen ergänzt.
+- Coverage über sämtliche zulässigen Kategorien einschließlich Nullwerten, häufigste Kombinationen und Assetklassen implementiert.
+- Kurzen isolierten Live-Smoke-Test mit öffentlichen BTCUSDT-`15m`- und AAPL-`1d`-Daten ausgeführt. Er verwendete ausschließlich temporären Speicher und veränderte weder den laufenden Dienst auf Port 8000 noch vorhandene Runtime-/History-Daten.
+- AFTER-Backup per kontrolliertem Staging und PowerShell `Compress-Archive` erstellt und vollständig geprüft: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge. `.git`, `docs`, `tests`, `AGENTS.md` und Regime-Quellen sind enthalten; .NET-Öffnung und vollständige Testextraktion waren erfolgreich, beide temporären Prüfverzeichnisse wurden anschließend sicher entfernt.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `AGENTS.md`
+- `README.md`
+- `adapters/crypto_adapter.py`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `orchestrator.py`
+- `tests/test_config.py`
+- `tests/test_crypto_adapter.py`
+- `tests/test_stock_adapter.py`
+- `tests/test_web_control_center.py`
+- `web/api.py`
+- `web/routes.py`
+- `web/static/control_center.html`
+- `web/static/control_center.js`
+
+### Neue Dateien
+
+- `market_regime_contract.py`
+- `adapters/market_regime_observer_adapter.py`
+- `scripts/market_regime_live_smoke.py`
+- `tests/test_market_regime_contract.py`
+- `tests/test_market_regime_observer_adapter.py`
+- `docs/MARKET_REGIME_CONTRACT.md`
+- `docs/DATA_MODEL.md`
+- `docs/API.md`
+- `docs/SECURITY_BOUNDARIES.md`
+
+### Ausgeführte Befehle
+
+- Pflichtdokument-, Struktur-, Import-, Diff-, Branch- und Remote-Prüfungen mit PowerShell, `rg` und Git
+- gezielte `python -m unittest`-Läufe für Vertrag, Observer, Konfiguration, Crypto, Stocks und Web/API
+- vollständige `python -m unittest discover -s tests -q`-Regression
+- `node --check web/static/control_center.js`
+- `git diff --check`
+- `.venv\Scripts\python.exe scripts\market_regime_live_smoke.py` mit öffentlichem Netzwerkzugriff
+- kontrollierte rekursive Staging-Kopie, `Compress-Archive`, .NET-`ZipFile.OpenRead` und `Expand-Archive` für das AFTER-Backup
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Gezielte Abschluss-Suite: 55/55 bestanden in 9,195 Sekunden.
+- Vollständige Regression: 318/318 bestanden in 43,245 Sekunden.
+- JavaScript-Syntax: bestanden.
+- Diff-Prüfung: keine Inhaltsfehler; nur erwartete LF/CRLF-Hinweise.
+- Ein versuchter `pytest`-Aufruf wurde nicht ausgeführt, weil `pytest` nicht in der Projekt-`.venv` installiert ist. Es wurde nichts installiert; die dokumentierte `unittest`-Suite lief vollständig erfolgreich.
+- Isolierter Live-Smoke-Test: 2 Eingaben, 2 persistierte Snapshots, 1 Batch, 0 Duplikate, 0 Drops, 0 Fehler, Queue-Tiefe 0 und Worker nach Shutdown beendet. Laufzeit 1,616 Sekunden, CPU-Zeit 0,484 Sekunden.
+- BTCUSDT: `DOWN + MEDIUM + WEAKENING`, Quality `OK`, Timeframe `15m`, fehlend `1m/5m/1h/4h`.
+- AAPL: `UNKNOWN + HIGH + UNKNOWN`, Quality `OK`, Timeframe `1d`, fehlend `1m/5m/15m/1h/4h`. `UNKNOWN` wurde sicher beibehalten und nicht künstlich ersetzt.
+- Ereignisse: ausschließlich Start, zwei `MARKET_REGIME_OBSERVED` und Stop. Keine Decision-, Signal-, Shadow-, Trade-, Telegram- oder Orderereignisse. Temporäres Ledger nach erfolgreicher Prüfung entfernt.
+- AFTER-Backup: 1.201 plausible Einträge und 1.512.476.762 Byte; `.git`, `docs`, `tests`, `AGENTS.md` und Quellcode vorhanden; Testextraktion bestanden.
+
+### Bekannte Fehler
+
+- KP-026 bleibt offen: Ein kurzer Zweimarkt-Smoke-Test validiert keine fachlichen Schwellen oder Marktphasen-Coverage.
+- Die bestehende Stock-Verification-Laufunterbrechung, `SPCX`-Quote-Grenze und zwei beschädigten historischen Backup-JSONs bleiben unverändert dokumentiert.
+- `pytest` ist nicht Teil der Projekt-`.venv`; die verbindliche Suite verwendet `unittest`.
+
+### Getroffene Architekturentscheidungen
+
+- Regime v1 bleibt vollständig observer-only und besitzt keine Kante zu Decision Core, Shadow Gate, Outcome-Entscheidung, Trade Tracker, Telegram oder Orders.
+- Drei Regime-Achsen bleiben unabhängig; keine Kombination wird in LONG, SHORT, HOLD oder NO-TRADE übersetzt.
+- Persistenz liegt hinter einer begrenzten Queue. Kanonische Identität basiert auf Marktdaten, Vertrag, Classifier und Konfiguration, nicht auf restart-abhängigen Event-IDs.
+- API und UI zeigen ausschließlich kompakte, read-only Projektionen. Coverage führt alle Vertragsklassen explizit, auch wenn ihr Zähler null ist.
+
+### Nicht abgeschlossene Punkte
+
+- Commit, Push und Draft-PR sind zum Zeitpunkt dieses Eintrags noch auszuführen.
+- Reale mehrwöchige Coverage und Outcome-Auswertung sind bewusst nicht gestartet.
+- Keine automatische Regime-Regel, Schwellenoptimierung oder Stimpy-Verbindung implementiert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den final abgegrenzten Stand als `Add observer-only market regime contract v1` committen und ausschließlich auf `agent/market-regime-contract-v1` im bestätigten Remote `cRioshy/Pando` pushen. Danach einen Draft-PR gegen `agent/integrate-decision-gate-observer` erstellen und nicht mergen.
+
 ## Aktuelle Aufgabe: Phase 0 – bestehenden Stock-/Polling-/Verification-Stand sichern
 
 ### Datum und Uhrzeit

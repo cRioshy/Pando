@@ -4,6 +4,15 @@ Stand: 12. August 2026
 
 ## Offen
 
+### KP-026 – Regime v1 benötigt reale Coverage und Schwellenvalidierung
+
+- **Priorität:** mittel
+- **Status:** Implementierung, Tests und kurzer kontrollierter Live-Observer-Test abgeschlossen; längere Coverage und Schwellenvalidierung bleiben offen
+- **Beobachtung:** Der Classifier ist deterministisch und mehrdimensional, seine Parameter sind aber noch nicht gegen ausreichende unabhängige Marktphasen und spätere Outcomes validiert. Stocks besitzen nur `1d`, Crypto nur `15m`; fehlende Timeframes werden sichtbar ausgewiesen.
+- **Sicherheitsregel:** Regime-Werte nicht in LONG/SHORT/HOLD, Gate, Telegram oder Orders übersetzen. `UNKNOWN` und `DEGRADED` nicht wegfiltern. Keine Schwellen automatisch anhand kurzer Läufe optimieren.
+- **Live-Smoke-Test:** BTCUSDT-`15m` ergab `DOWN + MEDIUM + WEAKENING`, AAPL-`1d` sicher `UNKNOWN + HIGH + UNKNOWN`; 2/2 Snapshots, 0 Drops, 0 Fehler, Queue leer, Worker gestoppt und keine verbotenen Events. Dies ist nur ein technischer Plausibilitätstest und keine Schwellenvalidierung.
+- **Nächster Schritt:** Nach Review und separater Freigabe eine ausreichend lange read-only Coverage über unabhängige Marktphasen sammeln und später zeitpunktgerecht mit Outcomes auswerten. Keinen automatischen Fit oder Decision-Einfluss aktivieren.
+
 ### KP-025 – Stock- und Verification-Consumer blockierten den Gesamtzyklus
 
 - **Priorität:** hoch

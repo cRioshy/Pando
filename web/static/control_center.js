@@ -222,6 +222,42 @@ function renderShadowVerification(view) {
   });
 }
 
+function renderMarketRegime(view) {
+  const data = view || {};
+  setText(
+    "marketRegimeMode",
+    data.enabled ? "Drei Achsen · observer-only · aktiv" : "Drei Achsen · observer-only · deaktiviert"
+  );
+  const body = $("marketRegimeRows");
+  if (!body) return;
+  body.innerHTML = "";
+  const items = data.items || [];
+  if (!items.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = '<td colspan="10" class="empty">Keine Market-Regime-Snapshots</td>';
+    body.appendChild(tr);
+    return;
+  }
+  items
+    .slice()
+    .sort((a, b) => `${a.asset_type}:${a.symbol}`.localeCompare(`${b.asset_type}:${b.symbol}`))
+    .forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>";
+      tr.children[0].textContent = item.symbol || "-";
+      tr.children[1].textContent = item.asset_type || "-";
+      tr.children[2].textContent = item.trend_direction || "UNKNOWN";
+      tr.children[3].textContent = percent((item.trend_confidence || 0) * 100);
+      tr.children[4].textContent = item.volatility_regime || "UNKNOWN";
+      tr.children[5].textContent = item.trend_phase || "UNKNOWN";
+      tr.children[6].textContent = percent((item.phase_confidence || 0) * 100);
+      tr.children[7].textContent = item.data_quality_status || "REJECTED";
+      tr.children[8].textContent = (item.timeframes_used || []).join(", ") || "-";
+      tr.children[9].textContent = item.classifier_version || "-";
+      body.appendChild(tr);
+    });
+}
+
 function renderShadowVerificationDetail(record) {
   if (!record) {
     renderRows("shadowVerificationDetail", [], "Kein Detail ausgewählt");
@@ -1336,6 +1372,7 @@ function render(snapshot) {
   renderMarket("stockRows", snapshot.last_stock_analysis || {});
   renderMarket("commodityRows", snapshot.last_commodity_analysis || {});
   renderShadowVerification(snapshot.shadow_verification || {});
+  renderMarketRegime(snapshot.market_regime || {});
 
   const brain = snapshot.last_brain_decision || {};
   const learning = snapshot.last_learning_update || {};

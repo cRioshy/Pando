@@ -32,6 +32,8 @@ Vor Änderungen an Stock-Live-Shadow-Verification, deren IDs, Persistenz, Outcom
 
 Vor Änderungen an Stock-Shadow-Score-Kalibrierung, Confidence, Reliability-Buckets, Kalibrierungsartefakten oder deren Mindestabdeckung muss zusätzlich `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md` gelesen werden. Kalibrierung bleibt offline, stock-only und observer-only; unzureichende oder korrelierte Daten dürfen keine Probability oder Confidence erzeugen.
 
+Vor Änderungen an Marktregime-Klassifikation, `MarketRegimeSnapshot`, Feature-/Regime-IDs, Regime-Persistenz, Coverage, API oder UI muss zusätzlich `docs/MARKET_REGIME_CONTRACT.md` gelesen werden. Market Regime v1 bleibt observer-only und darf Decision Core, Shadow Gate, Outcomes, Telegram oder Orders nicht verändern.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.

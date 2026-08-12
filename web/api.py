@@ -54,6 +54,8 @@ LIVE_WEB_TOPICS = {
     "SIMULATED_TRADE_CLOSED",
     "STOCK_SHADOW_VERIFICATION_UPDATED",
     "STOCK_SHADOW_VERIFICATION_HEARTBEAT",
+    "MARKET_REGIME_OBSERVED",
+    "MARKET_REGIME_HEARTBEAT",
     STATISTICS_UPDATED,
 }
 
@@ -258,6 +260,7 @@ class WebControlServer:
 
         self._apply_stale_heartbeats(base)
         base["shadow_verification"] = self.api_shadow_verification_summary(days=7, limit=50)
+        base["market_regime"] = self.api_market_regime_current()
         base["web"] = {
             "running": self._running,
             "url": self.url,
@@ -393,6 +396,75 @@ class WebControlServer:
             "order_execution_allowed": False,
         }
 
+    def api_market_regime_current(
+        self, *, asset_type: str | None = None, symbol: str | None = None
+    ) -> dict[str, Any]:
+        adapter = self._market_regime_adapter()
+        if adapter is None:
+            return {
+                "schema_name": "pandorickki.market-regime-current",
+                "schema_version": 1,
+                "enabled": False,
+                "items": [],
+                "count": 0,
+                "read_only": True,
+            }
+        result = adapter.current(asset_type=asset_type, symbol=symbol)
+        result["enabled"] = True
+        return result
+
+    def api_market_regime_history(
+        self,
+        *,
+        asset_type: str | None = None,
+        symbol: str | None = None,
+        days: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        adapter = self._market_regime_adapter()
+        if adapter is None:
+            return {
+                "schema_name": "pandorickki.market-regime-history",
+                "schema_version": 1,
+                "enabled": False,
+                "items": [],
+                "pagination": {"offset": 0, "limit": max(1, min(limit, 500)), "returned": 0, "total": 0, "has_more": False},
+                "read_only": True,
+            }
+        result = adapter.history(
+            asset_type=asset_type,
+            symbol=symbol,
+            days=days,
+            limit=limit,
+            offset=offset,
+        )
+        result["enabled"] = True
+        return result
+
+    def api_market_regime_statistics(
+        self, *, asset_type: str | None = None, symbol: str | None = None, days: int | None = None
+    ) -> dict[str, Any]:
+        adapter = self._market_regime_adapter()
+        if adapter is None:
+            return {
+                "schema_name": "pandorickki.market-regime-statistics",
+                "schema_version": 1,
+                "enabled": False,
+                "count": 0,
+                "trend": {},
+                "volatility": {},
+                "phase": {},
+                "quality": {},
+                "common_combinations": [],
+                "by_asset_type": {},
+                "legacy_labels_included": False,
+                "read_only": True,
+            }
+        result = adapter.statistics(asset_type=asset_type, symbol=symbol, days=days)
+        result["enabled"] = True
+        return result
+
     def api_commodities(self) -> dict[str, Any]:
         """Return latest commodity data."""
 
@@ -467,6 +539,7 @@ class WebControlServer:
             "web_port": self.port,
             "storage_scan_interval_seconds": config.storage_scan_interval_seconds,
             "stock_shadow_verification_enabled": config.stock_shadow_verification_enabled,
+            "market_regime_observer_enabled": config.market_regime_observer_enabled,
         }
 
     def api_statistics(self) -> dict[str, Any]:
@@ -699,6 +772,7 @@ class WebControlServer:
             snapshot = control.get_status()
             self._apply_stale_heartbeats(snapshot)
             snapshot["shadow_verification"] = self.api_shadow_verification_summary(days=7, limit=50)
+            snapshot["market_regime"] = self.api_market_regime_current()
             return self._sanitize(snapshot)
         shared = self.orchestrator.shared_state.to_dict()
         snapshot = {
@@ -707,6 +781,7 @@ class WebControlServer:
             "last_stock_price": shared.get("values", {}).get("last_stock_price", {}),
             "last_stock_analysis": shared.get("values", {}).get("last_stock_analysis", {}),
             "shadow_verification": self.api_shadow_verification_summary(days=7, limit=50),
+            "market_regime": self.api_market_regime_current(),
         }
         return self._sanitize(snapshot)
 
@@ -715,6 +790,12 @@ class WebControlServer:
 
         for adapter in self.orchestrator.adapters:
             if getattr(adapter, "name", None) == "stock_shadow_verification":
+                return adapter
+        return None
+
+    def _market_regime_adapter(self) -> Any | None:
+        for adapter in self.orchestrator.adapters:
+            if getattr(adapter, "name", None) == "market_regime_observer":
                 return adapter
         return None
 

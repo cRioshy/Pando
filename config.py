@@ -154,6 +154,13 @@ class PlatformConfig:
     stock_shadow_verification_max_archives: int = 8
     stock_shadow_verification_horizon_seconds: float = 86400.0
     stock_shadow_verification_neutral_band_percent: float = 0.05
+    market_regime_observer_enabled: bool = False
+    market_regime_file: Path = PROJECT_ROOT / "data" / "market_regime.jsonl"
+    market_regime_rotation_bytes: int = 20 * 1024 * 1024
+    market_regime_max_archives: int = 8
+    market_regime_queue_capacity: int = 512
+    market_regime_batch_size: int = 32
+    market_regime_flush_interval_seconds: float = 0.25
 
     def __post_init__(self) -> None:
         """Align derived brain event defaults with a custom data directory."""
@@ -198,6 +205,9 @@ class PlatformConfig:
                 "stock_shadow_verification_file",
                 self.data_dir / "stock_shadow_verification.jsonl",
             )
+        default_market_regime = PROJECT_ROOT / "data" / "market_regime.jsonl"
+        if self.market_regime_file == default_market_regime and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "market_regime_file", self.data_dir / "market_regime.jsonl")
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -426,6 +436,21 @@ class PlatformConfig:
             stock_shadow_verification_neutral_band_percent=_env_float(
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT", 0.05
             ),
+            market_regime_observer_enabled=_env_bool(
+                "PANDORICKKI_MARKET_REGIME_OBSERVER_ENABLED", False
+            ),
+            market_regime_file=_env_path(
+                "PANDORICKKI_MARKET_REGIME_FILE", data_dir / "market_regime.jsonl"
+            ),
+            market_regime_rotation_bytes=_env_int(
+                "PANDORICKKI_MARKET_REGIME_ROTATION_BYTES", 20 * 1024 * 1024
+            ),
+            market_regime_max_archives=_env_int("PANDORICKKI_MARKET_REGIME_MAX_ARCHIVES", 8),
+            market_regime_queue_capacity=_env_int("PANDORICKKI_MARKET_REGIME_QUEUE_CAPACITY", 512),
+            market_regime_batch_size=_env_int("PANDORICKKI_MARKET_REGIME_BATCH_SIZE", 32),
+            market_regime_flush_interval_seconds=_env_float(
+                "PANDORICKKI_MARKET_REGIME_FLUSH_INTERVAL", 0.25
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -492,6 +517,14 @@ class PlatformConfig:
             warnings.append("Stock shadow verification rotation size is below 1 MB; runtime clamps it to 1 MB.")
         if self.stock_shadow_verification_max_archives < 0:
             warnings.append("Stock shadow verification archive limit is negative; runtime clamps it to 0.")
+        if self.market_regime_observer_enabled:
+            warnings.append("Market Regime v1 is enabled in observer-only mode.")
+        if self.market_regime_queue_capacity < 1:
+            warnings.append("Market Regime queue capacity below 1; runtime clamps it to 1.")
+        if self.market_regime_batch_size < 1:
+            warnings.append("Market Regime batch size below 1; runtime clamps it to 1.")
+        if self.market_regime_flush_interval_seconds <= 0:
+            warnings.append("Market Regime flush interval is not positive; runtime uses 0.01 seconds.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -631,4 +664,11 @@ class PlatformConfig:
             stock_shadow_verification_max_archives=self.stock_shadow_verification_max_archives,
             stock_shadow_verification_horizon_seconds=self.stock_shadow_verification_horizon_seconds,
             stock_shadow_verification_neutral_band_percent=self.stock_shadow_verification_neutral_band_percent,
+            market_regime_observer_enabled=self.market_regime_observer_enabled,
+            market_regime_file=self.market_regime_file,
+            market_regime_rotation_bytes=self.market_regime_rotation_bytes,
+            market_regime_max_archives=self.market_regime_max_archives,
+            market_regime_queue_capacity=self.market_regime_queue_capacity,
+            market_regime_batch_size=self.market_regime_batch_size,
+            market_regime_flush_interval_seconds=self.market_regime_flush_interval_seconds,
         )

@@ -6,7 +6,11 @@ Stand: 12. August 2026
 
 - **Phase 0 abgeschlossen:** Stock-/Polling-/Verification-Stand mit 50/50 gezielten und 299/299 vollständigen Tests als Commit `95d5d54` auf `agent/integrate-decision-gate-observer` veröffentlicht.
 - Draft-PR #23 bleibt offen, Draft, ungemergt und gegen `main`; lokaler und entfernter Branch sind synchron.
-- **Exakter nächster Schritt:** `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen und dort ausschließlich den observer-only Drei-Achsen-Vertrag für Trend, Volatilität und Trendphase beginnen. Keine Decision-, Gate-, Telegram- oder Orderkopplung.
+- **Implementierung lokal abgeschlossen:** Drei Achsen, stabile Feature-/Regime-IDs, Config-Fingerprint, Quality-Fail-Closed, Queue/Batch/Shutdown, append-only Ledger, vollständige Null-Kategorien in Coverage, GET-only API und read-only UI sind vorhanden. 55/55 gezielte und 318/318 vollständige Tests bestanden.
+- **Kurzer Live-Smoke-Test abgeschlossen:** echte BTCUSDT-`15m`- und AAPL-`1d`-Daten, 2/2 persistiert, keine Drops/Fehler, sauberer Shutdown und keine Decision-/Signal-/Shadow-/Trade-/Telegram-/Orderereignisse. Der bestehende Produktionsdienst und seine Runtime-/History-Daten wurden nicht verändert.
+- **AFTER-Backup validiert:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge, `.git`/Docs/Tests/Quellen enthalten und Testextraktion bestanden.
+- **Jetzt:** committen, auf `agent/market-regime-contract-v1` pushen und einen gestapelten Draft-PR gegen `agent/integrate-decision-gate-observer` erstellen. Nicht mergen.
+- **Danach nur nach separater Freigabe:** längere read-only Regime-Coverage sammeln; keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
 
 ## Wiederaufnahme nach PC-Ausfall
 

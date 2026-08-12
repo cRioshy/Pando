@@ -20,6 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from adapters.control_center_adapter import ControlCenterAdapter
+from adapters.market_regime_observer_adapter import MarketRegimeObserverAdapter
 from adapters.stock_shadow_verification_adapter import StockShadowVerificationAdapter
 from config import PlatformConfig
 from event_bus import Event
@@ -211,6 +212,63 @@ class WebControlCenterTest(unittest.TestCase):
                 self.assertFalse(summary["ready_for_telegram"])
                 self.assertEqual(detail["record"]["verification_id"], verification_id)
                 self.assertNotIn("candles", json.dumps(detail).lower())
+
+        asyncio.run(run())
+
+    def test_market_regime_api_is_filtered_paginated_compact_and_read_only(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                orchestrator, server = self.make_server(root)
+                observer = MarketRegimeObserverAdapter(
+                    orchestrator.event_bus,
+                    ledger_file=root / "market_regime.jsonl",
+                    flush_interval_seconds=0.01,
+                )
+                orchestrator.adapters.insert(0, observer)
+                await orchestrator.start()
+                server.start()
+                candle_rows = [
+                    {
+                        "timestamp": 1_700_000_000 + index * 900,
+                        "open": 100 + index * 0.2,
+                        "high": 101 + index * 0.2,
+                        "low": 99 + index * 0.2,
+                        "close": 100.5 + index * 0.2,
+                        "volume": 1_000 + index,
+                    }
+                    for index in range(220)
+                ]
+                try:
+                    observer.submit(
+                        symbol="BTCUSDT",
+                        asset_type="crypto",
+                        timeframe="15m",
+                        candles=candle_rows,
+                        source_event_id="regime-web-1",
+                    )
+                    deadline = time.monotonic() + 3
+                    while (await observer.health())["persisted"] < 1 and time.monotonic() < deadline:
+                        await asyncio.sleep(0.02)
+                    current = get_json(f"{server.url}/api/v1/regime/current?asset_type=crypto")
+                    symbol = get_json(f"{server.url}/api/v1/regime/BTCUSDT")
+                    history = get_json(f"{server.url}/api/v1/regime/history?symbol=BTCUSDT&limit=1&offset=0")
+                    statistics = get_json(f"{server.url}/api/v1/regime/statistics?asset_type=crypto")
+                    with self.assertRaises(urllib.error.HTTPError) as blocked:
+                        post_json(f"{server.url}/api/v1/regime/current")
+                    self.assertEqual(blocked.exception.code, 405)
+                finally:
+                    server.stop()
+                    await orchestrator.stop()
+
+                self.assertEqual(current["count"], 1)
+                self.assertEqual(symbol["items"][0]["symbol"], "BTCUSDT")
+                self.assertEqual(history["pagination"]["limit"], 1)
+                self.assertEqual(statistics["count"], 1)
+                encoded = json.dumps({"current": current, "history": history, "statistics": statistics})
+                self.assertNotIn("candles", encoded)
+                self.assertNotIn("raw_result", encoded)
+                self.assertNotIn("features", encoded)
 
         asyncio.run(run())
 

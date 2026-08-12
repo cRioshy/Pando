@@ -5,6 +5,8 @@ independent market engines for crypto, stocks and commodities with a Brain,
 learning layer, Knowledge Graph, statistics service, Telegram dry-run output
 and a live browser Control Center.
 
+Market Regime v1 ergänzt eine ausschließlich beobachtende Drei-Achsen-Sicht auf Trendrichtung, Volatilität und Trendphase. Crypto nutzt echte `15m`-Serien, Stocks öffentliche `1d`-Serien. Regime-Snapshots beeinflussen keine Decisions, Signale, Outcomes, Telegram-Nachrichten oder Orders. Vertrag und API sind in `docs/MARKET_REGIME_CONTRACT.md` und `docs/API.md` beschrieben.
+
 The platform is designed as an integration layer. Existing bots and working
 analysis modules stay separated and are connected through adapters instead of
 being overwritten or refactored into one monolith.
