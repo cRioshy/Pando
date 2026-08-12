@@ -174,6 +174,62 @@ class StockShadowVerificationAdapterTest(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_due_outcomes_are_completed_in_restart_safe_batches(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                adapter = StockShadowVerificationAdapter(
+                    bus,
+                    ledger_file=root / "verification.jsonl",
+                    policy=StockShadowVerificationPolicy(horizon_seconds=1, neutral_band_percent=0.0),
+                    config_fingerprint="fingerprint-v1",
+                    outcome_batch_size=1,
+                )
+                await adapter.start()
+                for index in range(3):
+                    event = observed(source_id=f"stock-source-{index}")
+                    payload = event.payload["payload"]
+                    payload["cycle_id"] = f"cycle-{index}"
+                    payload["analysis_timestamp"] = (NOW + timedelta(seconds=index)).isoformat()
+                    payload["latest_candle_timestamp"] = (NOW - timedelta(days=index + 1)).isoformat()
+                    bus.publish(event)
+
+                quote = Event(
+                    topic=STOCK_ANALYSIS_FINISHED,
+                    source="stock",
+                    payload={
+                        "payload": {
+                            "market_type": "stock",
+                            "symbol": "AAPL",
+                            "current_price": 102.0,
+                            "price_timestamp": datetime.now(UTC).isoformat(),
+                        }
+                    },
+                )
+                bus.publish(quote)
+                first = adapter.snapshot(days=7)["summary"]["outcomes"]
+                self.assertEqual(first["COMPLETED"], 1)
+                self.assertEqual(first["PENDING"], 2)
+                await adapter.stop()
+
+                restarted_bus = EventBus()
+                restarted = StockShadowVerificationAdapter(
+                    restarted_bus,
+                    ledger_file=root / "verification.jsonl",
+                    policy=StockShadowVerificationPolicy(horizon_seconds=1, neutral_band_percent=0.0),
+                    config_fingerprint="fingerprint-v1",
+                    outcome_batch_size=1,
+                )
+                await restarted.start()
+                restarted_bus.publish(quote)
+                second = restarted.snapshot(days=7)["summary"]["outcomes"]
+                self.assertEqual(second["COMPLETED"], 2)
+                self.assertEqual(second["PENDING"], 1)
+                await restarted.stop()
+
+        asyncio.run(run())
+
 
 if __name__ == "__main__":
     unittest.main()

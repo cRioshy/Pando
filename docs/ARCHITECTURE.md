@@ -1,8 +1,24 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 9. August 2026
+Stand: 12. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
+
+## Nicht blockierender Stock- und Verification-Lauf
+
+```mermaid
+flowchart LR
+    ORCH["60s Orchestrator"] --> START["genau ein Stock-Hintergrundlauf"]
+    START --> LEGACY["Legacy Stock + Normalisierung + Yahoo + Features + Shadow"]
+    ORCH --> OTHER["Crypto / Brain / UI laufen weiter"]
+    LEGACY --> NEXT["Ergebnis im Folgetakt übernehmen"]
+    NEXT --> BUS["kompakte Stock-Ereignisse"]
+    BUS --> VERIFY["Verification Consumer"]
+    VERIFY --> BATCH["max. 8 fällige Outcomes je Symbol und Quote"]
+    BATCH --> LEDGER["append-only Ledger"]
+```
+
+Der Produktions-Orchestrator erstellt keinen überlappenden Stocklauf und wartet nicht auf die blockierende Legacy-/Normalisierungspipeline. Fertige Ergebnisse werden in einem Folgetakt publiziert. Der Verification-Consumer sortiert fällige Fälle nach `evaluation_due_at` und verarbeitet je Stock-Quote höchstens acht. Nicht verarbeitete Fälle bleiben `PENDING` und werden nach Neustart unverändert aus dem Ledger rekonstruiert.
 
 ## Stock-Datengrenze (read-only Shadow und Audit integriert)
 
@@ -23,6 +39,8 @@ flowchart LR
     VERIFY --> VLEDGER["Append-only Verification-Ledger"]
     BUS -. "decision_id / späterer Quote" .-> VERIFY
     VLEDGER --> VAPI["Read-only Summary / Detail / Control Center"]
+    VLEDGER -. "später ausschließlich offline" .-> CAL["Kalibrierungsvertrag v1: aktuell INSUFFICIENT_DATA"]
+    CAL -. "keine Laufzeit- oder Freigabewirkung" .-> SAFE
     AUDIT -. "keine Gate-Kopplung" .-> GATE["Decision-Gate-Observer"]
     DIAG -.-> SAFE["Telegram false / Orders false"]
 ```
@@ -30,6 +48,8 @@ flowchart LR
 `StockAdapter` baut aus öffentlichen Daten den kompakten Shadow-Kandidaten, ergänzt LONG/SHORT über den getrennten ATR-Risikovertrag und vergleicht ihn mit der Legacy-Placeholder-Decision. `affects_active_decision` ist fest `false`. Vor `STOCK_ANALYSIS_FINISHED` werden Audit, Shadow, Vergleich, Risiko und Providerdiagnostik weiterhin aus dem aktiven Payload entfernt. Additiv entsteht ausschließlich bei vorhandenem Audit eine separate kompakte `STOCK_SHADOW_OBSERVED`-Projektion mit derselben `source_event_id`. Der optionale Verification-Adapter persistiert daraus append-only Fälle, verknüpft die spätere `decision_id` und beobachtet spätere öffentliche Quotes. Der bestehende Legacy-Feature-, Decision-, Signal-, Outcome-, Learning-, Telegram- und Orderfluss verwendet weder Auditkerzen noch Shadow-Richtung oder -Risiko. Rohkerzen bleiben außerhalb aller Event- und History-Payloads.
 
 Summary-Projektionen werden generationsgebunden im Speicher gecacht und nur nach einem neuen append-only Ledger-Eintrag invalidiert. Dadurch lösen der bestehende 1-Sekunden-Poll und WebSocket-Snapshots während eines mehrtägigen Laufs keine vollständige Neuaggregation bei unverändertem Datenstand aus.
+
+Der neue Kalibrierungsvertrag ist keine Laufzeitkomponente. Er beschreibt nur eine mögliche spätere Offline-Auswertung abgeschlossener, deduplizierter Verification-Outcomes. Im aktuellen System existieren weder Fit, Modell noch Kalibrierungsartefakt. Wiederholte Minutenzyklen derselben Tageskerze gelten nicht als unabhängige Fälle; heute stehen null abgeschlossene unabhängige 24h-Outcomes zur Verfügung.
 
 ## Systemkontext
 
@@ -141,6 +161,7 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 | `stock_shadow_risk.py` | Expliziter ATR14-Plan mit öffentlichem Entry, Stop und 1R/2R/3R-Zielen | Positionsgröße, aktive Decision, Telegram-/Orderfreigabe |
 | `stock_shadow_verification_contract.py` | Deterministische Fall-ID, Statusprojektionen und getrenntes 24h-Forward-Mark-to-Market für Legacy/Shadow | Stop-/Zielpfad-Backtest, Crypto-Vergleich, Kausalitätsaussage |
 | `StockShadowVerificationAdapter` | Append-only Stock-Ledger, Restart-Rekonstruktion, Source-/Decision-/Tracker-Verknüpfung, Summary/Detail | Mutation produktiver Decisions/Outcomes, Learning, Telegram, Orders |
+| `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md` | Dokumentiert unabhängige Fälle, Mindestabdeckung, chronologische Validierung, Reliability und Evidenz-Confidence | Laufzeitmodul, trainiertes Modell, automatische Kalibrierung, Gate-/Telegram-/Orderkopplung |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |

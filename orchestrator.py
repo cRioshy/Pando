@@ -604,6 +604,7 @@ class Orchestrator:
                     price_decimals=self.config.stock_shadow_risk_price_decimals,
                 ),
                 cycle_timeout_seconds=self.config.adapter_cycle_timeout_seconds,
+                nonblocking_cycle=True,
             ),
             *(
                 [CommodityAdapter(self.event_bus, symbols=list(self.config.commodity_symbols))]

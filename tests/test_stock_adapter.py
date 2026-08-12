@@ -277,7 +277,52 @@ class StockAdapterTest(unittest.TestCase):
             self.assertEqual(third, [])
             self.assertGreaterEqual(len(errors), 2)
             self.assertIn("exceeded", errors[0].payload["payload"]["error"])
-            self.assertIn("still running", errors[1].payload["payload"]["error"])
+            self.assertIn("continues in background", errors[1].payload["payload"]["error"])
+
+        asyncio.run(run())
+
+    def test_slow_stock_normalization_is_covered_by_cycle_timeout(self) -> None:
+        class SlowNormalizationStockAdapter(StockAdapter):
+            def _run_stock_once_sync(self) -> list:
+                return [object()]
+
+            def _normalize_decision(self, decision: object) -> dict:
+                time.sleep(0.2)
+                return {
+                    "market_type": "stock",
+                    "symbol": "AAPL",
+                    "timeframe": None,
+                    "source_timestamp": "2026-08-12T00:00:00+00:00",
+                    "direction": "HOLD",
+                }
+
+        async def run() -> None:
+            bus = EventBus()
+            errors = []
+            bus.subscribe(STOCK_SERVICE_ERROR, errors.append)
+            adapter = SlowNormalizationStockAdapter(
+                bus,
+                STOCK_PATH,
+                test_mode=True,
+                cycle_timeout_seconds=0.05,
+                nonblocking_cycle=True,
+            )
+            await adapter.start()
+            started = time.monotonic()
+            first = await adapter.run_once()
+            elapsed = time.monotonic() - started
+            await asyncio.sleep(0.1)
+            second = await adapter.run_once()
+            await asyncio.sleep(0.15)
+            completed = await adapter.run_once()
+            await adapter.stop()
+
+            self.assertEqual(first, [])
+            self.assertEqual(second, [])
+            self.assertEqual(len(completed), 1)
+            self.assertLess(elapsed, 0.15)
+            self.assertTrue(errors)
+            self.assertIn("exceeded", errors[0].payload["payload"]["error"])
 
         asyncio.run(run())
 

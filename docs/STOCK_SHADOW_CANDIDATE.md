@@ -52,3 +52,7 @@ Die kompakte Projektion enthält SMA20/50/200, 20-Tage-Rendite, RSI14, ATR14, Vo
 - keine EventBus-Publikation oder History-Persistenz
 - keine Umschaltung des aktiven Feature-/Decision-/Signalpfads
 - keine Telegram- oder Orderfreigabe
+
+## Kalibrierungsgrenze
+
+Der separate Vertrag `pandorickki.stock-shadow-calibration` Version 1 in `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md` definiert eine mögliche spätere Offline-Prüfung gegen unabhängige abgeschlossene Verification-Outcomes. Er ändert die heutige Scoreformel nicht. Solange dessen Mindestabdeckung und chronologische Validierung nicht erfüllt sind, bleibt `probability_kind=UNVALIDATED_HEURISTIC_SCORE`; es gibt keine kalibrierte Probability und keine unabhängige Confidence.

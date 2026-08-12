@@ -7,6 +7,7 @@ import contextlib
 import importlib.util
 import io
 import sys
+import time
 from dataclasses import dataclass, field
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -118,6 +119,7 @@ class StockAdapter:
         candle_service: StockCandleService | None = None,
         suppress_output: bool = True,
         cycle_timeout_seconds: float = 45.0,
+        nonblocking_cycle: bool = False,
     ) -> None:
         self.event_bus = event_bus
         self.stock_project_path = stock_project_path
@@ -139,6 +141,7 @@ class StockAdapter:
         self.stock_shadow_risk_policy = stock_shadow_risk_policy
         self.suppress_output = suppress_output
         self.cycle_timeout_seconds = max(cycle_timeout_seconds, 0.01)
+        self.nonblocking_cycle = nonblocking_cycle
         self._stock_main: ModuleType | None = None
         self._config: Any = None
         self._provider: Any = None
@@ -148,6 +151,8 @@ class StockAdapter:
         self._correlation_id: str | None = None
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._cycle_task: asyncio.Task[list[Any]] | None = None
+        self._cycle_started_monotonic: float | None = None
+        self._cycle_timed_out = False
         self._price_service = StockPriceService()
         self._candle_service = candle_service or StockCandleService(
             cache_ttl_seconds=candle_cache_ttl_seconds
@@ -198,8 +203,8 @@ class StockAdapter:
         self._correlation_id = str(uuid4())
 
         try:
-            decisions = await self._run_stock_with_timeout()
-            if decisions is None:
+            normalized_results = await self._run_stock_with_timeout()
+            if normalized_results is None:
                 return []
         except Exception as exc:
             self.status.healthy = False
@@ -207,7 +212,6 @@ class StockAdapter:
             self._publish(STOCK_SERVICE_ERROR, {"error": str(exc)})
             return []
 
-        normalized_results = [self._normalize_decision(decision) for decision in decisions]
         self._publish(
             STOCK_MARKET_DATA_UPDATED,
             {
@@ -225,14 +229,21 @@ class StockAdapter:
         return normalized_results
 
     async def _run_stock_with_timeout(self) -> list[Any] | None:
-        """Run the stock bot without letting slow JSON writes freeze PandorickKi."""
+        """Advance a non-overlapping stock pipeline without waiting in the platform cycle."""
 
         if self._cycle_task is not None:
             if not self._cycle_task.done():
-                message = (
-                    "Previous stock cycle is still running; skipping this platform cycle "
-                    "to avoid overlapping stock JSON writes."
-                )
+                elapsed = max(time.monotonic() - (self._cycle_started_monotonic or time.monotonic()), 0.0)
+                if self._cycle_timed_out or elapsed >= self.cycle_timeout_seconds:
+                    message = (
+                        f"Stock cycle exceeded {self.cycle_timeout_seconds:.1f}s "
+                        "and continues in background."
+                    )
+                else:
+                    message = (
+                        "Previous stock cycle is still running; skipping this platform cycle "
+                        "to avoid overlapping stock JSON writes."
+                    )
                 self.status.healthy = False
                 self.status.last_error = message
                 self._publish(STOCK_SERVICE_ERROR, {"error": message})
@@ -241,14 +252,21 @@ class StockAdapter:
                 decisions = self._cycle_task.result()
             finally:
                 self._cycle_task = None
+                self._cycle_started_monotonic = None
+                self._cycle_timed_out = False
             return decisions
 
+        self._cycle_started_monotonic = time.monotonic()
+        self._cycle_timed_out = False
         self._cycle_task = asyncio.create_task(
-            asyncio.to_thread(self._run_stock_once_sync),
-            name="pandorickki:stock_legacy_run_once",
+            asyncio.to_thread(self._run_and_normalize_stock_once_sync),
+            name="pandorickki:stock_pipeline_run_once",
         )
+        if self.nonblocking_cycle:
+            return None
         done, _pending = await asyncio.wait({self._cycle_task}, timeout=self.cycle_timeout_seconds)
         if not done:
+            self._cycle_timed_out = True
             message = f"Stock cycle exceeded {self.cycle_timeout_seconds:.1f}s and continues in background."
             self.status.healthy = False
             self.status.last_error = message
@@ -258,6 +276,8 @@ class StockAdapter:
             decisions = self._cycle_task.result()
         finally:
             self._cycle_task = None
+            self._cycle_started_monotonic = None
+            self._cycle_timed_out = False
         return decisions
 
     async def health(self) -> dict[str, Any]:
@@ -397,6 +417,12 @@ class StockAdapter:
                 self.status.cycles,
                 None,
             )
+
+    def _run_and_normalize_stock_once_sync(self) -> list[dict[str, Any]]:
+        """Run the complete blocking stock pipeline outside the asyncio event loop."""
+
+        decisions = self._run_stock_once_sync()
+        return [self._normalize_decision(decision) for decision in decisions]
 
     def _normalize_decision(self, decision: Any) -> dict[str, Any]:
         """Convert a stock Decision object into the shared market format."""

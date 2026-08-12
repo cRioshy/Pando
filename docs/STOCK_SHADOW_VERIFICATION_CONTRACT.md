@@ -50,3 +50,9 @@ Jeder Fall speichert Observer-Version und einen SHA-256-Fingerprint ausschließl
 ## Öffentliche Projektion
 
 API und Control Center erhalten nur kompakte Records und Aggregate. Rohkerzen, vollständige Legacy-Payloads, Tokens und Secrets sind ausgeschlossen. Detailansichten sind read-only. Kein Ergebnis erzeugt eine Meldung, ein Signal oder eine Order.
+
+## Abgrenzung zur Kalibrierung
+
+Das Verification-Ledger ist die einzige zulässige spätere Outcome-Quelle für `pandorickki.stock-shadow-calibration` Version 1. Die Verification selbst führt jedoch keinen Fit aus und erzeugt weder eine kalibrierte Probability noch Confidence. Wiederholte Zyklen derselben Tageskerze bleiben im Audit erhalten, müssen vor einer Offline-Kalibrierung aber nach dem Kalibrierungsvertrag kanonisch dedupliziert werden.
+
+Der freigegebene siebentägige Beobachtungslauf startete am 10. August 2026 um 19:03:44 Uhr Europe/Berlin mit 24h-Horizont, 0,05-%-Neutralband und Fingerprint `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`. Abschluss und reine Auswertung sind für den 17. August 2026 nach 19:10 Uhr vorgesehen. Vor dem Start bereits vorhandene Kurzlauffälle bleiben unverändert und werden anhand ihrer Zeitstempel separat berichtet.

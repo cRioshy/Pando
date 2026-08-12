@@ -1,8 +1,30 @@
 # Nächste Schritte
 
-Stand: 9. August 2026
+Stand: 12. August 2026
+
+## Wiederaufnahme nach PC-Ausfall
+
+- PandorickKi wurde am 12. August 2026 um 12:51 Uhr Europe/Berlin mit unverändertem Verification-Fingerprint sicher wieder gestartet. Die ungefähr zwölfstündige Erfassungslücke bleibt als reale Laufunterbrechung sichtbar; vorhandene Ledgerdaten wurden nicht verändert.
+- Health, Web und Verification sind `OK`; Verification ist aktiv, Telegram aus/Dry-Run und Orderfreigabe `false`.
+- Der reproduzierte Stock-/Polling-Freeze ist behoben: Stock läuft nicht wartend im Hintergrund; fällige Verification-Outcomes werden in 8er-Batches je Symbol/Quote nachgearbeitet.
+- Live verifiziert: genau ein Listener, drei Stock-/Cryptozyklen, keine STALE-Dienste, null Sitzungsfehler, Telegram aus/Dry-Run/null Sendungen.
+- **Nächster Schritt:** Den laufenden 7-Tage-Betrieb unverändert beobachten und beim Abschluss den `PENDING`-Rückstand sowie die kanonisch unabhängigen Fälle auswerten. Batchgröße nicht automatisch optimieren und keinen Fit starten.
+
+## Stock-Shadow-Score- und Confidence-Kalibrierung
+
+- **Vertrag entworfen und gegen Code/Marktphasenmessung reviewt:** `pandorickki.stock-shadow-calibration` Version 1 trennt Rohscore, kalibrierte 24h-Erfolgswahrscheinlichkeit und unabhängige Evidenz-Confidence.
+- Wiederholte Zyklen derselben Tageskerze werden als korrelierte Wiederholungen ausgeschlossen; Fit und Holdout müssen chronologisch getrennt sein.
+- Heutiger Status: `INSUFFICIENT_DATA`. Es existieren null abgeschlossene unabhängige 24h-Verification-Outcomes; daher keine Kalibrierung, keine Confidence und keine Gate-Wirkung.
+- **Bestätigte erste Forschungsgrenze:** mindestens 400 unabhängige LONG-/SHORT-Outcomes, 100 je Richtung, 30 Handelstage, vier unterstützte Symbole und 40 Fälle je ausgewertetem Bucket. Auch `VALIDATED_OBSERVER` bleibt ohne Freigabewirkung.
+- **Siebentägiger Lauf aktiv:** ausdrücklich freigegeben und am 10. August 2026 um 19:03:44 Uhr Europe/Berlin mit Fingerprint `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747` gestartet. Nach zwei Zyklen zehn neue append-only Fälle; Health und alle zwölf Services `OK`, Telegram-/Orderflags `false`.
+- **Exakter nächster Schritt:** Am 17. August 2026 um 19:10 Uhr Abschlusswerte erfassen, kontrolliert stoppen und nur Datenqualität, Outcome-Abdeckung sowie kanonisch unabhängige Fälle auswerten. Frühere Kurzlauf-Outcomes zeitlich trennen; keinen Fit starten.
 
 ## Aktueller Betrieb
+
+- **US-Marktphasenprüfung abgeschlossen:** 10. August 2026, 18:05:44 bis 18:11:32 Uhr Europe/Berlin; fünf vollständige Stockzyklen und 25 Audits.
+- Ergebnis: 20 Shadows = 10 LONG/5 SHORT/5 HOLD; 15 berechnete und 10 blockierte Risikopläne; Stock-Daten 15 `READY`/10 `BLOCKED`. AAPL/MSFT/NVDA/TSLA hatten 8,737 bis 19,505 Sekunden alte Yahoo-Quotes; `SPCX` blieb ohne belegbaren Quote-Zeitstempel blockiert.
+- Sicherheit: Plattform gesund, 0 Sitzungsfehler, 0 STALE, Telegram aus/Dry-Run/0 Sendungen, Verification deaktiviert, keine Orderfreigabe und keine Observerfelder in der aktiven Stock-Projektion.
+- Der separate Confidence-/Score-Kalibrierungsvertrag ist entworfen und reviewt; Ergebnis `INSUFFICIENT_DATA`. Keine Gate-Umschaltung, Telegram-/Orderkopplung oder siebentägige Verification gestartet.
 
 - PandorickKi wurde am 9. August 2026 um 18:23 Uhr nach dem kurzen Verification-Lauf wieder normal gestartet. Health, Webserver, WebSocket, Statistik und alle elf normalen Services sind `OK`.
 - Stock-Verification bleibt im normalen Start ausdrücklich deaktiviert; Telegram und Orders bleiben gesperrt. Der siebentägige Lauf wurde nicht gestartet.

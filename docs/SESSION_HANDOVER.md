@@ -1,5 +1,462 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Phase 0 – bestehenden Stock-/Polling-/Verification-Stand sichern
+
+### Datum und Uhrzeit
+
+12. August 2026, 21:42 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den bereits lokal vorhandenen Stock-/Polling-/Verification-Stand vollständig prüfen, testen und als eigenen Stand auf `agent/integrate-decision-gate-observer` für Draft-PR #23 sichern. Noch keinen Market-Regime-Code beginnen; `main`, Decision Core, Shadow Gate, Telegram, Orders, Stimpy, Ren und das separate PANDO-Token-Projekt unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- Pflicht- und Stock-Vertragsdokumente gelesen und den vollständigen lokalen Diff geprüft.
+- Alle 14 betroffenen Pfade eindeutig Stock-Pipeline, Polling/Timeout, Stock-Verification oder der dazugehörigen Kalibrierungs-/Übergabedokumentation zugeordnet.
+- Secret-Musterprüfung ohne Treffer und `git diff --check` ohne Inhaltsfehler ausgeführt.
+- Runtime-Preflight mit der projektlokalen Python-3.12.13-Umgebung bestanden.
+- Einen in der erweiterten Testsuite sichtbaren Timing-Flake behoben: Ein einmal festgestellter Stock-Timeout bleibt nun bis zum Abschluss des nicht überlappenden Hintergrundjobs explizit markiert. Dadurch bleibt die Folgemeldung deterministisch und der tatsächliche Hintergrundjob unverändert geschützt.
+- Bestehendes geprüftes BEFORE-Backup bestätigt: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_21-01-42_BEFORE.zip`, 1.510.376.788 Byte, 1.017 Einträge, `.git`, `docs`, `tests` und Quellcode enthalten; vollständige Testextraktion erfolgreich.
+- GitHub-Authentifizierung für `cRioshy` außerhalb der Sandbox erfolgreich bestätigt. Der lokale Remote bleibt ausschließlich `https://github.com/cRioshy/Pando.git`.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `adapters/stock_adapter.py`
+- `adapters/stock_shadow_verification_adapter.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/STOCK_SHADOW_CANDIDATE.md`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+- `orchestrator.py`
+- `tests/test_stock_adapter.py`
+- `tests/test_stock_shadow_verification_adapter.py`
+
+### Neue Dateien
+
+- `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- `git status`, Branch-/HEAD-/Remote-/Ahead-Behind-Prüfung und vollständige pfadweise Diff-Prüfung
+- `git diff --check` und redigierte Secret-Musterprüfung
+- `gh --version` und `gh auth status`
+- `.venv\Scripts\python.exe scripts\runtime_preflight.py`
+- gezielte `unittest`-Läufe für Stock-Adapter, Verification, Stock-Verträge und Orchestrator
+- vollständige `unittest discover`-Regression
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Kernregression Stock-Adapter/Verification-Adapter: 12/12 bestanden in 1,815 Sekunden.
+- Erweiterte Stock-/Verification-/Orchestrator-Suite: beim ersten Lauf 49/50 bestanden; der Timeout-Folgetest zeigte den beschriebenen Timing-Flake.
+- Nach expliziter Timeout-Statuskorrektur: erweiterte Suite 50/50 bestanden in 5,791 Sekunden.
+- Vollständige Regression: 299/299 bestanden in 49,457 Sekunden.
+- Runtime-Preflight: bestanden, Python 3.12.13.
+- Secret-Musterprüfung: 0 Treffer. `git diff --check`: keine Inhaltsfehler; nur erwartete LF/CRLF-Hinweise.
+
+### Bekannte Fehler
+
+- Der laufende siebentägige Verification-Betrieb enthält die bereits dokumentierte PC-Unterbrechung und korrelierte Wiederholungen; kein Fit oder automatische Kalibrierung zulässig.
+- `SPCX` bleibt ohne belegbaren öffentlichen Quote-Zeitstempel blockiert.
+- PR #23 bleibt absichtlich Draft und ungemergt.
+
+### Getroffene Architekturentscheidungen
+
+- Die Phase-0-Änderungen bleiben ein eigener Stock-/Polling-/Verification-Stand; keine Regime-v1-Arbeit wird in diesen Commit gemischt.
+- Ein erkannter Stock-Timeout wird als expliziter Zustand geführt, bis genau der eine zulässige Hintergrundjob beendet und übernommen wurde.
+- Decision Core, Shadow Gate, Outcome-Entscheidungen, Telegram und Orders bleiben unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Market Regime Contract v1 ist noch nicht begonnen.
+- Der siebentägige Verification-Lauf wird weiterhin nur observer-only fortgeführt und später separat ausgewertet.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Nach bestätigtem Push und sauberem Working Tree den neuen Branch `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen. Erst dort den observer-only Market-Regime-Vertrag implementieren; keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
+
+## Aktuelle Aufgabe: Stock-/Polling-Freeze beheben und Livebetrieb wiederherstellen
+
+### Datum und Uhrzeit
+
+12. August 2026, 20:21 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den nach dem PC-Neustart reproduzierten Stock-Hotloop beheben, damit Web-Polling, Crypto und der Gesamtzyklus weiterlaufen. Bestehende Runtime-/History-/Lerndaten erhalten; Stock-Verification stock-only/observer-only, Telegram aus/Dry-Run und Orders gesperrt lassen.
+
+### Durchgeführte Arbeiten
+
+- Pflicht-, Architektur-, Problem-, Next-Steps- sowie alle relevanten Event-/Feature-/Gate-/Stock-/Shadow-/Verification-/Kalibrierungsverträge gelesen und gegen Code und Runtime geprüft.
+- Festhängenden Prozess zuerst kontrolliert gestoppt; Port 8000 freigegeben.
+- Regressionstest ergänzt: langsame Stock-Normalisierung muss vom Plattformzyklus entkoppelt sein.
+- Gesamte blockierende Stockpipeline in genau einen nicht überlappenden Hintergrundlauf verschoben; der Produktions-Orchestrator wartet nicht darauf und übernimmt Ergebnisse im Folgetakt.
+- Zweiten realen Engpass diagnostiziert: `StockShadowVerificationAdapter._handle_stock_price()` schrieb tausende fällige 24h-Outcomes synchron in einem Event.
+- Outcome-Aufarbeitung chronologisch auf höchstens acht Fälle je Symbol/Quote begrenzt. Offene Fälle bleiben append-only `PENDING` und werden restart-safe weitergeführt.
+- Mehrere kontrollierte Liveprüfungen ausgeführt. Zwei durch blockierte Stopverarbeitung versehentlich parallele Instanzen wurden anhand PID/Startzeit exakt identifiziert und beendet; keine Dateien gelöscht.
+- Final genau eine Instanz mit dem unveränderten Verification-Fingerprint und sicheren Telegram-/Orderwerten gestartet.
+
+### Veränderte Dateien
+
+- `adapters/stock_adapter.py`
+- `adapters/stock_shadow_verification_adapter.py`
+- `orchestrator.py`
+- `tests/test_stock_adapter.py`
+- `tests/test_stock_shadow_verification_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+Bereits vorhandene fremde/lokale Dokumentationsänderungen wurden erhalten und nicht zurückgesetzt.
+
+### Neue Dateien
+
+- Keine versionierten Produktdateien außer dem bereits vorhandenen unversionierten Kalibrierungsvertrag. Nur ignorierte Runtime-Logs und freigegebene append-only Verification-Daten entstanden.
+
+### Ausgeführte Befehle
+
+- Read-only API-, Prozess-, Thread-, Port-, Ledger-, Storage- und Git-Prüfungen.
+- Kontrollierte Stop-API; bei zwei eindeutig festhängenden Altinstanzen nach exakter PID-/Startzeitprüfung gezieltes Prozessende.
+- Runtime-Preflight mit projektlokaler Python-3.12.13-Umgebung.
+- Wiederholte sichere Einzelstarts mit explizit gesetzten 7-Tage-, Gate-Observer-, Telegram-aus- und Dry-Run-Werten.
+- Gezielte und vollständige `unittest`-Läufe sowie `git diff --check`.
+
+### Ausgeführte Tests und tatsächliche Ergebnisse
+
+- Neuer Normalisierungs-Regressionstest schlug vor dem ersten Fix reproduzierbar fehl und bestand danach.
+- Neuer Batch-/Restart-Test beweist: Batchgröße 1 schließt genau einen Fall, lässt zwei `PENDING`, rekonstruiert nach Neustart und schließt im nächsten Quoteevent genau den zweiten.
+- Abschließende gezielte Suite: 20/20 bestanden in 5,048 Sekunden.
+- Abschließende Gesamtsuite: 299/299 bestanden in 43,725 Sekunden.
+- Finale Liveprüfung: genau ein Port-8000-Listener; drei Stock- und drei Cryptozyklen; `stock=OK`, `crypto=OK`, keine STALE-Dienste, `error_count=0`, Runtime-Stderr 0 Byte.
+- Verification aktiv; Summary zuletzt 6.760 Fälle, 4.461 `COMPLETED`, 943 `PENDING`. `ready_for_telegram=false`, `order_execution_allowed=false`.
+- Telegram `enabled=false`, `dry_run=true`, `messages_sent=0`.
+
+### Bekannte Fehler
+
+- Die reale PC-Unterbrechung und die während Diagnose/Neustarts entstandenen Coverage-Lücken bleiben sichtbar.
+- `SPCX` bleibt ohne belegbaren öffentlichen Quote-Zeitstempel blockiert.
+- Die Verification-Daten enthalten stark korrelierte Wiederholungen; keine Kalibrierung zulässig.
+- Historischer `PENDING`-Rückstand wird bewusst begrenzt nachgearbeitet und darf den EventBus nicht erneut blockieren.
+
+### Getroffene Architekturentscheidungen
+
+- Nur der Produktions-Orchestrator setzt `StockAdapter(nonblocking_cycle=True)`; direkte Adapterverwendung behält den bisherigen wartenden Vertrag.
+- Nie mehr als ein Legacy-Stocklauf gleichzeitig. Ergebnisse werden in einem Folgetakt publiziert.
+- Verification-Outcomes werden nach Fälligkeit sortiert und in kleinen, festen Batches verarbeitet. Keine History-Umschreibung, keine automatische Optimierung.
+- Gate, aktiver Decision-Pfad, Telegram und Orders bleiben unverändert.
+
+### Nicht abgeschlossene Punkte
+
+- Lauf bis zum geplanten Abschluss beobachten; keinen Fit starten.
+- Lokale Code- und Dokumentationsänderungen sind noch nicht commitet oder gepusht.
+- Abschlussautomation für den 17. August ist weiterhin nicht als aktive Automation bestätigt.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PandorickKi unverändert laufen lassen. Beim nächsten Statuscheck mindestens Stock-/Crypto-Zyklen, STALE, Sitzungsfehler, Verification-`PENDING`/`COMPLETED`, einen einzelnen Listener sowie Telegram-/Orderflags read-only prüfen. Am 17. August kontrolliert stoppen und nur deskriptiv nach UTC-Cutoff und kanonischer Unabhängigkeit auswerten; keinen Fit oder automatische Kalibrierung starten.
+
+## Aktuelle Aufgabe: PandorickKi nach PC-Ausfall wieder starten
+
+### Datum und Uhrzeit
+
+12. August 2026, 12:51 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den durch einen PC-Ausfall beendeten PandorickKi-Prozess sicher mit dem bereits freigegebenen siebentägigen Stock-Verification-Profil fortsetzen, ohne bestehende Daten, Code, persistente Konfiguration, Gate, Telegram oder Orders zu verändern.
+
+### Durchgeführte Arbeiten
+
+- AGENTS-, Pflichtübergabe- und Stock-Verification-/Kalibrierungsverträge vor der Ausführung gelesen und ihre Existenz/Hashes geprüft.
+- Port 8000 und `/api/health` als nicht erreichbar bestätigt; keinen bestehenden Prozess vorgefunden.
+- Letzten Ledger-Zeitstempel `2026-08-11T22:44:09.901899+00:00` ermittelt; bestehende append-only Daten nicht verändert.
+- Runtime-Preflight aus der projektlokalen Python-3.12.13-Umgebung ausgeführt.
+- PandorickKi verborgen mit denselben 7-Tage-Parametern neu gestartet: Verification an, 24h-Horizont, 0,05-%-Neutralband, Shadow 60/40, Decision-Gate-Observer 60/60/0, Telegram aus/Dry-Run.
+- Health, Services, Summary, Fingerprint, Sicherheitsflags und Runtime-Stderr read-only geprüft.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/NEXT_STEPS.md`
+
+Bereits vorhandene lokale Dokumentationsänderungen wurden erhalten. Kein Programmcode und keine persistente Konfigurationsdatei wurden verändert.
+
+### Neue Dateien
+
+- Nur ignorierte Runtime-Logdateien des Wiederanlaufs; keine neue versionierte Projektdatei.
+
+### Ausgeführte Befehle
+
+- vollständige Pflichtdatei-Lektüre/Hashprüfung, Port- und Health-Prüfung
+- read-only letzte Ledgerzeit ermittelt
+- `.venv\\Scripts\\python.exe scripts/runtime_preflight.py`
+- verborgener `Start-Process` mit expliziten sicheren 7-Tage-Umgebungswerten
+- wiederholte GET-Abfragen von `/api/health`, `/api/status`, `/api/config/public` und `/api/shadow-verification/summary`
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Runtime-Preflight: bestanden.
+- Neustart: Health `OK`, Web aktiv, Verification-Service `OK` und `enabled=true`.
+- Fingerprint unverändert: `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`.
+- Beim ersten Snapshot 6.737 Fälle gesamt: 1.104 `COMPLETED`, 4.280 `PENDING`, 1.353 `UNKNOWN`; neuer Fallzeitstempel `2026-08-12T10:51:30.239422+00:00`.
+- Telegram `enabled=false`, `dry_run=true`; `ready_for_telegram=false`, `order_execution_allowed=false`.
+- Runtime-Stderr nach Neustart: 0 Byte.
+- Der erste Stock-Zyklus blieb bei der letzten Prüfung länger als drei Minuten `RUNNING`; API, Verification und die übrigen Services blieben erreichbar. Noch kein bestätigter Fehler.
+
+### Bekannte Fehler
+
+- Ungefähr zwölf Stunden und sieben Minuten Erfassungslücke durch den PC-Ausfall; keine Datenkorruption festgestellt.
+- Erster öffentlicher Stock-Zyklus nach Wiederanlauf noch nicht als `OK` abgeschlossen. Nur bei Fortbestand diagnostizieren; keinen harten Prozessabbruch vornehmen.
+- `SPCX` bleibt als bekannte öffentliche Datenlücke separat blockiert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung. Der bestehende append-only/restart-safe Verification-Adapter setzt denselben Lauf mit demselben Fingerprint fort.
+- Die reale PC-Unterbrechung wird bei der Abschlussauswertung als Coverage-Lücke ausgewiesen und nicht künstlich aufgefüllt.
+
+### Nicht abgeschlossene Punkte
+
+- Regulären Abschluss des ersten Stock-Zyklus nach dem Neustart bestätigen.
+- Die zuvor vorbereitete Abschlussautomation für den 17. August ist weiterhin nicht als aktive Automation gespeichert und muss separat bestätigt beziehungsweise erneut vorbereitet werden.
+- Sieben-Tage-Lauf bis zum geplanten Abschluss weiter beobachten; kein Fit oder automatische Kalibrierung.
+- Lokale Dokumentationsänderungen bleiben uncommitted und ungepusht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Stock-Service und Ledger erneut read-only prüfen. Wenn der Zyklus regulär auf `OK` wechselt, PandorickKi unverändert weiterlaufen lassen. Falls `RUNNING` fortbesteht, nur die öffentlichen Provider-/Timeoutpfade diagnostizieren. Danach den kontrollierten Abschluss am 17. August erneut als einmalige Automation vorbereiten und bestätigen lassen.
+
+## Aktuelle Aufgabe: siebentägigen Stock-Verification-Lauf starten
+
+### Datum und Uhrzeit
+
+10. August 2026, 19:03 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den ausdrücklich freigegebenen siebentägigen Stock-only Verification-Lauf kontrolliert mit unverändertem Fingerprint starten, Sicherheitsgrenzen verifizieren und einen kontrollierten Abschluss nach mindestens sieben Tagen vorbereiten. Kein Fit, keine Kalibrierung, keine Gate-, Telegram- oder Orderänderung.
+
+### Durchgeführte Arbeiten
+
+- Laufenden normalen Dienst und öffentliche Konfiguration read-only geprüft: 60-Sekunden-Zyklus, Verification aus, Telegram aus/Dry-Run.
+- Laufenden Prozess ausschließlich über `POST /api/control/stop` geordnet beendet und Port 8000 vollständig freigegeben.
+- Runtime-Preflight mit projektlokaler Python-3.12.13-Umgebung bestanden.
+- PandorickKi verborgen mit öffentlichen Live-Marktdaten, Stock-Datenobserver, Decision-Gate-Observer 60/60/0 und Stock-Verification aktiviert neu gestartet.
+- Verification-Policy explizit auf 86.400 Sekunden und 0,05 Prozent gesetzt; Stock-/Risk-Parameter unverändert gelassen.
+- Health, zwölf Services, öffentliche Konfiguration, Verification-Summary, Sicherheitsflags, Ledger und Runtime-Stderr geprüft.
+- Einmalige Abschlussautomation für 17. August 2026, 19:10 Uhr Europe/Berlin vorbereitet; App-Bestätigung steht beim Schreiben dieses Eintrags noch aus.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+- `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md`
+
+Bereits vorhandene lokale Dokumentationsänderungen wurden erhalten. Kein Programmcode und keine persistente Konfigurationsdatei wurden verändert.
+
+### Neue Dateien
+
+- Keine versionierten Projektdateien. Nur ignorierte Runtime-Logdateien und append-only Verification-Ledgerdaten entstanden im freigegebenen Betrieb.
+
+### Ausgeführte Befehle
+
+- read-only GET auf `/api/status`, `/api/config/public`, `/api/health` und `/api/shadow-verification/summary`
+- kontrolliertes `POST /api/control/stop` und Portfreigabeprüfung
+- `.venv\\Scripts\\python.exe scripts/runtime_preflight.py`
+- verborgener Start von `.venv\\Scripts\\python.exe main.py --headless --web` mit expliziten sicheren Umgebungswerten
+- read-only PowerShell-Auswertung des Verification-Ledgers und der Runtime-Logs
+- Vorbereitung einer einmaligen lokalen Abschlussautomation
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Runtime-Preflight: bestanden.
+- Kontrollierter Stop: akzeptiert, Port vollständig freigegeben.
+- Neustart: Health `OK`, Web/WebSocket/Statistik aktiv.
+- Nach zwei vollständigen 60-Sekunden-Zyklen: alle zwölf Services `OK`, zehn neue `VERIFICATION_CREATED`, zehn neue `LEGACY_DECISION_LINKED`, ein Fingerprint.
+- Zwölf neue `OUTCOME_COMPLETED`-Ledgerzeilen vervollständigten erwartungsgemäß die am 9. August angelegten, nun mehr als 24 Stunden alten Kurzlauffälle; sie gehören nicht zur neuen Laufkohorte.
+- Fingerprint: `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`.
+- Runtime-Stderr: 0 Byte.
+- Verification `enabled=true`; `ready_for_telegram=false`, `order_execution_allowed=false`, `affects_active_decision=false`.
+
+### Bekannte Fehler
+
+- Keine neue Runtime-Störung beim Start.
+- `SPCX` bleibt ohne belegbaren öffentlichen Quote-Zeitstempel `UNKNOWN`/blockiert.
+- Kurzlauf- und Sieben-Tage-Laufdaten teilen denselben Fingerprint; Abschlussauswertung muss deshalb zusätzlich den UTC-Start-Cutoff `2026-08-10T17:03:44Z` verwenden.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung. Der vorhandene optionale Verification-Adapter wurde für den freigegebenen Zeitraum aktiviert.
+- Der Prozess schreibt ausschließlich append-only und bleibt stock-only/observer-only.
+- Die Abschlussauswertung trennt Kohorten zeitlich und dedupliziert erst für die Kalibrierungsbewertung nach dem bestätigten Vertrag.
+
+### Nicht abgeschlossene Punkte
+
+- Lauf muss bis mindestens 17. August 2026, 19:10 Uhr Europe/Berlin weiterlaufen.
+- Abschlussautomation muss noch in der App bestätigt werden.
+- Kein Fit und keine Kalibrierung erlaubt oder begonnen.
+- Lokale Dokumentationsänderungen bleiben uncommitted und ungepusht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Die eingeblendete Abschlussautomation bestätigen. PandorickKi anschließend unverändert laufen lassen. Am 17. August vor dem kontrollierten Stop Abschlusswerte erfassen, danach Portfreigabe prüfen und ausschließlich Fälle ab `2026-08-10T17:03:44Z` sowie kanonisch unabhängige Outcomes deskriptiv auswerten; keinen Fit starten.
+
+## Aktuelle Aufgabe: unabhängigen Stock-Shadow-Kalibrierungsvertrag entwerfen
+
+### Datum und Uhrzeit
+
+10. August 2026, 18:48 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Auf Basis des tatsächlichen Stock-Shadow-Scores, des vorhandenen 24h-Verification-Outcomes und der heutigen US-Marktphasenmessung einen unabhängigen Confidence-/Score-Kalibrierungsvertrag entwerfen und reviewen. Nur Dokumentation ändern; keinen Programmcode, Prozess, Gate-, Telegram-, Order- oder Verification-Betrieb verändern.
+
+### Durchgeführte Arbeiten
+
+- Pflicht-, Event-, Feature-, Gate-, Stock-Data-, Shadow-Candidate-, Shadow-Risk- und Verification-Verträge vollständig gelesen und gegen die tatsächlichen Producer/Consumer geprüft.
+- Tatsächliche Scoreformel mit fünf Komponenten, `UNVALIDATED_HEURISTIC_SCORE`, Brain-Confidence-Kopie, Verification-ID und 24h-Outcome nachvollzogen.
+- Vertrag `pandorickki.stock-shadow-calibration` Version 1 als reine Dokumentations- und Reviewgrenze erstellt.
+- Rohscore, directional Score, kalibrierte Erfolgswahrscheinlichkeit und unabhängige Evidenz-Confidence eindeutig getrennt.
+- Kanonische Deduplizierung wiederholter Tageskerzen, chronologische Fit-/Holdout-Trennung, Mindestabdeckung, Metriken, Artefaktfelder und Reason Codes festgelegt.
+- Heutige Marktphasenmessung reviewt: trotz 20 berechneter Shadows null abgeschlossene unabhängige 24h-Verification-Outcomes; Status verbindlich `INSUFFICIENT_DATA`.
+- Benutzer bestätigte am 10. August 2026 die vorgeschlagenen Mindestabdeckungen und Sicherheitsgrenzen ausdrücklich; keine Laufzeitfreigabe daraus abgeleitet.
+- AGENTS-, Systemzustands-, Architektur-, Problem- und Next-Steps-Dokumentation entsprechend nachgeführt.
+- Laufenden Dienst, Konfiguration, Runtime-/History-/Learning-Daten und sämtliche produktiven Pfade unangetastet gelassen.
+
+### Veränderte Dateien
+
+- `AGENTS.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/STOCK_SHADOW_CANDIDATE.md`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+
+Die vier bereits durch die automatische Marktphasenanalyse lokal geänderten Pflichtdokumente wurden erhalten und nur additiv ergänzt.
+
+### Neue Dateien
+
+- `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md`
+
+### Ausgeführte Befehle
+
+- vollständige `Get-Content`-Lektüre aller Pflicht- und relevanten Vertragsdokumente
+- `rg`-/`Get-Content`-Prüfung von Shadow-Score, Verification-Outcome, Brain-Confidence, Gate und Tests
+- `git status --short` zur Scopekontrolle
+- abschließende Markdown-, Referenz- und `git diff --check`-Prüfung
+- abschließende read-only Abfrage von `/api/health` und `/api/shadow-verification/summary`
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Kein Programmcode geändert; daher keine Softwaretests ausgeführt.
+- Dokumentations- und Referenzprüfung: bestanden.
+- `git diff --check`: keine Inhaltsfehler; ausschließlich erwartete Windows-LF/CRLF-Hinweise.
+- Kein Neustart und kein zusätzlicher Livezyklus ausgeführt. Abschließende read-only Runtime-Prüfung: Health `OK`, Web aktiv, Verification `enabled=false`, `ready_for_telegram=false`, `order_execution_allowed=false`.
+
+### Bekannte Fehler
+
+- Neu dokumentiert als KP-024: Stock-Shadow-Score ist unkalibriert; aktuelle unabhängige abgeschlossene Outcome-Stichprobe ist null.
+- KP-021 bleibt bestehen: Brain-Confidence ist weiterhin nur eine Kopie von Probability.
+- KP-023 bleibt bestehen: Outcomes sind 24h-Forward-Mark-to-Market und kein Stop-/Zielpfad-Backtest.
+
+### Getroffene Architekturentscheidungen
+
+- Kalibrierung ist eine spätere offline ausgeführte, versionierte und append-only Observer-Auswertung, keine Laufzeitkomponente.
+- Mehrere Zyklen derselben Tageskerze zählen höchstens einmal je Symbol/Policy/Version/Fingerprint.
+- `calibrated_probability` misst ausschließlich den richtungsbezogenen 24h-WIN oberhalb des Neutralbands.
+- Evidenz-Confidence bleibt kategorial mit Stichprobenumfang/Unsicherheit und wird nicht aus Probability kopiert oder an das heutige Gate übergeben.
+- Auch ein später `VALIDATED_OBSERVER` genanntes Artefakt setzt keine Telegram- oder Orderfreigabe.
+
+### Nicht abgeschlossene Punkte
+
+- Keine Kalibrierungsimplementierung und kein Fit erstellt.
+- Vertragsgrenzen von 400 unabhängigen Fällen, 100 je Richtung, 30 Handelstagen, vier Symbolen und 40 Fällen je Bucket sind bestätigt.
+- Siebentägiger Verification-Lauf weiterhin nicht gestartet.
+- Dokumentationsänderungen aus Marktphasenanalyse und diesem Vertrag sind lokal, uncommitted und nicht gepusht.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den Vertrag und insbesondere die vorgeschlagenen Mindestabdeckungen reviewen. Erst nach ausdrücklicher Bestätigung den ungefähr siebentägigen Stock-Verification-Lauf mit stabilem Konfigurationsfingerprint separat freigeben; danach nur Datenqualität, unabhängige Fälle und Outcome-Abdeckung auswerten und bei unzureichender Stichprobe weiterhin nichts fitten.
+
+## Aktuelle Aufgabe: US-Marktphase observer-only auswerten
+
+### Datum und Uhrzeit
+
+10. August 2026, 18:13 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den laufenden lokalen Dienst während der geöffneten US-Marktphase über mindestens fünf vollständige Stockzyklen ausschließlich lesend auf Health, Freshness, Shadow-/Risikoplan-/Datenverteilung und Sicherheitsgrenzen prüfen. Keine Prozesse, Runtime-Daten, Konfiguration, Gate-, Telegram- oder Orderfunktion verändern.
+
+### Durchgeführte Arbeiten
+
+- `AGENTS.md`, alle fünf Pflichtdokumente sowie Event-, Feature-, Gate- und sämtliche Stock-Verträge vollständig gelesen.
+- Erreichbarkeit von `http://127.0.0.1:8000` vor jeder Runtime-Arbeit bestätigt; keinen Prozess gestartet, gestoppt oder neu konfiguriert.
+- Baseline bei Stockzyklus 1204/6.020 publizierten Ergebnissen aufgenommen und die vollständigen Abschlüsse 1205 bis 1209 anhand von jeweils fünf zusätzlichen publizierten Stock-Ergebnissen erfasst.
+- Pro Abschluss Plattform-/Service-Health, Sitzungsfehler, STALE, Stock-Zähler, Quote-Zeitstempel/Freshness, Telegram, NeuroBrain, Fehlerjournal und Gate read-only erfasst.
+- Aktive Stock-Projektion und aktuelle kompakte Brain-/Decision-/Gate-Beispiele auf Observerfelder und Sicherheitsflags geprüft.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- Vollständige `Get-Content`-Lektüre der Pflicht- und Vertragsdokumente.
+- `rg`-/`Get-Content`-Prüfung der relevanten Stock-, API-, Orchestrator- und Vertragscodepfade.
+- Wiederholte read-only GET-Abrufe von `/api/health`, `/api/status`, `/api/events` und `/api/config/public`.
+- Read-only Stichproben aus neuen Brain-, Decision- und Decision-Gate-Ledgerzeilen.
+- `git status --short` und abschließende Dokumentationsprüfung.
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Keine Softwaretests, weil kein Programmcode geändert wurde.
+- Messfenster: 18:05:44 bis 18:11:32 Uhr Europe/Berlin; fünf vollständige Stockzyklen, 25 publizierte Ergebnisse/Audits.
+- Health: Plattform und Stock durchgehend gesund; 0 Sitzungsfehler, 0 STALE. Punktuelle 10 `OK` + 1 `RUNNING` entsprachen einem normal laufenden parallelen Adapterzyklus, nicht einem Fehler.
+- Shadows: 20 berechnet = 10 LONG, 5 SHORT, 5 HOLD; weitere 5 `SPCX` ohne berechenbaren Shadow.
+- Risiko: 15 berechnete Pläne, 10 Blocks = 5 HOLD plus 5 `SPCX`.
+- Stock-Daten: 15 `READY`, 10 `BLOCKED`. Je Zyklus waren drei LONG/SHORT-Fälle bereit; HOLD und `SPCX` blockierten fail-closed.
+- Quotes: AAPL/MSFT/NVDA/TSLA in allen 20 Beobachtungen `ok` von `yahoo_finance_chart`, Alter 8,737 bis 19,505 Sekunden. Erster beobachteter Bereich 16:06:24 bis 16:06:27 UTC, letzter 16:11:13 bis 16:11:22 UTC. `SPCX` fünfmal ohne Preis/Zeitstempel.
+- Verfügbare letzte SPCX-Datengründe: `SD_DIRECTION_NOT_ELIGIBLE`, `SD_CANDLES_MISSING`, `SD_PRICE_INVALID`, `SD_PRICE_SOURCE_NOT_ALLOWED`, `SD_PRICE_TIMESTAMP_INVALID`, `SD_RISK_MISSING`; letzter Risikogrund `SSR_SHADOW_NOT_CALCULATED`. HOLD blockiert vertraglich mit ungeeigneter Richtung beziehungsweise fehlendem Risikoplan.
+- NeuroBrain: Queue 0, Drops/fehlgeschlagene Events/Status-/Benachrichtigungsfehler jeweils 0. Fehlerjournal unverändert 191 Ereignisse, 10 Fingerprints, 0 Schreibfehler.
+- Sicherheit: aktive Stock-Sicht ohne `stock_shadow*`, `stock_data_audit` oder `stock_candle*`; Telegram durchgehend aus/Dry-Run/0 Sendungen; Verification deaktiviert und Telegram-/Orderflags false.
+
+### Bekannte Fehler
+
+- Keine neue Runtime-Störung.
+- `SPCX` besitzt weiterhin keinen belegbaren öffentlichen Ticker und bleibt korrekt blockiert.
+- Der Shadow-Score bleibt unkalibriert; Confidence ist weiterhin nicht unabhängig.
+
+### Getroffene Architekturentscheidungen
+
+- Keine. Die Messung war ausschließlich observer-only und read-only.
+
+### Nicht abgeschlossene Punkte
+
+- Keine Confidence-/Score-Kalibrierung, Gate-Umschaltung, Telegram-Kopplung, Orderfunktion oder siebentägige Verification begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Auf Basis dieser Marktphasenverteilung einen separaten fachlichen Vertrag für unabhängige Confidence beziehungsweise ehrliche Score-Kalibrierung entwerfen und zunächst nur reviewen; `SPCX` weiter blockieren und Gate, Telegram, Orders sowie siebentägige Verification unverändert lassen.
+
 ## Aktuelle Aufgabe: Stock-Verification veröffentlichen und PR als Draft sichern
 
 ### Datum und Uhrzeit

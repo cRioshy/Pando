@@ -30,6 +30,8 @@ Vor Änderungen am öffentlichen Stock-Shadow-Risikoplan, an ATR-, Stop-, Ziel-,
 
 Vor Änderungen an Stock-Live-Shadow-Verification, deren IDs, Persistenz, Outcome-Horizont, Aggregaten oder Control-Center-Projektion muss zusätzlich `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md` gelesen werden. Die Verification bleibt stock-only, append-only und observer-only; Crypto, produktive Decisions, bestehende Outcomes, Telegram und Orders dürfen dadurch nicht verändert werden.
 
+Vor Änderungen an Stock-Shadow-Score-Kalibrierung, Confidence, Reliability-Buckets, Kalibrierungsartefakten oder deren Mindestabdeckung muss zusätzlich `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md` gelesen werden. Kalibrierung bleibt offline, stock-only und observer-only; unzureichende oder korrelierte Daten dürfen keine Probability oder Confidence erzeugen.
+
 ## Verbindlicher Abschluss jeder Aufgabe
 
 - Nach jeder abgeschlossenen Aufgabe `docs/SESSION_HANDOVER.md` aktualisieren.

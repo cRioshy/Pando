@@ -61,11 +61,13 @@ class StockShadowVerificationAdapter:
         config_fingerprint: str,
         ledger_rotation_bytes: int = 20 * 1024 * 1024,
         ledger_max_archives: int = 8,
+        outcome_batch_size: int = 8,
     ) -> None:
         self.event_bus = event_bus
         self.ledger_file = ledger_file
         self.policy = policy
         self.config_fingerprint = str(config_fingerprint)
+        self.outcome_batch_size = max(int(outcome_batch_size), 1)
         self.ledger = RotatingJsonlLedger(
             ledger_file,
             max_bytes=ledger_rotation_bytes,
@@ -303,6 +305,8 @@ class StockShadowVerificationAdapter:
                     if record.get("symbol") == symbol
                     and _mapping(record.get("outcome")).get("status") == "PENDING"
                 ]
+            candidates.sort(key=lambda item: str(item.get("evaluation_due_at") or ""))
+            candidates = candidates[: self.outcome_batch_size]
             for record in candidates:
                 outcome = complete_forward_outcome(
                     record,
