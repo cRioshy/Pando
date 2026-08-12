@@ -9,7 +9,8 @@ Stand: 12. August 2026
 - **Implementierung lokal abgeschlossen:** Drei Achsen, stabile Feature-/Regime-IDs, Config-Fingerprint, Quality-Fail-Closed, Queue/Batch/Shutdown, append-only Ledger, vollständige Null-Kategorien in Coverage, GET-only API und read-only UI sind vorhanden. 55/55 gezielte und 318/318 vollständige Tests bestanden.
 - **Kurzer Live-Smoke-Test abgeschlossen:** echte BTCUSDT-`15m`- und AAPL-`1d`-Daten, 2/2 persistiert, keine Drops/Fehler, sauberer Shutdown und keine Decision-/Signal-/Shadow-/Trade-/Telegram-/Orderereignisse. Der bestehende Produktionsdienst und seine Runtime-/History-Daten wurden nicht verändert.
 - **AFTER-Backup validiert:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge, `.git`/Docs/Tests/Quellen enthalten und Testextraktion bestanden.
-- **Jetzt:** committen, auf `agent/market-regime-contract-v1` pushen und einen gestapelten Draft-PR gegen `agent/integrate-decision-gate-observer` erstellen. Nicht mergen.
+- **Veröffentlicht:** Implementierungscommit `226931e` liegt auf `origin/agent/market-regime-contract-v1`. Draft-PR #24 ist offen, Draft, ungemergt und gestapelt gegen `agent/integrate-decision-gate-observer`; `main` blieb unverändert.
+- **Jetzt:** Draft-PR #24 fachlich prüfen und noch nicht mergen. Wegen der gestapelten Historie zuerst auch PR #23 weiter als Draft prüfen.
 - **Danach nur nach separater Freigabe:** längere read-only Regime-Coverage sammeln; keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
 
 ## Wiederaufnahme nach PC-Ausfall

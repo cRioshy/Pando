@@ -23,6 +23,8 @@ Nach sauberem Abschluss von Phase 0 auf einem separaten Branch einen determinist
 - Coverage über sämtliche zulässigen Kategorien einschließlich Nullwerten, häufigste Kombinationen und Assetklassen implementiert.
 - Kurzen isolierten Live-Smoke-Test mit öffentlichen BTCUSDT-`15m`- und AAPL-`1d`-Daten ausgeführt. Er verwendete ausschließlich temporären Speicher und veränderte weder den laufenden Dienst auf Port 8000 noch vorhandene Runtime-/History-Daten.
 - AFTER-Backup per kontrolliertem Staging und PowerShell `Compress-Archive` erstellt und vollständig geprüft: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge. `.git`, `docs`, `tests`, `AGENTS.md` und Regime-Quellen sind enthalten; .NET-Öffnung und vollständige Testextraktion waren erfolgreich, beide temporären Prüfverzeichnisse wurden anschließend sicher entfernt.
+- Implementierungsstand als Commit `226931eb9ba0f4ddbf719b3dbd3675dcbd8a2fc1` mit Nachricht `Add observer-only market regime contract v1` gesichert und ausschließlich auf `origin/agent/market-regime-contract-v1` gepusht; lokal und Remote waren danach `0/0` synchron.
+- Draft-PR #24 erstellt: `https://github.com/cRioshy/Pando/pull/24`. Er ist `OPEN`, `isDraft=true`, hat Head `agent/market-regime-contract-v1` und Basis `agent/integrate-decision-gate-observer`. `main` blieb auf `14e19bf0a4e79860732ff3b6bba4135a2504b909` unverändert; PR #23 blieb Draft und ungemergt.
 
 ### Veränderte Dateien
 
@@ -68,6 +70,7 @@ Nach sauberem Abschluss von Phase 0 auf einem separaten Branch einen determinist
 - `git diff --check`
 - `.venv\Scripts\python.exe scripts\market_regime_live_smoke.py` mit öffentlichem Netzwerkzugriff
 - kontrollierte rekursive Staging-Kopie, `Compress-Archive`, .NET-`ZipFile.OpenRead` und `Expand-Archive` für das AFTER-Backup
+- `git commit`, `git push --set-upstream`, `gh pr create --draft` und abschließende Branch-/PR-/Remote-Prüfungen
 
 ### Ausgeführte Tests und tatsächliche Testergebnisse
 
@@ -97,13 +100,12 @@ Nach sauberem Abschluss von Phase 0 auf einem separaten Branch einen determinist
 
 ### Nicht abgeschlossene Punkte
 
-- Commit, Push und Draft-PR sind zum Zeitpunkt dieses Eintrags noch auszuführen.
 - Reale mehrwöchige Coverage und Outcome-Auswertung sind bewusst nicht gestartet.
 - Keine automatische Regime-Regel, Schwellenoptimierung oder Stimpy-Verbindung implementiert.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den final abgegrenzten Stand als `Add observer-only market regime contract v1` committen und ausschließlich auf `agent/market-regime-contract-v1` im bestätigten Remote `cRioshy/Pando` pushen. Danach einen Draft-PR gegen `agent/integrate-decision-gate-observer` erstellen und nicht mergen.
+Draft-PR #24 fachlich prüfen und ausdrücklich nicht mergen, solange der gestapelte Phase-0-PR #23 nicht geprüft ist. Danach nur mit separater Freigabe eine längere observer-only Regime-Coverage starten; keinen Fit, keine Decision-Regel und keine Telegram-/Orderkopplung aktivieren.
 
 ## Aktuelle Aufgabe: Phase 0 – bestehenden Stock-/Polling-/Verification-Stand sichern
 
