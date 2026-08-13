@@ -1,6 +1,6 @@
 # Nächste Schritte
 
-Stand: 12. August 2026
+Stand: 13. August 2026
 
 ## Market Regime Contract v1
 
@@ -10,7 +10,8 @@ Stand: 12. August 2026
 - **Kurzer Live-Smoke-Test abgeschlossen:** echte BTCUSDT-`15m`- und AAPL-`1d`-Daten, 2/2 persistiert, keine Drops/Fehler, sauberer Shutdown und keine Decision-/Signal-/Shadow-/Trade-/Telegram-/Orderereignisse. Der bestehende Produktionsdienst und seine Runtime-/History-Daten wurden nicht verändert.
 - **AFTER-Backup validiert:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge, `.git`/Docs/Tests/Quellen enthalten und Testextraktion bestanden.
 - **Veröffentlicht:** Implementierungscommit `226931e` liegt auf `origin/agent/market-regime-contract-v1`. Draft-PR #24 ist offen, Draft, ungemergt und gestapelt gegen `agent/integrate-decision-gate-observer`; `main` blieb unverändert.
-- **Jetzt:** Draft-PR #24 fachlich prüfen und noch nicht mergen. Wegen der gestapelten Historie zuerst auch PR #23 weiter als Draft prüfen.
+- **Review abgeschlossen:** PR #23 und #24 sind getrennt diff-/scope-/secret-geprüft, lokal konfliktfrei simulierbar und die gestapelte Gesamtsuite besteht mit 318/318 Tests. Beide GitHub-PRs sind `clean/mergeable`, besitzen aber weder Checks noch Reviews.
+- **Jetzt:** Beide PRs Draft und ungemergt lassen. Nach ausdrücklicher Freigabe zuerst PR #23 nach `main` mergen; anschließend PR #24 auf den aktualisierten `main` beziehen und erneut prüfen. PR #24 nicht gemeinsam oder vor PR #23 mergen.
 - **Danach nur nach separater Freigabe:** längere read-only Regime-Coverage sammeln; keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
 
 ## Wiederaufnahme nach PC-Ausfall

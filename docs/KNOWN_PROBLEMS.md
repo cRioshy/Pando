@@ -1,8 +1,17 @@
 # Bekannte Probleme
 
-Stand: 12. August 2026
+Stand: 13. August 2026
 
 ## Offen
+
+### KP-027 – Draft-PR #23 und #24 besitzen keine GitHub-CI-/Review-Abdeckung
+
+- **Priorität:** mittel
+- **Status:** offen; technische lokale Prüfung am 13. August 2026 bestanden
+- **Beobachtung:** GitHub meldet für beide Branches `mergeable=true` und `mergeable_state=clean`, aber keine Statuschecks und keine Reviews. Die Anzeige ist daher keine unabhängige CI- oder Review-Freigabe.
+- **Lokale Evidenz:** Beide getrennten Diffs und Merge-Simulationen sind konfliktfrei; 0 Runtime-/History-Pfade, 0 Secret-Mustertreffer, 318/318 aktuelle Gesamttests sowie JavaScript- und Python-Syntax bestanden.
+- **Sicherheitsregel:** PR #24 nicht vor PR #23 integrieren. Keinen fehlenden Check als bestanden darstellen und beide PRs bis zur ausdrücklichen Mergefreigabe im Draft belassen.
+- **Nächster Schritt:** Nach ausdrücklicher Freigabe zuerst PR #23 mergen. Danach PR #24 auf den aktualisierten `main` beziehen und Merge-/Testprüfung wiederholen; PR #24 separat freigeben.
 
 ### KP-026 – Regime v1 benötigt reale Coverage und Schwellenvalidierung
 

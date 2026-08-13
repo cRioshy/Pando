@@ -1,5 +1,76 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Draft-PR #23 und #24 fachlich prüfen
+
+### Datum und Uhrzeit
+
+13. August 2026, 12:01 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den Stock-/Polling-/Verification-Draft-PR #23 und anschließend den darauf gestapelten Market-Regime-Draft-PR #24 hinsichtlich Scope, Branch-Basis, Konflikten, Checks, Secrets, Runtime-Daten, Tests und Sicherheitsgrenzen prüfen. Nichts mergen und keinen Produktcode verändern.
+
+### Durchgeführte Arbeiten
+
+- Verpflichtende Übergabe- und Market-Regime-Vertragsdokumente erneut vollständig gelesen und aktuellen lokalen Branch/Remote geprüft.
+- GitHub-Metadaten, Commits, Dateien, Reviews, Checks und Merge-Status für PR #23 und #24 schreibgeschützt abgerufen.
+- Beide Remote-Branches aktualisiert und getrennte Drei-Punkt-Diffs gegen ihre jeweilige Basis geprüft.
+- PR #23 gegen `main` und PR #24 gegen `agent/integrate-decision-gate-observer` per `git merge-tree --write-tree` konfliktfrei simuliert.
+- Beide Änderungsumfänge auf Runtime-/History-/Ledger-/Secret-Pfade und typische Secret-Muster geprüft.
+- Sicherheitsrelevante Defaults und neue Observer-Payloads gegen Telegram-/Order-/Decision-Grenzen geprüft.
+- Aktuelle gestapelte Gesamtsuite, JavaScript-Syntax und Python-Kompilierung erneut ausgeführt.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `git status`, `git branch --show-current`, `git rev-parse`, `git remote -v`, `git fetch`
+- `gh pr view`, `gh pr checks`, GitHub Pull-Request-API
+- `git diff --name-status`, `git diff --check`, Scope-/Secret-Musterprüfung
+- `git merge-tree --write-tree` für beide PR-Stufen
+- `.venv\Scripts\python.exe -m unittest discover -s tests -q`
+- `node --check web/static/control_center.js`
+- `.venv\Scripts\python.exe -m py_compile ...` für die neuen und geänderten Kernmodule
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Vollständige aktuelle Regression: 318/318 Tests bestanden in 40,963 Sekunden.
+- JavaScript-Syntax: bestanden.
+- Python-Kompilierung der Decision-/Stock-/Regime-/Orchestrator-/Web-Kernmodule: bestanden.
+- PR #23: 48 geänderte Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer, Diffprüfung sauber, Merge-Simulation konfliktfrei; GitHub `mergeable=true`, `mergeable_state=clean`.
+- PR #24: 29 geänderte Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer, Diffprüfung sauber, Merge-Simulation konfliktfrei; GitHub `mergeable=true`, `mergeable_state=clean`.
+- GitHub meldet für beide Branches keine Checks und keine Reviews. Dies ist kein bestandener CI-Lauf, sondern eine fehlende CI-/Review-Abdeckung.
+
+### Bekannte Fehler
+
+- KP-027 neu dokumentiert: Für PR #23 und #24 sind keine GitHub-Checks eingerichtet beziehungsweise gemeldet und keine Reviews vorhanden.
+- KP-026 bleibt offen: Der Regime-Classifier benötigt längere unabhängige Coverage und Schwellenvalidierung.
+- Die bestehenden Stock-Verification-, `SPCX`- und historischen Storage-Grenzen bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung vorgenommen.
+- PR #24 bleibt gestapelt auf PR #23. PR #24 darf nicht vor PR #23 in `main` integriert werden.
+- Observer-only-Grenzen bleiben erhalten: kein aktiver Decision-Einfluss, keine Telegram-Freigabe und keine Orderausführung.
+
+### Nicht abgeschlossene Punkte
+
+- Kein PR wurde gemergt oder aus dem Draft-Status genommen.
+- Es existiert weiterhin keine unabhängige GitHub-CI- oder menschliche Review-Freigabe.
+- Nach einem später ausdrücklich freigegebenen Merge von PR #23 muss PR #24 auf `main` umgestellt beziehungsweise gegen den neuen `main` neu geprüft werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PR #23 im Draft belassen, bis der Benutzer den Merge nach Kenntnis der fehlenden GitHub-CI-/Review-Abdeckung ausdrücklich freigibt. Erst PR #23 mergen; danach PR #24 auf `main` retargeten, Merge-Status und vollständige Tests erneut prüfen und PR #24 weiterhin separat als Draft behandeln.
+
 ## Aktuelle Aufgabe: Market Regime Contract v1 observer-only implementieren
 
 ### Datum und Uhrzeit
