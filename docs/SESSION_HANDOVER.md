@@ -19,6 +19,7 @@ Nach ausdrücklicher Benutzerfreigabe den zuvor geprüften Stock-/Polling-/Verif
 - PR #24 von `agent/integrate-decision-gate-observer` auf `main` umgestellt und ausdrücklich als Draft/offen/ungemergt belassen.
 - Neuen `main` ohne Rebase oder Force-Push per normalem Merge-Commit `6f8d96f3035d1b9a57df66ce0a2a4fd02a2d4496` in `agent/market-regime-contract-v1` aufgenommen.
 - PR-#24-Diff erneut geprüft: weiterhin exakt 29 Regime-/Adapter-/API-/UI-/Test-/Dokumentationspfade, konfliktfreie Merge-Simulation, keine Runtime-/History-/Ledgerpfade und keine Secret-Mustertreffer.
+- Getesteten Branch einschließlich `main`-Merge und Zustandsdokumentation als Commit `7c7d4f8f0598f0dc943a86b9ab4be53baba979ca` auf `origin/agent/market-regime-contract-v1` veröffentlicht. Lokal und Remote waren anschließend `0/0` synchron; GitHub zeigte PR #24 weiterhin offen, Draft, ungemergt und gegen `main`.
 
 ### Veränderte Dateien
 
@@ -65,13 +66,12 @@ Nach ausdrücklicher Benutzerfreigabe den zuvor geprüften Stock-/Polling-/Verif
 
 ### Nicht abgeschlossene Punkte
 
-- Der aktualisierte Regime-Branch und diese Abschlussdokumentation müssen noch auf `origin/agent/market-regime-contract-v1` gepusht werden.
 - PR #24 bleibt Draft und ungemergt; GitHub-CI/Review fehlen weiterhin.
 - Kein kontrollierter Produktionsneustart mit Market Regime v1 wurde ausgeführt, da der PR noch nicht gemergt ist.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Den getesteten Branch samt Handover-Nachtrag auf PR #24 pushen, danach Draft-, Base-, Head- und Merge-Status nochmals verifizieren. Anschließend Bericht vorlegen und PR #24 nur nach einer neuen ausdrücklichen Freigabe aus Draft nehmen oder mergen.
+Abschlussbericht vorlegen und PR #24 als Draft belassen. PR #24 nur nach einer neuen ausdrücklichen Freigabe aus Draft nehmen oder mergen; erst nach einem späteren Merge einen kontrollierten Produktionsneustart und observer-only Liveprüfung durchführen.
 
 ## Aktuelle Aufgabe: Draft-PR #23 und #24 fachlich prüfen
 
