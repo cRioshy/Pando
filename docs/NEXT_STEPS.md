@@ -1,17 +1,17 @@
 # Nächste Schritte
 
-Stand: 13. August 2026
+Stand: 14. August 2026
 
 ## Market Regime Contract v1
 
 - **Phase 0 abgeschlossen:** Stock-/Polling-/Verification-Stand mit 50/50 gezielten und 299/299 vollständigen Tests als Commit `95d5d54` auf `agent/integrate-decision-gate-observer` veröffentlicht.
-- Draft-PR #23 bleibt offen, Draft, ungemergt und gegen `main`; lokaler und entfernter Branch sind synchron.
+- **PR #23 integriert:** Merge-Commit `c751fe18e966dc6800d80925c8c7020093c85e8e` liegt auf `main`; der vollständige Head `4f68552` ist enthalten.
 - **Implementierung lokal abgeschlossen:** Drei Achsen, stabile Feature-/Regime-IDs, Config-Fingerprint, Quality-Fail-Closed, Queue/Batch/Shutdown, append-only Ledger, vollständige Null-Kategorien in Coverage, GET-only API und read-only UI sind vorhanden. 55/55 gezielte und 318/318 vollständige Tests bestanden.
 - **Kurzer Live-Smoke-Test abgeschlossen:** echte BTCUSDT-`15m`- und AAPL-`1d`-Daten, 2/2 persistiert, keine Drops/Fehler, sauberer Shutdown und keine Decision-/Signal-/Shadow-/Trade-/Telegram-/Orderereignisse. Der bestehende Produktionsdienst und seine Runtime-/History-Daten wurden nicht verändert.
 - **AFTER-Backup validiert:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge, `.git`/Docs/Tests/Quellen enthalten und Testextraktion bestanden.
-- **Veröffentlicht:** Implementierungscommit `226931e` liegt auf `origin/agent/market-regime-contract-v1`. Draft-PR #24 ist offen, Draft, ungemergt und gestapelt gegen `agent/integrate-decision-gate-observer`; `main` blieb unverändert.
-- **Review abgeschlossen:** PR #23 und #24 sind getrennt diff-/scope-/secret-geprüft, lokal konfliktfrei simulierbar und die gestapelte Gesamtsuite besteht mit 318/318 Tests. Beide GitHub-PRs sind `clean/mergeable`, besitzen aber weder Checks noch Reviews.
-- **Jetzt:** Beide PRs Draft und ungemergt lassen. Nach ausdrücklicher Freigabe zuerst PR #23 nach `main` mergen; anschließend PR #24 auf den aktualisierten `main` beziehen und erneut prüfen. PR #24 nicht gemeinsam oder vor PR #23 mergen.
+- **PR #24 aktualisiert:** Basis ist jetzt `main`; der neue `main` wurde ohne Rebase oder Force-Push in den Regime-Branch aufgenommen. Der Diff bleibt auf 29 Regime-Pfade begrenzt und konfliktfrei.
+- **Retargeting-Verifikation:** erster Gesamtlauf traf einmal KP-019 (`WinError 145` beim Temp-Cleanup); isoliert 1/1 und unmittelbare vollständige Wiederholung 318/318 bestanden. Syntax, Scope, Secrets und Diff sind sauber.
+- **Jetzt:** PR #24 weiterhin Draft und ungemergt lassen. Erst nach neuer ausdrücklicher Freigabe aus Draft nehmen oder mergen; anschließend kontrollierten Produktionsneustart und observer-only Liveprüfung durchführen.
 - **Danach nur nach separater Freigabe:** längere read-only Regime-Coverage sammeln; keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
 
 ## Wiederaufnahme nach PC-Ausfall

@@ -1,5 +1,78 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: PR #23 mergen und PR #24 auf main umstellen
+
+### Datum und Uhrzeit
+
+14. August 2026, 10:51 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe den zuvor geprüften Stock-/Polling-/Verification-PR #23 kontrolliert nach `main` mergen. Anschließend den Market-Regime-PR #24 auf den neuen `main` umstellen, weiterhin als Draft belassen und Diff, Konfliktfreiheit, Tests und Sicherheitsgrenzen erneut prüfen. PR #24 nicht mergen.
+
+### Durchgeführte Arbeiten
+
+- Verpflichtende Übergabe- und Market-Regime-Vertragsdokumente erneut vollständig gelesen.
+- GitHub-Authentifizierung, Remote, Working Tree, beide PR-Heads, Basis-SHAs, Merge-Status und Repository-Mergeverfahren unmittelbar vor dem Merge geprüft.
+- PR #23 mit erwartetem Head `4f685522267b33277f1fa3da2444b132dd2cfbff` aus Draft genommen und per normalem Merge-Commit nach `main` gemergt; Branch nicht gelöscht.
+- Merge-Commit `c751fe18e966dc6800d80925c8c7020093c85e8e` und vollständige Erreichbarkeit des PR-Heads aus `origin/main` verifiziert.
+- PR #24 von `agent/integrate-decision-gate-observer` auf `main` umgestellt und ausdrücklich als Draft/offen/ungemergt belassen.
+- Neuen `main` ohne Rebase oder Force-Push per normalem Merge-Commit `6f8d96f3035d1b9a57df66ce0a2a4fd02a2d4496` in `agent/market-regime-contract-v1` aufgenommen.
+- PR-#24-Diff erneut geprüft: weiterhin exakt 29 Regime-/Adapter-/API-/UI-/Test-/Dokumentationspfade, konfliktfreie Merge-Simulation, keine Runtime-/History-/Ledgerpfade und keine Secret-Mustertreffer.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `gh auth status`, GitHub Pull-Request-/Repository-API, `gh pr ready`, `gh pr merge`, `gh pr edit`
+- `git status`, `git fetch`, `git rev-parse`, `git merge-base`, `git rev-list`
+- `git merge-tree --write-tree`, `git diff --check`, Scope- und Secret-Musterprüfung
+- `git merge --no-edit origin/main`
+- `.venv\Scripts\python.exe -m unittest discover -s tests -q`
+- isolierter `unittest`-Lauf für `test_legacy_cache_without_metric_contract_is_rebuilt`
+- `node --check web/static/control_center.js`
+- `.venv\Scripts\python.exe -m py_compile ...` für Decision-/Stock-/Regime-/Orchestrator-/Web-Kernmodule
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Erster Gesamtlauf nach Retargeting: 317 fachliche Tests bestanden; ein Fehler ausschließlich beim Windows-`TemporaryDirectory`-Cleanup des Learning-Report-Tests mit bekanntem `WinError 145` (KP-019).
+- Betroffener Test unmittelbar isoliert: 1/1 bestanden in 0,010 Sekunden.
+- Unmittelbare vollständige Wiederholung: 318/318 bestanden in 42,246 Sekunden.
+- JavaScript-Syntax und Python-Kompilierung: bestanden.
+- PR-#24-Diffprüfung: sauber; 29 Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer.
+- Merge-Simulation PR #24 gegen neuen `main`: konfliktfrei.
+
+### Bekannte Fehler
+
+- KP-019 trat erneut sporadisch beim Windows-Temp-Cleanup auf; isolierter Test und vollständige Wiederholung waren grün. Kein Hinweis auf eine fachliche Stock-/Regime-/Merge-Regression.
+- KP-027 bleibt für PR #24 teilweise offen: weiterhin keine GitHub-Checks und keine Reviews. PR #23 wurde nach dokumentierter lokaler Prüfung und ausdrücklicher Benutzerfreigabe gemergt.
+- KP-026 bleibt offen: längere unabhängige Regime-Coverage und Schwellenvalidierung fehlen weiterhin.
+
+### Getroffene Architekturentscheidungen
+
+- Der geprüfte Stock-/Polling-/Verification-Stand ist nun Bestandteil von `main`.
+- Market Regime v1 bleibt ein separater Draft-PR direkt gegen `main`, observer-only und ohne Decision-, Telegram- oder Orderkopplung.
+- Historie wurde nicht umgeschrieben: kein Rebase, kein Force-Push und kein Branch-Löschen.
+
+### Nicht abgeschlossene Punkte
+
+- Der aktualisierte Regime-Branch und diese Abschlussdokumentation müssen noch auf `origin/agent/market-regime-contract-v1` gepusht werden.
+- PR #24 bleibt Draft und ungemergt; GitHub-CI/Review fehlen weiterhin.
+- Kein kontrollierter Produktionsneustart mit Market Regime v1 wurde ausgeführt, da der PR noch nicht gemergt ist.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Den getesteten Branch samt Handover-Nachtrag auf PR #24 pushen, danach Draft-, Base-, Head- und Merge-Status nochmals verifizieren. Anschließend Bericht vorlegen und PR #24 nur nach einer neuen ausdrücklichen Freigabe aus Draft nehmen oder mergen.
+
 ## Aktuelle Aufgabe: Draft-PR #23 und #24 fachlich prüfen
 
 ### Datum und Uhrzeit

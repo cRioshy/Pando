@@ -1,17 +1,17 @@
 # Bekannte Probleme
 
-Stand: 13. August 2026
+Stand: 14. August 2026
 
 ## Offen
 
-### KP-027 – Draft-PR #23 und #24 besitzen keine GitHub-CI-/Review-Abdeckung
+### KP-027 – Draft-PR #23 und #24 besaßen keine GitHub-CI-/Review-Abdeckung
 
 - **Priorität:** mittel
-- **Status:** offen; technische lokale Prüfung am 13. August 2026 bestanden
-- **Beobachtung:** GitHub meldet für beide Branches `mergeable=true` und `mergeable_state=clean`, aber keine Statuschecks und keine Reviews. Die Anzeige ist daher keine unabhängige CI- oder Review-Freigabe.
+- **Status:** für PR #23 nach ausdrücklicher Mergefreigabe akzeptiert; für Draft-PR #24 weiterhin offen
+- **Beobachtung:** GitHub meldete für beide Branches keine Statuschecks und keine Reviews. PR #23 wurde nach konfliktfreier lokaler Prüfung, 318/318 Tests und ausdrücklicher Benutzerfreigabe als `c751fe1` nach `main` gemergt. PR #24 bleibt Draft, besitzt weiterhin keine unabhängige CI-/Review-Freigabe und ist jetzt direkt auf `main` gerichtet.
 - **Lokale Evidenz:** Beide getrennten Diffs und Merge-Simulationen sind konfliktfrei; 0 Runtime-/History-Pfade, 0 Secret-Mustertreffer, 318/318 aktuelle Gesamttests sowie JavaScript- und Python-Syntax bestanden.
-- **Sicherheitsregel:** PR #24 nicht vor PR #23 integrieren. Keinen fehlenden Check als bestanden darstellen und beide PRs bis zur ausdrücklichen Mergefreigabe im Draft belassen.
-- **Nächster Schritt:** Nach ausdrücklicher Freigabe zuerst PR #23 mergen. Danach PR #24 auf den aktualisierten `main` beziehen und Merge-/Testprüfung wiederholen; PR #24 separat freigeben.
+- **Sicherheitsregel:** Keinen fehlenden Check als bestanden darstellen. PR #24 bis zu einer neuen ausdrücklichen Mergefreigabe im Draft belassen.
+- **Nächster Schritt:** Aktualisierten PR #24 gegen `main` separat reviewen; Merge nur nach ausdrücklicher Freigabe.
 
 ### KP-026 – Regime v1 benötigt reale Coverage und Schwellenvalidierung
 
@@ -106,9 +106,9 @@ Stand: 13. August 2026
 ### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
 
 - **Priorität:** niedrig
-- **Status:** einmalig beobachtet; direkte und vollständige Wiederholung grün
-- **Beobachtung:** Ein Gesamtlauf bestand 264 fachliche Tests, endete aber beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test einmal mit `WinError 145` (Verzeichnis nicht leer). Derselbe Test bestand direkt danach isoliert.
-- **Auswirkung:** Kein Hinweis auf eine fachliche Regression des Decision Gates; die Wiederholung bestand 265/265 Tests.
+- **Status:** sporadisch reproduziert; isolierte und vollständige Wiederholungen jeweils grün
+- **Beobachtung:** Der Windows-Fehler `WinError 145` trat am 14. August 2026 nach dem PR-#24-Retargeting erneut ausschließlich beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test auf. Derselbe Test bestand direkt danach isoliert mit 1/1.
+- **Auswirkung:** Kein Hinweis auf eine fachliche Decision-/Stock-/Regime-Regression; die unmittelbare vollständige Wiederholung bestand mit 318/318 Tests.
 - **Nächster Fix:** Nur bei erneuter Reproduktion den noch schreibenden Learning-/Storage-Worker gezielt instrumentieren.
 
 ### KP-020 – Sandbox-Starts besitzen keinen Zugriff auf öffentliche Marktdaten
