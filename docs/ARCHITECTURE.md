@@ -1,8 +1,55 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 8. August 2026
+Stand: 12. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
+
+## Nicht blockierender Stock- und Verification-Lauf
+
+```mermaid
+flowchart LR
+    ORCH["60s Orchestrator"] --> START["genau ein Stock-Hintergrundlauf"]
+    START --> LEGACY["Legacy Stock + Normalisierung + Yahoo + Features + Shadow"]
+    ORCH --> OTHER["Crypto / Brain / UI laufen weiter"]
+    LEGACY --> NEXT["Ergebnis im Folgetakt übernehmen"]
+    NEXT --> BUS["kompakte Stock-Ereignisse"]
+    BUS --> VERIFY["Verification Consumer"]
+    VERIFY --> BATCH["max. 8 fällige Outcomes je Symbol und Quote"]
+    BATCH --> LEDGER["append-only Ledger"]
+```
+
+Der Produktions-Orchestrator erstellt keinen überlappenden Stocklauf und wartet nicht auf die blockierende Legacy-/Normalisierungspipeline. Fertige Ergebnisse werden in einem Folgetakt publiziert. Der Verification-Consumer sortiert fällige Fälle nach `evaluation_due_at` und verarbeitet je Stock-Quote höchstens acht. Nicht verarbeitete Fälle bleiben `PENDING` und werden nach Neustart unverändert aus dem Ledger rekonstruiert.
+
+## Stock-Datengrenze (read-only Shadow und Audit integriert)
+
+```mermaid
+flowchart LR
+    LEGACY["Legacy Direction + Probability"] --> ACTIVE["Aktiver Stock-Eventpfad unverändert"]
+    PROVIDER["Yahoo Tageskerzen + öffentlicher Kurs"] --> SHADOW["Stock-Shadow v1: Fakten, Direction, unkalibrierter Score"]
+    LEGACY -. "nur vergleichen" .-> COMPARE["Legacy-vs-Shadow Audit"]
+    SHADOW --> COMPARE
+    SHADOW --> RISK["Stock-Shadow-Risiko v1: ATR14, Stop, Ziele"]
+    SHADOW --> SD["Stock-Datenvertrag v1"]
+    RISK --> SD
+    SD -->|"interner Daten-Audit"| AUDIT["Stock-Datenstatus READY / BLOCKED"]
+    SD -->|"BLOCKED"| DIAG["Reason Codes, keine Freigabe"]
+    SHADOW -. "nicht im aktiven Payload" .-> BUS["Aktiver EventBus / Brain"]
+    COMPARE --> OBS["Kompaktes STOCK_SHADOW_OBSERVED mit source_event_id"]
+    OBS --> VERIFY["StockShadowVerificationAdapter: stock-only"]
+    VERIFY --> VLEDGER["Append-only Verification-Ledger"]
+    BUS -. "decision_id / späterer Quote" .-> VERIFY
+    VLEDGER --> VAPI["Read-only Summary / Detail / Control Center"]
+    VLEDGER -. "später ausschließlich offline" .-> CAL["Kalibrierungsvertrag v1: aktuell INSUFFICIENT_DATA"]
+    CAL -. "keine Laufzeit- oder Freigabewirkung" .-> SAFE
+    AUDIT -. "keine Gate-Kopplung" .-> GATE["Decision-Gate-Observer"]
+    DIAG -.-> SAFE["Telegram false / Orders false"]
+```
+
+`StockAdapter` baut aus öffentlichen Daten den kompakten Shadow-Kandidaten, ergänzt LONG/SHORT über den getrennten ATR-Risikovertrag und vergleicht ihn mit der Legacy-Placeholder-Decision. `affects_active_decision` ist fest `false`. Vor `STOCK_ANALYSIS_FINISHED` werden Audit, Shadow, Vergleich, Risiko und Providerdiagnostik weiterhin aus dem aktiven Payload entfernt. Additiv entsteht ausschließlich bei vorhandenem Audit eine separate kompakte `STOCK_SHADOW_OBSERVED`-Projektion mit derselben `source_event_id`. Der optionale Verification-Adapter persistiert daraus append-only Fälle, verknüpft die spätere `decision_id` und beobachtet spätere öffentliche Quotes. Der bestehende Legacy-Feature-, Decision-, Signal-, Outcome-, Learning-, Telegram- und Orderfluss verwendet weder Auditkerzen noch Shadow-Richtung oder -Risiko. Rohkerzen bleiben außerhalb aller Event- und History-Payloads.
+
+Summary-Projektionen werden generationsgebunden im Speicher gecacht und nur nach einem neuen append-only Ledger-Eintrag invalidiert. Dadurch lösen der bestehende 1-Sekunden-Poll und WebSocket-Snapshots während eines mehrtägigen Laufs keine vollständige Neuaggregation bei unverändertem Datenstand aus.
+
+Der neue Kalibrierungsvertrag ist keine Laufzeitkomponente. Er beschreibt nur eine mögliche spätere Offline-Auswertung abgeschlossener, deduplizierter Verification-Outcomes. Im aktuellen System existieren weder Fit, Modell noch Kalibrierungsartefakt. Wiederholte Minutenzyklen derselben Tageskerze gelten nicht als unabhängige Fälle; heute stehen null abgeschlossene unabhängige 24h-Outcomes zur Verfügung.
 
 ## Systemkontext
 
@@ -19,8 +66,17 @@ flowchart LR
     DQ --> FE["FeatureEngine"]
     FE -. additive Features .-> CA
     FE -. additive Features .-> SA
+    DG["DecisionGateAuditAdapter: optional, fail-closed Observer"]
+    DQ -. kompakte feature_quality .-> BA
+    BA -. BRAIN_DECISION_RECEIVED .-> DG
+    DG --> GA["Begrenztes Decision-Gate-Audit"]
+    DG -. keine aktive Freigabe .-> DC
     CA --> EB["Synchroner In-Process EventBus"]
     SA --> EB
+    SA -. "kompakter Stock-Observer" .-> SV["StockShadowVerificationAdapter"]
+    EB -. "decision_id / spätere Stock-Quotes" .-> SV
+    SV --> VL["Append-only Verification-Ledger"]
+    VL --> WEB
     CO --> EB
     EB --> BA["BrainAdapter: persistieren und weiterleiten"]
     BA --> EB
@@ -63,6 +119,7 @@ sequenceDiagram
     participant Feature as FeatureEngine
     participant Bus as EventBus
     participant Brain as BrainAdapter
+    participant Gate as DecisionGateAuditAdapter
     participant Decision as DecisionSignalAdapter
     participant Tracker as Outcome/Trade Tracker
     participant View as Control Center/Statistik
@@ -78,6 +135,9 @@ sequenceDiagram
     Bus->>Brain: abgeschlossene Analyse
     Brain->>Brain: rotierende JSONL-Persistenz
     Brain->>Bus: BRAIN_DECISION_RECEIVED
+    Bus-->>Gate: optional parallel beobachten
+    Gate->>Gate: fail-closed bewerten + begrenzt auditieren
+    Gate-->>Bus: DECISION_GATE_EVALUATED (keine Freigabe)
     Brain->>Bus: AI_LEARNING_UPDATED
     Bus->>Decision: Brain-Payload
     Decision->>Decision: normalisieren, IDs und Ledger
@@ -96,10 +156,17 @@ Der `EventBus` kopiert Handler unter einem Lock und führt sie danach synchron i
 |---|---|---|
 | `CryptoMarketDataService` | Binance-Kerzen, Bitget-Fallback, Retry, optionales Open Interest/Funding | Orders, private APIs |
 | `CryptoAdapter` | Normalisierte Marktdaten an externe Crypto-Analyse übergeben, Preise, maximal 500 Kerzen für Features, Fehlerdiagnose, Ereignisse | Börsenorder |
-| `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Kerzen für Features, Ereignisse | Börsenorder |
+| `StockAdapter` | Externe Aktienanalyse, Preise, maximal 500 Legacy-Kerzen für aktive Features; separater öffentlicher Shadow-/Auditpfad | Börsenorder, Shadow-Umschaltung |
+| `stock_shadow_candidate.py` | Versionierter observer-only Score aus öffentlichen Tageskerzen und Kurs, kompakte Fakten/Indikatoren | Kalibrierte Probability, Confidence, Risiko, Eventpublikation, Freigabe |
+| `stock_shadow_risk.py` | Expliziter ATR14-Plan mit öffentlichem Entry, Stop und 1R/2R/3R-Zielen | Positionsgröße, aktive Decision, Telegram-/Orderfreigabe |
+| `stock_shadow_verification_contract.py` | Deterministische Fall-ID, Statusprojektionen und getrenntes 24h-Forward-Mark-to-Market für Legacy/Shadow | Stop-/Zielpfad-Backtest, Crypto-Vergleich, Kausalitätsaussage |
+| `StockShadowVerificationAdapter` | Append-only Stock-Ledger, Restart-Rekonstruktion, Source-/Decision-/Tracker-Verknüpfung, Summary/Detail | Mutation produktiver Decisions/Outcomes, Learning, Telegram, Orders |
+| `docs/STOCK_SHADOW_CALIBRATION_CONTRACT.md` | Dokumentiert unabhängige Fälle, Mindestabdeckung, chronologische Validierung, Reliability und Evidenz-Confidence | Laufzeitmodul, trainiertes Modell, automatische Kalibrierung, Gate-/Telegram-/Orderkopplung |
 | `CommodityAdapter` | Optionale Rohstoffdaten und Ereignisse | Feature-Engine-Anbindung |
 | `feature_data_quality_contract.py` | Versionierte OHLCV-Prüfung, Zeitordnung, `keep_last`-Duplikate, Mindestkerzen, Warmup und Qualitätsbericht | Fachliche Decision-Freigabe |
 | `FeatureEngine` | Technische Features, Qualitätsmetadaten und optionale historische Targets | ML-Training, Decision-Gate, New-Candle-Cache |
+| `decision_gate_contract.py` | Explizite fail-closed Observer-Bewertung, kompakte Qualitätsprojektion und Reason Codes | Aktive Signal-/Telegram-Freigabe, Orders |
+| `DecisionGateAuditAdapter` | Optionaler EventBus-Observer, Duplikatschutz, begrenztes Audit-Ledger | Decision-/Signal-Erzeugung, Telegram-Freigabe, Orders |
 | `BrainAdapter` | Rotierende Analysepersistenz und Folgeereignisse | Eigene KI-Inferenz oder Faktenprüfung |
 | `DecisionSignalAdapter` | Normalisierung, deterministische IDs, Decision-/Signal-Ledger | Risiko-Policy, Confidence-Gate, Konfliktlösung |
 | `OutcomeTracker` | Simulierte allgemeine Trade-Outcomes | Reale Orders |
@@ -118,6 +185,8 @@ flowchart TD
     EVENTS --> DEC["Decision JSONL, größenrotiert"]
     EVENTS --> SIG["Signal JSONL, größenrotiert"]
     EVENTS --> OUT["Outcome JSONL, größenrotiert"]
+    EVENTS --> GATE["Decision-Gate-Audit JSONL, 5 MiB + max. 4 Archive"]
+    EVENTS --> VERIFY["Stock Shadow Verification JSONL, 20 MiB + max. 8 Archive"]
     EVENTS --> MP["Kompakte Marktprojektion v1"]
     EVENTS --> OP["Kompakte Observer-Projektion v1"]
     MP --> NEURO["NeuroBrain Inbox JSONL"]
@@ -125,7 +194,7 @@ flowchart TD
     ERRORS["Nur Fehlerereignisse"] --> ERRLOG["service_errors.jsonl, 5 MiB + max. 4 Archive"]
     ERRORS --> ERRSUM["service_error_summary.json, atomar + max. 500 Fingerprints"]
     OPEN["Offene simulierte Trades"] --> JSON["Konfliktresistent atomar ersetztes JSON"]
-    BRAIN & DEC & SIG & OUT & NEURO --> SCAN["StorageStatisticsService"]
+    BRAIN & DEC & SIG & OUT & VERIFY & NEURO --> SCAN["StorageStatisticsService"]
     SQLITE["Vorhandene SQLite-Dateien"] --> SCAN
     SCAN --> UNIQUE["Einmaliger Scan je aufgelöstem physischen Pfad"]
     UNIQUE --> LOGICAL["Logische Kategorien und Dateiverweise"]
@@ -249,7 +318,7 @@ Die projektlokale `.venv` ist Laufzeitisolation, kein Daten- oder Architekturser
 
 - Synchroner EventBus ohne allgemeine Backpressure; ausschließlich der NeuroBrain-Dateiconsumer ist inzwischen über eine eigene begrenzte Queue entkoppelt.
 - Kein allgemeiner Timeout um jeden Adapterzyklus.
-- Kein fachlich unabhängiges Decision-Gate.
+- Ein getesteter fachlicher Decision-Gate-Vertrag existiert, ist aber noch nicht als Observer an den EventBus angeschlossen und greift nicht in Decisions oder Signals ein.
 - Telegram liegt nicht strikt hinter finalen Decisions.
 - Keine zentrale Retention-Policy für den gesamten Runtime-Bestand.
 - Absolute Windows-Pfade begrenzen Portabilität.

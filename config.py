@@ -31,6 +31,16 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_optional_float(name: str) -> float | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 def _env_int(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None:
@@ -88,6 +98,23 @@ class PlatformConfig:
     crypto_candle_limit: int = 240
     stock_test_mode: bool = True
     stock_live_price_display: bool = False
+    stock_data_observer_enabled: bool = False
+    stock_daily_candle_limit: int = 260
+    stock_candle_cache_ttl_seconds: float = 900.0
+    stock_data_minimum_candles: int = 200
+    stock_data_full_warmup_candles: int = 200
+    stock_data_maximum_candle_age_seconds: float = 345600.0
+    stock_data_maximum_quote_age_seconds: float = 900.0
+    stock_data_maximum_future_skew_seconds: float = 30.0
+    stock_data_maximum_entry_deviation_percent: float = 0.5
+    stock_shadow_long_bullish_score: float = 60.0
+    stock_shadow_short_bullish_score: float = 40.0
+    stock_shadow_risk_atr_multiplier: float = 1.0
+    stock_shadow_risk_minimum_distance_percent: float = 0.5
+    stock_shadow_risk_target_1_multiple: float = 1.0
+    stock_shadow_risk_target_2_multiple: float = 2.0
+    stock_shadow_risk_target_3_multiple: float = 3.0
+    stock_shadow_risk_price_decimals: int = 4
     commodities_enabled: bool = False
     commodity_symbols: list[str] = field(default_factory=lambda: ["GC=F", "SI=F", "CL=F", "BZ=F"])
     cycle_interval: float = 60.0
@@ -114,6 +141,19 @@ class PlatformConfig:
     simulated_outcome_horizon_seconds: float = 3600.0
     platform_decisions_file: Path = PROJECT_ROOT / "data" / "platform_decisions.jsonl"
     platform_signals_file: Path = PROJECT_ROOT / "data" / "platform_signals.jsonl"
+    decision_gate_observer_enabled: bool = False
+    decision_gate_audit_file: Path = PROJECT_ROOT / "data" / "decision_gate_audit.jsonl"
+    decision_gate_audit_rotation_bytes: int = 5 * 1024 * 1024
+    decision_gate_audit_max_archives: int = 4
+    decision_gate_minimum_probability: float | None = None
+    decision_gate_minimum_confidence: float | None = None
+    decision_gate_confidence_tolerance: float = 0.0
+    stock_shadow_verification_enabled: bool = False
+    stock_shadow_verification_file: Path = PROJECT_ROOT / "data" / "stock_shadow_verification.jsonl"
+    stock_shadow_verification_rotation_bytes: int = 20 * 1024 * 1024
+    stock_shadow_verification_max_archives: int = 8
+    stock_shadow_verification_horizon_seconds: float = 86400.0
+    stock_shadow_verification_neutral_band_percent: float = 0.05
 
     def __post_init__(self) -> None:
         """Align derived brain event defaults with a custom data directory."""
@@ -145,6 +185,19 @@ class PlatformConfig:
         default_error_summary = PROJECT_ROOT / "data" / "service_error_summary.json"
         if self.service_error_summary_file == default_error_summary and self.data_dir != PROJECT_ROOT / "data":
             object.__setattr__(self, "service_error_summary_file", self.data_dir / "service_error_summary.json")
+        default_gate_audit = PROJECT_ROOT / "data" / "decision_gate_audit.jsonl"
+        if self.decision_gate_audit_file == default_gate_audit and self.data_dir != PROJECT_ROOT / "data":
+            object.__setattr__(self, "decision_gate_audit_file", self.data_dir / "decision_gate_audit.jsonl")
+        default_shadow_verification = PROJECT_ROOT / "data" / "stock_shadow_verification.jsonl"
+        if (
+            self.stock_shadow_verification_file == default_shadow_verification
+            and self.data_dir != PROJECT_ROOT / "data"
+        ):
+            object.__setattr__(
+                self,
+                "stock_shadow_verification_file",
+                self.data_dir / "stock_shadow_verification.jsonl",
+            )
 
     @classmethod
     def from_env(cls) -> "PlatformConfig":
@@ -230,6 +283,47 @@ class PlatformConfig:
             crypto_candle_limit=_env_int("PANDORICKKI_CRYPTO_CANDLE_LIMIT", 240),
             stock_test_mode=_env_bool("PANDORICKKI_STOCK_TEST_MODE", True),
             stock_live_price_display=_env_bool("PANDORICKKI_STOCK_LIVE_PRICE_DISPLAY", False),
+            stock_data_observer_enabled=_env_bool("PANDORICKKI_STOCK_DATA_OBSERVER_ENABLED", False),
+            stock_daily_candle_limit=_env_int("PANDORICKKI_STOCK_DAILY_CANDLE_LIMIT", 260),
+            stock_candle_cache_ttl_seconds=_env_float("PANDORICKKI_STOCK_CANDLE_CACHE_TTL_SECONDS", 900.0),
+            stock_data_minimum_candles=_env_int("PANDORICKKI_STOCK_DATA_MINIMUM_CANDLES", 200),
+            stock_data_full_warmup_candles=_env_int("PANDORICKKI_STOCK_DATA_FULL_WARMUP_CANDLES", 200),
+            stock_data_maximum_candle_age_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_CANDLE_AGE_SECONDS", 345600.0
+            ),
+            stock_data_maximum_quote_age_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_QUOTE_AGE_SECONDS", 900.0
+            ),
+            stock_data_maximum_future_skew_seconds=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_FUTURE_SKEW_SECONDS", 30.0
+            ),
+            stock_shadow_long_bullish_score=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_LONG_BULLISH_SCORE", 60.0
+            ),
+            stock_shadow_short_bullish_score=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_SHORT_BULLISH_SCORE", 40.0
+            ),
+            stock_shadow_risk_atr_multiplier=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_ATR_MULTIPLIER", 1.0
+            ),
+            stock_shadow_risk_minimum_distance_percent=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_MINIMUM_DISTANCE_PERCENT", 0.5
+            ),
+            stock_shadow_risk_target_1_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_1_MULTIPLE", 1.0
+            ),
+            stock_shadow_risk_target_2_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_2_MULTIPLE", 2.0
+            ),
+            stock_shadow_risk_target_3_multiple=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_3_MULTIPLE", 3.0
+            ),
+            stock_shadow_risk_price_decimals=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_RISK_PRICE_DECIMALS", 4
+            ),
+            stock_data_maximum_entry_deviation_percent=_env_float(
+                "PANDORICKKI_STOCK_DATA_MAXIMUM_ENTRY_DEVIATION_PERCENT", 0.5
+            ),
             commodities_enabled=_env_bool("PANDORICKKI_COMMODITIES_ENABLED", False),
             commodity_symbols=_env_list(
                 "PANDORICKKI_COMMODITY_SYMBOLS",
@@ -289,6 +383,49 @@ class PlatformConfig:
                 "PANDORICKKI_PLATFORM_SIGNALS_FILE",
                 data_dir / "platform_signals.jsonl",
             ),
+            decision_gate_observer_enabled=_env_bool(
+                "PANDORICKKI_DECISION_GATE_OBSERVER_ENABLED", False
+            ),
+            decision_gate_audit_file=_env_path(
+                "PANDORICKKI_DECISION_GATE_AUDIT_FILE",
+                data_dir / "decision_gate_audit.jsonl",
+            ),
+            decision_gate_audit_rotation_bytes=_env_int(
+                "PANDORICKKI_DECISION_GATE_AUDIT_ROTATION_BYTES",
+                5 * 1024 * 1024,
+            ),
+            decision_gate_audit_max_archives=_env_int(
+                "PANDORICKKI_DECISION_GATE_AUDIT_MAX_ARCHIVES", 4
+            ),
+            decision_gate_minimum_probability=_env_optional_float(
+                "PANDORICKKI_DECISION_GATE_MINIMUM_PROBABILITY"
+            ),
+            decision_gate_minimum_confidence=_env_optional_float(
+                "PANDORICKKI_DECISION_GATE_MINIMUM_CONFIDENCE"
+            ),
+            decision_gate_confidence_tolerance=_env_float(
+                "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE", 0.0
+            ),
+            stock_shadow_verification_enabled=_env_bool(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED", False
+            ),
+            stock_shadow_verification_file=_env_path(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE",
+                data_dir / "stock_shadow_verification.jsonl",
+            ),
+            stock_shadow_verification_rotation_bytes=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ROTATION_BYTES",
+                20 * 1024 * 1024,
+            ),
+            stock_shadow_verification_max_archives=_env_int(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_MAX_ARCHIVES", 8
+            ),
+            stock_shadow_verification_horizon_seconds=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_HORIZON_SECONDS", 86400.0
+            ),
+            stock_shadow_verification_neutral_band_percent=_env_float(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT", 0.05
+            ),
         )
 
     def validate(self) -> list[str]:
@@ -335,6 +472,26 @@ class PlatformConfig:
             warnings.append("NeuroBrain batch size below 1; runtime clamps it to 1.")
         if self.neurobrain_flush_interval_seconds <= 0:
             warnings.append("NeuroBrain flush interval is not positive; runtime uses 0.01 seconds.")
+        if self.decision_gate_observer_enabled:
+            warnings.append("Decision Gate is enabled in observer-only audit mode.")
+            if self.decision_gate_minimum_probability is None:
+                warnings.append("Decision Gate observer enabled but minimum probability is missing.")
+            if self.decision_gate_minimum_confidence is None:
+                warnings.append("Decision Gate observer enabled but minimum confidence is missing.")
+        if self.decision_gate_audit_rotation_bytes < 1024 * 1024:
+            warnings.append("Decision Gate audit rotation size is below 1 MB; runtime clamps it to 1 MB.")
+        if self.decision_gate_audit_max_archives < 0:
+            warnings.append("Decision Gate audit archive limit is negative; runtime clamps it to 0.")
+        if self.stock_shadow_verification_enabled and not self.stock_data_observer_enabled:
+            warnings.append("Stock shadow verification requires the stock data observer.")
+        if self.stock_shadow_verification_horizon_seconds <= 0:
+            warnings.append("Stock shadow verification horizon must be positive.")
+        if self.stock_shadow_verification_neutral_band_percent < 0:
+            warnings.append("Stock shadow verification neutral band must be non-negative.")
+        if self.stock_shadow_verification_rotation_bytes < 1024 * 1024:
+            warnings.append("Stock shadow verification rotation size is below 1 MB; runtime clamps it to 1 MB.")
+        if self.stock_shadow_verification_max_archives < 0:
+            warnings.append("Stock shadow verification archive limit is negative; runtime clamps it to 0.")
         if not self.control_center_enabled:
             warnings.append("ControlCenter is disabled.")
         if self.live_crypto:
@@ -343,6 +500,28 @@ class PlatformConfig:
             warnings.append("Crypto dashboard prices use live spot ticker when reachable.")
         if self.stock_live_price_display:
             warnings.append("Stock dashboard prices use Yahoo Finance when reachable.")
+        if self.stock_data_observer_enabled:
+            warnings.append("Stock daily candles are enabled in read-only contract observer mode.")
+        if self.stock_daily_candle_limit < self.stock_data_minimum_candles:
+            warnings.append("Stock daily candle limit is below the stock-data minimum candle count.")
+        if self.stock_data_full_warmup_candles < self.stock_data_minimum_candles:
+            warnings.append("Stock data full warmup is below the minimum candle count.")
+        if self.stock_shadow_long_bullish_score <= 50:
+            warnings.append("Stock shadow LONG score must be greater than 50.")
+        if self.stock_shadow_short_bullish_score >= 50:
+            warnings.append("Stock shadow SHORT score must be below 50.")
+        if self.stock_shadow_risk_atr_multiplier <= 0:
+            warnings.append("Stock shadow risk ATR multiplier must be positive.")
+        if self.stock_shadow_risk_minimum_distance_percent <= 0:
+            warnings.append("Stock shadow minimum risk distance must be positive.")
+        if not (
+            0 < self.stock_shadow_risk_target_1_multiple
+            < self.stock_shadow_risk_target_2_multiple
+            < self.stock_shadow_risk_target_3_multiple
+        ):
+            warnings.append("Stock shadow risk targets must be positive and strictly increasing.")
+        if not 0 <= self.stock_shadow_risk_price_decimals <= 8:
+            warnings.append("Stock shadow risk price decimals must be from 0 through 8.")
         if self.commodities_enabled:
             warnings.append("Commodities use free Yahoo Finance futures prices when reachable.")
         if self.telegram_enabled and not self.telegram_dry_run:
@@ -396,6 +575,23 @@ class PlatformConfig:
             crypto_candle_limit=self.crypto_candle_limit,
             stock_test_mode=self.stock_test_mode,
             stock_live_price_display=self.stock_live_price_display,
+            stock_data_observer_enabled=self.stock_data_observer_enabled,
+            stock_daily_candle_limit=self.stock_daily_candle_limit,
+            stock_candle_cache_ttl_seconds=self.stock_candle_cache_ttl_seconds,
+            stock_data_minimum_candles=self.stock_data_minimum_candles,
+            stock_data_full_warmup_candles=self.stock_data_full_warmup_candles,
+            stock_data_maximum_candle_age_seconds=self.stock_data_maximum_candle_age_seconds,
+            stock_data_maximum_quote_age_seconds=self.stock_data_maximum_quote_age_seconds,
+            stock_data_maximum_future_skew_seconds=self.stock_data_maximum_future_skew_seconds,
+            stock_data_maximum_entry_deviation_percent=self.stock_data_maximum_entry_deviation_percent,
+            stock_shadow_long_bullish_score=self.stock_shadow_long_bullish_score,
+            stock_shadow_short_bullish_score=self.stock_shadow_short_bullish_score,
+            stock_shadow_risk_atr_multiplier=self.stock_shadow_risk_atr_multiplier,
+            stock_shadow_risk_minimum_distance_percent=self.stock_shadow_risk_minimum_distance_percent,
+            stock_shadow_risk_target_1_multiple=self.stock_shadow_risk_target_1_multiple,
+            stock_shadow_risk_target_2_multiple=self.stock_shadow_risk_target_2_multiple,
+            stock_shadow_risk_target_3_multiple=self.stock_shadow_risk_target_3_multiple,
+            stock_shadow_risk_price_decimals=self.stock_shadow_risk_price_decimals,
             commodities_enabled=self.commodities_enabled,
             commodity_symbols=list(self.commodity_symbols),
             cycle_interval=self.cycle_interval,
@@ -422,4 +618,17 @@ class PlatformConfig:
             simulated_outcome_horizon_seconds=self.simulated_outcome_horizon_seconds,
             platform_decisions_file=self.platform_decisions_file,
             platform_signals_file=self.platform_signals_file,
+            decision_gate_observer_enabled=self.decision_gate_observer_enabled,
+            decision_gate_audit_file=self.decision_gate_audit_file,
+            decision_gate_audit_rotation_bytes=self.decision_gate_audit_rotation_bytes,
+            decision_gate_audit_max_archives=self.decision_gate_audit_max_archives,
+            decision_gate_minimum_probability=self.decision_gate_minimum_probability,
+            decision_gate_minimum_confidence=self.decision_gate_minimum_confidence,
+            decision_gate_confidence_tolerance=self.decision_gate_confidence_tolerance,
+            stock_shadow_verification_enabled=self.stock_shadow_verification_enabled,
+            stock_shadow_verification_file=self.stock_shadow_verification_file,
+            stock_shadow_verification_rotation_bytes=self.stock_shadow_verification_rotation_bytes,
+            stock_shadow_verification_max_archives=self.stock_shadow_verification_max_archives,
+            stock_shadow_verification_horizon_seconds=self.stock_shadow_verification_horizon_seconds,
+            stock_shadow_verification_neutral_band_percent=self.stock_shadow_verification_neutral_band_percent,
         )

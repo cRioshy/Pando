@@ -62,6 +62,28 @@
       </article>
 
       <article class="panel wide">
+        <div class="panel-head">
+          <h2>Live Shadow Verification</h2>
+          <span id="shadowVerificationMode" class="section-note">Stocks · observer-only</span>
+        </div>
+        <div class="stats-grid">
+          <div><span>Shadow Cases</span><strong id="shadowCases">0</strong></div>
+          <div><span>Agreement</span><strong id="shadowAgreement">0</strong></div>
+          <div><span>Disagreement</span><strong id="shadowDisagreement">0</strong></div>
+          <div><span>Gate Blocks</span><strong id="shadowGateBlocks">0</strong></div>
+          <div><span>DEGRADED</span><strong id="shadowDegraded">0</strong></div>
+          <div><span>REJECTED</span><strong id="shadowRejected">0</strong></div>
+          <div><span>Pending Outcomes</span><strong id="shadowPending">0</strong></div>
+          <div><span>Completed Outcomes</span><strong id="shadowCompleted">0</strong></div>
+        </div>
+        <table>
+          <thead><tr><th>Zeit</th><th>Symbol</th><th>Quality</th><th>Legacy</th><th>Shadow</th><th>Risk</th><th>Agreement</th><th>Outcome</th><th>Reason</th><th>Detail</th></tr></thead>
+          <tbody id="shadowVerificationRows"></tbody>
+        </table>
+        <div id="shadowVerificationDetail" class="rows shadow-detail"></div>
+      </article>
+
+      <article class="panel wide">
         <h2>Commodities</h2>
         <table>
           <thead><tr><th>Symbol</th><th>Richtung</th><th>Wahrscheinlichkeit</th><th>Preis</th><th>Zeit</th></tr></thead>

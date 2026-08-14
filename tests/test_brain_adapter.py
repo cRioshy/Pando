@@ -44,7 +44,23 @@ class BrainAdapterTest(unittest.TestCase):
                         },
                         "private_reasoning": "must not be persisted",
                     },
-                    "features": {"training_only": list(range(500))},
+                    "features": {
+                        "training_only": list(range(500)),
+                        "metadata": {"data_quality": {
+                            "schema_name": "pandorickki.feature-data-quality",
+                            "schema_version": 1,
+                            "status": "PASS",
+                            "input_rows": 240,
+                            "accepted_rows": 240,
+                            "output_rows": 240,
+                            "dropped_rows": 0,
+                            "duplicate_rows": 0,
+                            "timestamped_rows": 240,
+                            "order": {"status": "VERIFIED", "reason": "sorted"},
+                            "warmup": {"status": "READY", "available_candles": 240},
+                            "warnings": ["must be omitted"],
+                        }},
+                    },
                     "market_data_diagnostics": {"responses": ["large"] * 500},
                 }
                 source_event = Event(
@@ -72,8 +88,10 @@ class BrainAdapterTest(unittest.TestCase):
                     encoded = json.dumps(compact)
                     self.assertNotIn("raw_result", encoded)
                     self.assertNotIn("features", encoded)
-                    self.assertNotIn("candles", encoded)
+                    self.assertNotIn('"candles"', encoded)
                     self.assertNotIn("private_reasoning", encoded)
+                    self.assertEqual(compact["feature_quality"]["status"], "PASS")
+                    self.assertNotIn("warnings", compact["feature_quality"])
                 self.assertLess(len(json.dumps(persisted)), len(json.dumps(market_payload)) // 4)
 
         asyncio.run(run())

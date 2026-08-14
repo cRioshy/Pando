@@ -1,8 +1,38 @@
 # Bekannte Probleme
 
-Stand: 8. August 2026
+Stand: 12. August 2026
 
 ## Offen
+
+### KP-025 – Stock- und Verification-Consumer blockierten den Gesamtzyklus
+
+- **Priorität:** hoch
+- **Status:** am 12. August 2026 technisch behoben und über drei Livezyklen verifiziert
+- **Ursache:** Die 45-Sekunden-Grenze umfasste zunächst nur den externen Legacy-Lauf; Quote-, Kerzen-, Feature- und Shadow-Normalisierung folgten synchron. Nach deren Entkopplung schrieb der synchrone Verification-Handler bis zu tausende fällige Outcomes innerhalb eines einzigen Stock-Ereignisses.
+- **Umsetzung:** Produktions-Stockpipeline als einzelner nicht wartender Hintergrundlauf; keine Überlappung. Verification-Aufarbeitung chronologisch und auf acht fällige Outcomes je Symbol/Quote begrenzt; append-only und restart-safe.
+- **Verifikation:** 299/299 Tests; final genau ein Listener, drei Stock- und drei Cryptozyklen, keine STALE-Dienste, null Sitzungsfehler, Telegram null Sendungen, Runtime-Stderr leer.
+- **Restbeobachtung:** Im 7-Tage-Lauf Durchsatz und `PENDING`-Rückstand beobachten. Batchgröße nicht ohne Messung erhöhen.
+
+### KP-024 – Stock-Shadow-Score besitzt noch keine unabhängige Kalibrierung
+
+- **Priorität:** mittel
+- **Status:** fachlicher Version-1-Vertrag und Mindestabdeckungen bestätigt; Datenstatus `INSUFFICIENT_DATA`, keine Implementierung und keine Laufzeitfreigabe
+- **Beobachtung:** Der öffentliche Shadow liefert einen transparenten `UNVALIDATED_HEURISTIC_SCORE`. Die fünf Marktphasenzyklen vom 10. August erzeugten 20 berechnete Shadows, wiederholten aber dieselben vier unterstützten Symbole und Tageskerzen. Da Stock-Verification im normalen Betrieb deaktiviert war, stehen null abgeschlossene unabhängige 24h-Outcomes für eine Kalibrierung bereit.
+- **Auswirkung:** Weder `shadow.probability` noch die aus Probability kopierte Brain-`confidence` dürfen als kalibrierte Erfolgswahrscheinlichkeit oder unabhängige Confidence gelten. Wiederholte Zyklen würden die Stichprobe künstlich aufblasen.
+- **Vertrag:** `pandorickki.stock-shadow-calibration` Version 1 trennt Score, `calibrated_probability` und Evidenz-Confidence, dedupliziert nach Symbol/Kerze/Policy/Version/Fingerprint und verlangt chronologische Holdout-Validierung.
+- **Sicherheitsregel:** Bei unzureichenden, korrelierten oder unvollständigen Outcomes keine Probability/Confidence erzeugen und niemals Gate, Telegram oder Orders automatisch koppeln.
+- **Nächster Schritt:** Den siebentägigen Stock-Verification-Lauf nur nach einer weiteren eigenen Laufzeitfreigabe als technische Datenqualitätsprüfung starten; auch danach nicht automatisch kalibrieren.
+
+### KP-023 – Live-Shadow-Outcome ist zunächst nur Forward-Mark-to-Market
+
+- **Priorität:** mittel
+- **Status:** Version-1-Vertrag implementiert; siebentägige Beobachtung ausdrücklich freigegeben und seit 10. August 2026, 19:03:44 Uhr Europe/Berlin aktiv
+- **Beobachtung:** Diskrete öffentliche Quotes beweisen keinen vollständigen Intraday-Pfad. Version 1 bewertet deshalb nach 24 Stunden den ersten strikt späteren Quote-Zeitstempel und behauptet keine Stop-/Zielberührung.
+- **Auswirkung:** Legacy/Shadow-WIN, LOSS und NEUTRAL sind vergleichbare Richtungs-Mark-to-Market-Ergebnisse, aber kein vollständiger Trade-Backtest. HOLD oder fehlende Daten bleiben `UNKNOWN`; fehlende spätere Quotes bleiben `PENDING`.
+- **Kurzlauf:** Drei Zyklen erzeugten 15 eindeutige Stockfälle und 15 Decision-Links. 12 Fälle sind erwartungsgemäß `PENDING`; drei `SPCX`-Fälle bleiben wegen fehlendem öffentlichem Ticker `UNKNOWN`. Es gab 9 `LEGACY_HOLD_SHADOW_ACTION`, 3 `MATCH` und 3 nicht vergleichbare Fälle.
+- **Sicherheitsregel:** Aus der Verification keine automatische Regel-, Gate-, Telegram- oder Orderänderung ableiten und keine Aussage „Shadow ist besser“ automatisch erzeugen.
+- **Aktiver Lauf:** Fingerprint `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`, 24h-Horizont, 0,05-%-Neutralband. Nach zwei Zyklen zehn neue Fälle; zwölf zugleich abgeschlossene Outcomes stammen aus dem früheren Kurzlauf und werden zeitlich getrennt.
+- **Nächster Schritt:** Lauf am 17. August 2026 nach mindestens sieben Tagen kontrolliert stoppen, alte Kurzlaufdaten abgrenzen, unabhängige Fälle deduplizieren und ausschließlich deskriptiv auswerten. Keinen Fit starten.
 
 ### KP-001 – Storage-Scan überschreitet das Zeitlimit
 
@@ -24,13 +54,52 @@ Stand: 8. August 2026
 - **Entschärfung:** NeuroBrain-Datei- und Status-I/O wurde am 2. August 2026 über eine begrenzte FIFO-Queue und einen einzelnen Batch-Worker entkoppelt. Andere Handler bleiben synchron.
 - **Nächster Fix:** verbleibende langsame Consumer anhand realer Messungen identifizieren und nur bei Befund gezielt entkoppeln; nicht ungeprüft den vollständigen EventBus ersetzen.
 
-### KP-004 – Brain und Decision Core besitzen kein unabhängiges Freigabe-Gate
+### KP-004 – Brain und Decision Core besitzen kein aktives Freigabe-Gate
 
 - **Priorität:** mittel
-- **Status:** offen
-- **Beobachtung:** Brain persistiert und reicht weiter; Decision Core normalisiert deterministisch.
+- **Status:** Vertrag und separater Audit-Observer implementiert; seit 9. August 2026 diagnostisch mit 60/60 und Toleranz 0 aktiv; produktive Freigabe weiterhin offen
+- **Beobachtung:** Brain persistiert und reicht weiter; der aktive Decision Core normalisiert deterministisch und erzeugt aus jedem Brain-Ereignis Decision und Signal. Der `decision_gate_observer` prüft dieselben Brain-Ereignisse parallel fail-closed und auditiert begrenzt, beeinflusst aber den aktiven Pfad nicht. Vier Livezyklen ergaben 32/32 `BLOCKED`, null unsichere Freigaben und keinen Observerfehler.
 - **Auswirkung:** Modulnamen können eine fachliche Prüfung suggerieren, die nicht implementiert ist.
-- **Sicherheitsregel:** Daraus niemals automatische oder reale Orders ableiten.
+- **Sicherheitsregel:** Der Vertrag setzt stets `ready_for_telegram=false` und `order_execution_allowed=false`. Daraus niemals automatische oder reale Orders ableiten.
+- **Nächster Fix:** Audit über einen längeren Zeitraum auswerten und zuerst die vorgelagerten Stock-Preis-/Qualitäts-/Risikofelder als eigenen Vertrag prüfen. Den bestehenden Signalpfad noch nicht umschalten.
+
+### KP-021 – Confidence ist derzeit keine unabhängige Gate-Messgröße
+
+- **Priorität:** mittel
+- **Status:** offen, durch Liveaudit bestätigt
+- **Beobachtung:** `BrainAdapter` setzt `confidence` gleich `probability`. Im 272-Kandidaten-Snapshot waren Probability und Confidence deshalb stets identisch; beide 60er-Schwellen prüfen faktisch dieselbe Zahl.
+- **Auswirkung:** `DG_CONFIDENCE_CONFLICT` kann im heutigen Brain-Pfad keine Abweichung zweier unabhängiger Bewertungen erkennen. Eine produktive Freigabe würde die Sicherheit der doppelten Prüfung überschätzen.
+- **Nächster Fix:** Vor jeder Gate-Umschaltung einen fachlichen Confidence-Vertrag definieren: unabhängige Quelle und Kalibrierung oder ehrliche Entfernung/Umbenennung der redundanten Freigaberegel.
+
+### KP-022 – Stock kann den sicheren Gate-Vertrag derzeit nicht erfüllen
+
+- **Priorität:** mittel
+- **Status:** Datenvertrag, read-only Kerzen-Audit, öffentlicher Shadow-Kandidat und observer-only ATR-Risikoplan integriert; unabhängige Confidence und aktive Gate-Kopplung weiterhin offen
+- **Beobachtung:** Im Snapshot waren 170/170 Stock-Kandidaten `WARN/UNVERIFIED/WARMING`. Alle 31 Stock-LONG-Kandidaten scheiterten zusätzlich an Stop und Take-Profit, weil `StockAdapter._normalize_decision()` keinen normalisierten `risk`-Block erzeugt. SPCX hatte in 34/34 Fällen keinen positiven Livepreis.
+- **Auswirkung:** Auch Stock-Kandidaten über Probability 60 bleiben korrekt blockiert. Ein Lockern der Gate-Regeln würde unvollständige Daten freigeben.
+- **Vertrag vom 9. August 2026:** `pandorickki.stock-data` Version 1 verlangt eine öffentliche Livequelle, vollständige Zeitstempel, explizite Kerzen-/Warmupgrenzen, eine aktuelle jüngste Kerze, frischen positiven Preis und normalisierten Richtungs-Risikoplan. Die Referenz ist ausschließlich als read-only Audit in den Adapter integriert und nicht mit dem aktiven Feature-/Decision-/Signalpfad gekoppelt.
+- **Liveaudit:** AAPL lieferte 260/260 `PASS/VERIFIED/READY`. Im ersten Plattformzyklus wurden vier von fünf Symbolhistorien geladen; `SPCX` blieb ohne Provideraufruf blockiert. 0/5 Kandidaten waren `READY`, weil aktive Richtung/Probability weiter aus Placeholder-Daten stammen und `risk` fehlt.
+- **Shadow-Stand:** Version 1 berechnet Fakten, Direction und einen transparenten `UNVALIDATED_HEURISTIC_SCORE` ausschließlich aus öffentlichen Daten. Legacy und Shadow werden mit `affects_active_decision=false` verglichen; die aktive Placeholder-Decision wird nicht aufgewertet. 283/283 Tests bestanden.
+- **Risikoplan-Stand:** Version 1 verwendet öffentlichen Entry, ATR14 mit 0,5-%-Mindestdistanz sowie 1R/2R/3R-Ziele. Er bleibt vollständig außerhalb des aktiven Eventpfads. 289/289 Tests bestanden.
+- **Liveprüfung:** Zwei Sonntagszyklen lieferten 8 Shadows und 6 gültige Pläne; HOLD und `SPCX` blockierten. Alle Daten-Audits blieben wegen Quote-Freshness beziehungsweise fehlender Eignung sicher blockiert. Plattformfehler, STALE und Telegram-Sendungen blieben null.
+- **US-Marktphasenmessung vom 10. August 2026:** Fünf vollständige Zyklen lieferten 20 berechnete Shadows (10 LONG, 5 SHORT, 5 HOLD), 15 gültige Risikopläne und 25 Audits mit 15 `READY`/10 `BLOCKED`. Die vier unterstützten Symbole hatten 8,737 bis 19,505 Sekunden alte Quotes; `SPCX` blieb ohne Quote, HOLD blieb ohne Risikoplan. Keine Health-, STALE-, Telegram- oder Orderabweichung.
+- **Nächster Fix:** Über eine echte Marktphase Shadow-/Risikoplan- und Daten-Audit-Verteilungen beobachten. Danach eine unabhängige Confidence beziehungsweise ehrliche Kalibrierungsstrategie definieren; keine Gate-Umschaltung. `SPCX` weiter blockieren.
+
+### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
+
+- **Priorität:** niedrig
+- **Status:** einmalig beobachtet; direkte und vollständige Wiederholung grün
+- **Beobachtung:** Ein Gesamtlauf bestand 264 fachliche Tests, endete aber beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test einmal mit `WinError 145` (Verzeichnis nicht leer). Derselbe Test bestand direkt danach isoliert.
+- **Auswirkung:** Kein Hinweis auf eine fachliche Regression des Decision Gates; die Wiederholung bestand 265/265 Tests.
+- **Nächster Fix:** Nur bei erneuter Reproduktion den noch schreibenden Learning-/Storage-Worker gezielt instrumentieren.
+
+### KP-020 – Sandbox-Starts besitzen keinen Zugriff auf öffentliche Marktdaten
+
+- **Priorität:** niedrig, betriebliche Entwicklungsumgebung
+- **Status:** verstanden und durch kontrollierten Netzwerkstart umgangen
+- **Beobachtung:** Zwei kontrollierte Startversuche innerhalb der eingeschränkten Codex-Sandbox erzeugten sechs neue `CRYPTO_SERVICE_ERROR`-Journalzeilen mit `WinError 10013` für Binance und Bitget. Beide Prozesse wurden geordnet beendet. Beim anschließend ausdrücklich freigegebenen Netzwerkstart arbeiteten Crypto und Stock über vier Zyklen fehlerfrei; seit dessen Start entstand kein neuer Dienstfehler.
+- **Auswirkung:** Kein Produktcodefehler und kein Datenverlust. Ein Sandbox-Prozess kann Live-Crypto jedoch nicht sinnvoll verifizieren.
+- **Nächster Fix:** Live-Crypto-Starts aus Codex weiterhin nur mit der vorgesehenen Netzwerkfreigabe ausführen; Journalzeilen nicht löschen oder umschreiben.
 
 ### KP-005 – Telegram umgeht die finale Entscheidungskette
 
@@ -38,7 +107,7 @@ Stand: 8. August 2026
 - **Status:** offen
 - **Beobachtung:** Telegram abonniert Crypto-/Stock-Analysen und simulierte Crypto-Trade-Updates direkt.
 - **Auswirkung:** Eine Nachricht kann vor oder unabhängig von `DECISION_CREATED`/`SIGNAL_CREATED` entstehen.
-- **Sicherheitsregel:** Telegram deaktiviert beziehungsweise im Dry-Run lassen, bis ein explizites Gate entworfen und freigegeben ist.
+- **Sicherheitsregel:** Telegram deaktiviert beziehungsweise im Dry-Run lassen, bis der vorhandene Gate-Vertrag als Observer live ausgewertet und die spätere Kopplung separat freigegeben ist.
 
 ### KP-006 – Keine zentrale Retention-Policy
 
@@ -51,11 +120,11 @@ Stand: 8. August 2026
 ### KP-007 – Feature-Eingänge werden nicht strikt validiert
 
 - **Priorität:** mittel
-- **Status:** auf `agent/feature-data-quality-contract` implementiert und getestet; Merge und kontrollierter Plattformneustart noch offen
+- **Status:** am 8. August 2026 über PR #22 behoben, nach `main` gemergt und kontrolliert live verifiziert
 - **Behoben:** Vertrag `pandorickki.feature-data-quality` Version 1 prüft OHLCV, Non-Finite-Werte und Mindestanzahl, sortiert vollständig zeitgestempelte Reihen, behandelt Duplikate deterministisch mit `keep_last` und weist Warmup sowie unverifizierte Reihenfolge explizit aus.
 - **Kompatibilität:** Ein valider Einzelsnapshot bleibt erlaubt, wird aber als `WARMING` gekennzeichnet. Bestehende Legacy-Entscheidungen und History werden nicht verändert.
-- **Verifikation:** 30/30 gezielte Adapter-/Feature-/Integrationstests und 251/251 Gesamttests bestanden. Ein isolierter Realtest akzeptierte 240/240 Binance-Kerzen mit `PASS`, `VERIFIED`, `READY` und null Verstößen.
-- **Restpunkt:** Nach Merge einmal kontrolliert mit der vollständigen Plattform starten und neue Crypto-/Stock-Feature-Metadaten prüfen.
+- **Verifikation:** 30/30 gezielte Tests auf dem gemergten `main`, zuvor 251/251 Gesamttests. Ein direkter Realtest akzeptierte 240/240 Binance-Kerzen mit `PASS`, `VERIFIED`, `READY` und null Verstößen. Vier Produktionszyklen liefen mit allen zehn Services `OK`, null Sitzungsfehlern und aktuellen Crypto-/Aktienwerten.
+- **Bewusste Grenze:** Der Stock-Fallback bleibt ein zeitstempelloser Einzelsnapshot und meldet deshalb korrekt `WARN`, `UNVERIFIED` und `WARMING`. Ob solche Daten für eine Meldung genügen, entscheidet erst das noch zu implementierende fachliche Decision Gate.
 
 ### KP-009 – Portabilität durch lokale Windows-Pfade eingeschränkt
 

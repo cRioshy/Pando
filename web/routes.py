@@ -130,6 +130,22 @@ class RouteMixin:
             "/api/learning-report": app.api_learning_report,
         }
         handler = routes.get(path)
+        if handler is None and path == "/api/shadow-verification/summary":
+            try:
+                days = int((query.get("days") or ["7"])[0])
+                limit = int((query.get("limit") or ["50"])[0])
+            except ValueError:
+                self._send_json({"error": "days and limit must be integers"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(app.api_shadow_verification_summary(days=days, limit=limit))
+            return
+        if handler is None and path.startswith("/api/shadow-verification/"):
+            verification_id = unquote(path.removeprefix("/api/shadow-verification/"))
+            try:
+                self._send_json(app.api_shadow_verification_detail(verification_id))
+            except KeyError:
+                self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            return
         if handler is None and path == "/api/v1/graph/full":
             raw = (query.get("min_edge_weight") or ["0"])[0]
             try:

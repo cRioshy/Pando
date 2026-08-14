@@ -52,6 +52,8 @@ LIVE_WEB_TOPICS = {
     "SIMULATED_TRADE_OPENED",
     "SIMULATED_TRADE_UPDATED",
     "SIMULATED_TRADE_CLOSED",
+    "STOCK_SHADOW_VERIFICATION_UPDATED",
+    "STOCK_SHADOW_VERIFICATION_HEARTBEAT",
     STATISTICS_UPDATED,
 }
 
@@ -255,6 +257,7 @@ class WebControlServer:
             }
 
         self._apply_stale_heartbeats(base)
+        base["shadow_verification"] = self.api_shadow_verification_summary(days=7, limit=50)
         base["web"] = {
             "running": self._running,
             "url": self.url,
@@ -340,6 +343,56 @@ class WebControlServer:
             "analyses": snapshot.get("last_stock_analysis", {}),
         }
 
+    def api_shadow_verification_summary(self, *, days: int = 7, limit: int = 50) -> dict[str, Any]:
+        """Return the compact stock-only observer summary."""
+
+        adapter = self._shadow_verification_adapter()
+        if adapter is not None and hasattr(adapter, "snapshot"):
+            result = adapter.snapshot(days=days, limit=limit)
+            result["enabled"] = True
+            return result
+        return {
+            "schema_name": "pandorickki.stock-shadow-verification-summary",
+            "schema_version": 1,
+            "mode": "OBSERVER_ONLY",
+            "asset_scope": "stock",
+            "enabled": False,
+            "days": min(max(int(days), 1), 365),
+            "summary": {
+                "shadow_cases": 0,
+                "comparable_cases": 0,
+                "agreement": 0,
+                "disagreement": 0,
+                "agreement_rate_percent": None,
+                "disagreement_rate_percent": None,
+                "gate_blocks": 0,
+                "data_quality": {"OK": 0, "DEGRADED": 0, "REJECTED": 0},
+                "shadow_gate": {"PASS": 0, "BLOCK": 0, "HOLD": 0, "UNKNOWN": 0},
+                "outcomes": {"PENDING": 0, "COMPLETED": 0, "UNKNOWN": 0},
+            },
+            "disagreement_outcome_matrix": [],
+            "records": [],
+            "ready_for_telegram": False,
+            "order_execution_allowed": False,
+        }
+
+    def api_shadow_verification_detail(self, verification_id: str) -> dict[str, Any]:
+        """Return one read-only stock verification record."""
+
+        adapter = self._shadow_verification_adapter()
+        if adapter is None or not hasattr(adapter, "detail"):
+            raise KeyError(verification_id)
+        record = adapter.detail(verification_id)
+        if record is None:
+            raise KeyError(verification_id)
+        return {
+            "mode": "OBSERVER_ONLY",
+            "asset_scope": "stock",
+            "record": record,
+            "ready_for_telegram": False,
+            "order_execution_allowed": False,
+        }
+
     def api_commodities(self) -> dict[str, Any]:
         """Return latest commodity data."""
 
@@ -413,6 +466,7 @@ class WebControlServer:
             "web_host": self.host,
             "web_port": self.port,
             "storage_scan_interval_seconds": config.storage_scan_interval_seconds,
+            "stock_shadow_verification_enabled": config.stock_shadow_verification_enabled,
         }
 
     def api_statistics(self) -> dict[str, Any]:
@@ -644,16 +698,25 @@ class WebControlServer:
         if control is not None and hasattr(control, "get_status"):
             snapshot = control.get_status()
             self._apply_stale_heartbeats(snapshot)
+            snapshot["shadow_verification"] = self.api_shadow_verification_summary(days=7, limit=50)
             return self._sanitize(snapshot)
         shared = self.orchestrator.shared_state.to_dict()
-        return self._sanitize(
-            {
-                "last_crypto_price": shared.get("values", {}).get("last_crypto_price", {}),
-                "last_crypto_analysis": shared.get("values", {}).get("last_crypto_analysis", {}),
-                "last_stock_price": shared.get("values", {}).get("last_stock_price", {}),
-                "last_stock_analysis": shared.get("values", {}).get("last_stock_analysis", {}),
-            }
-        )
+        snapshot = {
+            "last_crypto_price": shared.get("values", {}).get("last_crypto_price", {}),
+            "last_crypto_analysis": shared.get("values", {}).get("last_crypto_analysis", {}),
+            "last_stock_price": shared.get("values", {}).get("last_stock_price", {}),
+            "last_stock_analysis": shared.get("values", {}).get("last_stock_analysis", {}),
+            "shadow_verification": self.api_shadow_verification_summary(days=7, limit=50),
+        }
+        return self._sanitize(snapshot)
+
+    def _shadow_verification_adapter(self) -> Any | None:
+        """Return the optional stock-only verification observer."""
+
+        for adapter in self.orchestrator.adapters:
+            if getattr(adapter, "name", None) == "stock_shadow_verification":
+                return adapter
+        return None
 
     def live_event_snapshot(self) -> dict[str, Any]:
         """Build a lightweight browser snapshot for high-frequency events."""

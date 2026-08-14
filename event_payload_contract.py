@@ -5,6 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Mapping
 
+from feature_data_quality_contract import project_feature_data_quality
+
 
 CONTRACT_NAME = "pandorickki.compact-market-event"
 CONTRACT_VERSION = 1
@@ -53,6 +55,21 @@ CONSUMER_FIELD_REQUIREMENTS: dict[str, frozenset[str]] = {
             "risk",
             "source_event_id",
             "source_timestamp",
+        }
+    ),
+    "decision_gate_observer": frozenset(
+        {
+            "market_type",
+            "symbol",
+            "direction",
+            "probability",
+            "confidence",
+            "price",
+            "current_price",
+            "facts",
+            "risk",
+            "feature_quality",
+            "source_event_id",
         }
     ),
     "crypto_trade_tracker": frozenset(
@@ -217,6 +234,9 @@ def compact_market_payload(value: Mapping[str, Any]) -> dict[str, Any]:
     result["market_context"] = (
         _without_forbidden(context) if isinstance(context, Mapping) else _legacy_market_context(raw_result)
     )
+    feature_quality = project_feature_data_quality(data)
+    if feature_quality is not None:
+        result["feature_quality"] = feature_quality
     return result
 
 

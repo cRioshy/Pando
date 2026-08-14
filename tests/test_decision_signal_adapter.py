@@ -44,6 +44,19 @@ class DecisionSignalAdapterTest(unittest.TestCase):
                     "source_timestamp": "2026-08-01T18:00:00+00:00",
                     "indicators": {"atr": 250.0},
                     "risk": {"stop_loss": 63000.0},
+                    "feature_quality": {
+                        "schema_name": "pandorickki.feature-data-quality",
+                        "schema_version": 1,
+                        "status": "PASS",
+                        "input_rows": 240,
+                        "accepted_rows": 240,
+                        "output_rows": 240,
+                        "dropped_rows": 0,
+                        "duplicate_rows": 0,
+                        "timestamped_rows": 240,
+                        "order": {"status": "VERIFIED", "reason": "sorted"},
+                        "warmup": {"status": "READY", "available_candles": 240},
+                    },
                     "raw_result": {
                         "result": "OPEN",
                         "market_data": {
@@ -86,8 +99,9 @@ class DecisionSignalAdapterTest(unittest.TestCase):
                     encoded = json.dumps(compact)
                     self.assertNotIn("raw_result", encoded)
                     self.assertNotIn("features", encoded)
-                    self.assertNotIn("candles", encoded)
+                    self.assertNotIn('"candles"', encoded)
                     self.assertNotIn("private_reasoning", encoded)
+                    self.assertEqual(compact["feature_quality"]["status"], "PASS")
                 self.assertEqual(decision_record["source_event_id"], "analysis-compact-1")
                 self.assertEqual(signal_record["decision_id"], decision_record["decision_id"])
                 self.assertEqual(signal_record["decision_event_id"], decisions[0].event_id)

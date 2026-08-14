@@ -1,6 +1,59 @@
 # Nächste Schritte
 
-Stand: 8. August 2026
+Stand: 12. August 2026
+
+## Market Regime Contract v1
+
+- **Phase 0 abgeschlossen:** Stock-/Polling-/Verification-Stand mit 50/50 gezielten und 299/299 vollständigen Tests als Commit `95d5d54` auf `agent/integrate-decision-gate-observer` veröffentlicht.
+- Draft-PR #23 bleibt offen, Draft, ungemergt und gegen `main`; lokaler und entfernter Branch sind synchron.
+- **Exakter nächster Schritt:** `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head erstellen und dort ausschließlich den observer-only Drei-Achsen-Vertrag für Trend, Volatilität und Trendphase beginnen. Keine Decision-, Gate-, Telegram- oder Orderkopplung.
+
+## Wiederaufnahme nach PC-Ausfall
+
+- PandorickKi wurde am 12. August 2026 um 12:51 Uhr Europe/Berlin mit unverändertem Verification-Fingerprint sicher wieder gestartet. Die ungefähr zwölfstündige Erfassungslücke bleibt als reale Laufunterbrechung sichtbar; vorhandene Ledgerdaten wurden nicht verändert.
+- Health, Web und Verification sind `OK`; Verification ist aktiv, Telegram aus/Dry-Run und Orderfreigabe `false`.
+- Der reproduzierte Stock-/Polling-Freeze ist behoben: Stock läuft nicht wartend im Hintergrund; fällige Verification-Outcomes werden in 8er-Batches je Symbol/Quote nachgearbeitet.
+- Live verifiziert: genau ein Listener, drei Stock-/Cryptozyklen, keine STALE-Dienste, null Sitzungsfehler, Telegram aus/Dry-Run/null Sendungen.
+- **Nächster Schritt:** Den laufenden 7-Tage-Betrieb unverändert beobachten und beim Abschluss den `PENDING`-Rückstand sowie die kanonisch unabhängigen Fälle auswerten. Batchgröße nicht automatisch optimieren und keinen Fit starten.
+
+## Stock-Shadow-Score- und Confidence-Kalibrierung
+
+- **Vertrag entworfen und gegen Code/Marktphasenmessung reviewt:** `pandorickki.stock-shadow-calibration` Version 1 trennt Rohscore, kalibrierte 24h-Erfolgswahrscheinlichkeit und unabhängige Evidenz-Confidence.
+- Wiederholte Zyklen derselben Tageskerze werden als korrelierte Wiederholungen ausgeschlossen; Fit und Holdout müssen chronologisch getrennt sein.
+- Heutiger Status: `INSUFFICIENT_DATA`. Es existieren null abgeschlossene unabhängige 24h-Verification-Outcomes; daher keine Kalibrierung, keine Confidence und keine Gate-Wirkung.
+- **Bestätigte erste Forschungsgrenze:** mindestens 400 unabhängige LONG-/SHORT-Outcomes, 100 je Richtung, 30 Handelstage, vier unterstützte Symbole und 40 Fälle je ausgewertetem Bucket. Auch `VALIDATED_OBSERVER` bleibt ohne Freigabewirkung.
+- **Siebentägiger Lauf aktiv:** ausdrücklich freigegeben und am 10. August 2026 um 19:03:44 Uhr Europe/Berlin mit Fingerprint `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747` gestartet. Nach zwei Zyklen zehn neue append-only Fälle; Health und alle zwölf Services `OK`, Telegram-/Orderflags `false`.
+- **Exakter nächster Schritt:** Am 17. August 2026 um 19:10 Uhr Abschlusswerte erfassen, kontrolliert stoppen und nur Datenqualität, Outcome-Abdeckung sowie kanonisch unabhängige Fälle auswerten. Frühere Kurzlauf-Outcomes zeitlich trennen; keinen Fit starten.
+
+## Aktueller Betrieb
+
+- **US-Marktphasenprüfung abgeschlossen:** 10. August 2026, 18:05:44 bis 18:11:32 Uhr Europe/Berlin; fünf vollständige Stockzyklen und 25 Audits.
+- Ergebnis: 20 Shadows = 10 LONG/5 SHORT/5 HOLD; 15 berechnete und 10 blockierte Risikopläne; Stock-Daten 15 `READY`/10 `BLOCKED`. AAPL/MSFT/NVDA/TSLA hatten 8,737 bis 19,505 Sekunden alte Yahoo-Quotes; `SPCX` blieb ohne belegbaren Quote-Zeitstempel blockiert.
+- Sicherheit: Plattform gesund, 0 Sitzungsfehler, 0 STALE, Telegram aus/Dry-Run/0 Sendungen, Verification deaktiviert, keine Orderfreigabe und keine Observerfelder in der aktiven Stock-Projektion.
+- Der separate Confidence-/Score-Kalibrierungsvertrag ist entworfen und reviewt; Ergebnis `INSUFFICIENT_DATA`. Keine Gate-Umschaltung, Telegram-/Orderkopplung oder siebentägige Verification gestartet.
+
+- PandorickKi wurde am 9. August 2026 um 18:23 Uhr nach dem kurzen Verification-Lauf wieder normal gestartet. Health, Webserver, WebSocket, Statistik und alle elf normalen Services sind `OK`.
+- Stock-Verification bleibt im normalen Start ausdrücklich deaktiviert; Telegram und Orders bleiben gesperrt. Der siebentägige Lauf wurde nicht gestartet.
+- Veröffentlichungskontrolle des lokalen Verification-Stands: 297/297 Tests in 55,246 Sekunden bestanden; Syntax-, Diff- und Secret-Prüfung sauber.
+- Implementierungscommit `53f1c8fe650889aff2d867f7f9dc75ac9799184a` ist auf `origin/agent/integrate-decision-gate-observer` veröffentlicht. PR #23 ist wieder `OPEN`, `Draft`, `CLEAN` und `MERGEABLE`; `main` blieb unverändert.
+
+## Stock Live-Shadow-Verification
+
+- **Implementiert und kurz kontrolliert verifiziert:** Version-1-Vertrag, deterministische IDs, append-only/restart-safe Ledger, Decision-/Tracker-Verknüpfung, getrennte Legacy-/Shadow-Outcomes, read-only 7-Tage-Aggregation, Detail-API und Control-Center-Bereich.
+- Crypto ist ausdrücklich ausgeschlossen; produktive Stock-, Brain-, Decision-, Signal-, Outcome-, Learning-, Telegram- und Orderlogik blieb unverändert.
+- Gezielte Tests: 34/34 bestanden. Der abschließende Gesamtlauf bestand mit 297/297 Tests in 42,693 Sekunden; JavaScript-Syntax und `git diff --check` waren sauber. Ein dazwischenliegender Gesamtlauf traf einmalig den bereits dokumentierten KP-019-Windows-Fehler (`WinError 145`) beim Aufräumen eines temporären Learning-Report-Verzeichnisses; der betroffene Test bestand isoliert mit 1/1 und die unmittelbar folgende vollständige Wiederholung mit 297/297.
+- Kontrollierter Lauf: genau drei Zyklen, anschließend automatischer Stop; alle zwölf Dienste `OK`, 15 eindeutige Fälle und 15 Decision-Links, 12 `PENDING`, 3 erwartete `SPCX`-`UNKNOWN`, keine Rohkerzen oder `raw_result`, alle Telegram-/Order-/Active-Decision-Flags `false`, Port 8000 geschlossen.
+- Der normale Starter aktiviert die Verification weiterhin nicht automatisch. Der siebentägige Lauf wurde nicht gestartet.
+- Draft-PR #23 bleibt offen und Draft; `main` ist unverändert.
+- **Nächster Schritt:** Ergebnisbericht prüfen. Erst nach ausdrücklicher Freigabe Verification für ungefähr sieben Tage mit unverändertem Konfigurationsfingerprint aktivieren; keine automatische Optimierung oder Gate-Umschaltung.
+
+## Veröffentlichung der observer-only Stock-Pipeline
+
+- **Veröffentlicht am 9. August 2026:** Commit `4258111ebe51175e06d4ece363bf9c5b7c23f28a` liegt auf `origin/agent/integrate-decision-gate-observer`.
+- Vollständige Testsuite: 289/289 bestanden; Diff-, Scope- und Secret-Prüfung ohne Inhalts- oder Sicherheitsfehler.
+- Draft-PR #23 gegen `main` ist offen und ausdrücklich nicht gemergt: `https://github.com/cRioshy/Pando/pull/23`.
+- `main`, aktiver Legacy-Decision-/Signalpfad, Telegram und Orderausführung wurden nicht verändert.
+- **Nächster Schritt:** Die aktive einmalige read-only US-Marktprüfung am 10. August 2026 um 15:40 Uhr Europe/Berlin abwarten und danach mindestens fünf vollständige Stockzyklen auswerten. Erst anschließend unabhängige Confidence beziehungsweise Score-Kalibrierung planen.
 
 ## Aktuelle Integrationsphase
 
@@ -13,8 +66,22 @@ Stand: 8. August 2026
 - Storage meldete 145 physische Dateien, 2.548.436 Datensätze und 10,52 GB als `VERIFIED`. `DEGRADED` stammt ausschließlich aus zwei bekannten beschädigten historischen Stock-Backup-JSONs.
 - Die Abschlussdokumentation aus PR #20 wurde nach ausdrücklicher Freigabe gemergt; `origin/main` steht auf `b8af62f`.
 - Draft-PR #21 enthält ausschließlich den Merge-Abschlussnachtrag und bleibt offen sowie ungemergt: `https://github.com/cRioshy/Pando/pull/21`.
-- Der Feature-Datenqualitätsvertrag Version 1 ist auf `agent/feature-data-quality-contract` als lokaler Commit `9470b47` implementiert: 30/30 gezielte und 251/251 vollständige Tests sowie ein isolierter Realtest mit 240/240 validen Binance-Kerzen bestanden. Die öffentliche Veröffentlichung wartet auf ausdrückliche Freigabe.
-- Nächster technischer Schritt nach Merge und Plattform-Liveprüfung ist der fachliche Decision-Gate-Vertrag.
+- Der Feature-Datenqualitätsvertrag Version 1 wurde über PR #22 nach `main` gemergt; `origin/main` steht auf `14e19bf`. Nach kontrolliertem Neustart liefen vier vollständige Crypto-/Stock-Zyklen mit allen zehn Services `OK`, null Sitzungsfehlern, NeuroBrain Queue/Drops null sowie Telegram aus/Dry-Run.
+- Direkte Qualitätsprüfung: Crypto `PASS/VERIFIED/READY` mit 240/240 Binance-Kerzen und null Verstößen; Stock-Einzelsnapshot erwartungsgemäß `WARN/UNVERIFIED/WARMING` ohne Featurefehler.
+- Der fachliche Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 ist lokal implementiert und mit zehn Vertragstests sowie 261/261 Gesamttests geprüft. Er arbeitet ausschließlich als aufrufbare Observer-Referenz, verlangt explizite Schwellen, blockiert unvollständige Qualität/Fakten/Risiken fail-closed und kann weder Telegram noch Orders freigeben.
+- **Lokal und live umgesetzt:** Die kompakte `feature_quality`-Projektion erreicht Brain, Decision und Signal. Der separate `decision_gate_observer` ist im Web-Starter nach ausdrücklicher Freigabe diagnostisch mit Probability 60, Confidence 60 und Toleranz 0 aktiv; der bestehende Decision-/Signalpfad ist unverändert.
+- **Verifikation:** Gezielte Suite 35/35 und vollständige Wiederholung 265/265 bestanden. Der einmalige Windows-Temp-Cleanupfehler war nicht reproduzierbar.
+- **Liveverifikation:** Vier vollständige Zyklen, 11/11 Services `OK`, 32 eindeutige Audits (12 Crypto, 20 Stock), 0 `QUALIFIED`, 32 `BLOCKED`, null Telegram-/Orderfreigaben, Telegram aus/Dry-Run und keine neuen Dienstfehler seit dem freigegebenen Netzwerkstart.
+- **Historischer Gate-Audit-Schritt abgeschlossen:** Reason Codes wurden ausgewertet und der Stock-Datenvertrag anschließend um öffentliche Kerzen, Shadow und observer-only Risikoplan ergänzt. Aktiver Signal- und Telegrampfad blieben unverändert.
+- **Erste erweiterte Auswertung abgeschlossen:** eingefrorener 39-Minuten-Snapshot mit 272 Kandidaten, 2 technisch qualifizierten ETHUSDT-LONG-Fällen, 270 Blockierungen und null unsicheren Freigaben. Bericht: `docs/DECISION_GATE_AUDIT_REPORT.md`.
+- **Weiterhin nachgewiesene Grenzen:** Confidence dupliziert derzeit Probability; `SPCX` besitzt keinen belegten öffentlichen Ticker. Der öffentliche Stockpfad bleibt am Wochenende wegen Quote-Freshness korrekt blockiert.
+- **Stock-Datenvertrag integriert:** `pandorickki.stock-data` Version 1 prüft den getrennten öffentlichen Shadow einschließlich Risikoplan mit expliziter Policy und Reason Codes. Telegram und Orders bleiben immer gesperrt.
+- **Read-only Tageskerzenprovider und Audit erledigt:** Yahoo query1/query2, 15-Minuten-Cache, Tickerblock für `SPCX`, kompakte Service-Telemetrie und strikt lokale Kerzenprüfung sind aktiv. Echt: AAPL 260/260 `PASS/VERIFIED/READY`; erster Plattformzyklus 4 erfolgreiche Historien, 1 erwarteter SPCX-Block, 0/5 `READY`. 44/44 gezielte und 278/278 Gesamttests bestanden.
+- **Stock-Shadow-Kandidat erledigt und live geprüft:** `pandorickki.stock-shadow-candidate` Version 1 berechnet kompakte Fakten, Direction und einen ausdrücklich unkalibrierten Heuristikscore vollständig aus öffentlichen Kerzen und Kurs. Legacy und Shadow bleiben getrennt vergleichbar; `affects_active_decision=false`, keine Publikation/Persistenz und keine Telegram-/Orderfreigabe. Der Risikoplan wird ausschließlich durch den separaten Shadow-Risikovertrag ergänzt.
+- **Observer-only Stock-Risikoplan erledigt:** `pandorickki.stock-shadow-risk` Version 1 verwendet öffentlichen Entry, ATR14/0,5-%-Mindestdistanz, Stop bei 1R und Ziele bei 1R/2R/3R. HOLD/ungültige Daten blockieren. Shadow-, Risiko- und Auditfelder werden vor dem aktiven Event entfernt. 37/37 gezielte und 289/289 Gesamttests bestanden.
+- **Liveprüfung abgeschlossen:** Zwei vollständige Zyklen lieferten 8 öffentliche Shadows, 6 gültige LONG-/SHORT-Risikopläne, 2 HOLD-Blocks und 2 erwartete `SPCX`-Blocks. Plattform/Services gesund, 0 Sitzungsfehler, 0 STALE, NeuroBrain Queue/Drops 0 und Telegram-Sendungen 0. Die Daten-Audits blieben am Sonntag aufgrund Quote-Freshness/HOLD/SPCX sicher blockiert.
+- **Marktphasenprüfung vorbereitet:** Einmalige lokale Automation für Montag, 10. August 2026, 15:40 Uhr Europe/Berlin ist als App-Bestätigungskarte vorbereitet. Nach Bestätigung beobachtet sie mindestens fünf Zyklen read-only und verändert weder Code noch Prozesse, Gate, Telegram oder Orders.
+- **Nächster Schritt:** Automationskarte bestätigen und die Messung abwarten. Danach anhand der frischen Marktwerte eine unabhängige Confidence oder ehrliche Score-Kalibrierung planen. Keine Gate-, Telegram- oder Orderkopplung.
 
 ## Verbindliche Reihenfolge
 
@@ -113,12 +180,19 @@ Stand: 8. August 2026
 
 ## Erst anschließend
 
-- **Feature-Datenqualitätsvertrag erledigt und getestet:** Sortierung, `keep_last`-Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup sind versioniert und als Metadaten sichtbar. Merge und vollständige Plattform-Liveprüfung stehen noch aus.
-- Fachlichen Decision-Gate-Vertrag mit Fakten-, Risiko-, Confidence- und Konfliktregeln entwerfen.
+- **Feature-Datenqualitätsvertrag erledigt, nach `main` gemergt und live verifiziert:** Sortierung, `keep_last`-Duplikate, OHLC-Konsistenz, Non-Finite-Werte, Mindestkerzen und Warmup sind versioniert und als Metadaten sichtbar.
+- **Decision-Gate-Vertrag lokal erledigt und getestet:** Fakten-, Risiko-, Confidence-, Datenqualitäts- und Konfliktregeln sind fail-closed mit eindeutigen Reason Codes definiert. Noch nicht aktiv in den EventBus integrieren oder als Freigabe verwenden.
+- Kompakte `feature_quality`-Projektion ohne vollständige Features in den Marktvertrag aufnehmen und über Brain bis zu einem späteren Observer erhalten.
+- Danach einen begrenzten Decision-Gate-Audit-Observer integrieren und live auswerten; Decision-/Signal-Consumer noch nicht umschalten.
 - Telegram ausschließlich an freigegebene finale Ereignisse anbinden und bis dahin deaktiviert beziehungsweise im Dry-Run lassen.
 - Aufbewahrungs-/Archivkonzept und Portabilität der Legacy-Pfade separat planen, ohne bestehende History zu löschen.
 
 ## Zuletzt erledigt
+
+- Decision-Gate-Vertrag `pandorickki.decision-gate` Version 1 als rein beobachtende, fail-closed Referenz implementiert.
+- Explizite Probability-/Confidence-Schwellen ohne versteckte Defaults, Qualitäts-/Warmup-/Order-/Fakten-/Risiko-/Konfliktregeln und deterministische Reason Codes definiert.
+- Zehn Vertragstests und 261/261 Gesamttests bestanden. Das Modul ist nicht an den EventBus angeschlossen, setzt stets `ready_for_telegram=false` und `order_execution_allowed=false` und verändert den laufenden Dienst nicht.
+- Nächster Schritt: kompakte `feature_quality`-Projektion durch die bestehende Payloadkette erhalten; danach separaten Audit-Observer integrieren.
 
 - Feature-Datenqualitätsvertrag `pandorickki.feature-data-quality` Version 1 implementiert und in `FeatureEngine` integriert.
 - Sortierung, `keep_last`-Duplikate, OHLCV-/Non-Finite-Prüfung, Mindestkerzen, Zeitstempelpflicht und Warmup-Metadaten mit 30/30 gezielten sowie 251/251 vollständigen Tests verifiziert.

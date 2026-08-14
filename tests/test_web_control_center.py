@@ -14,15 +14,18 @@ import tempfile
 import time
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from adapters.control_center_adapter import ControlCenterAdapter
+from adapters.stock_shadow_verification_adapter import StockShadowVerificationAdapter
 from config import PlatformConfig
 from event_bus import Event
 from orchestrator import NoopAdapter, Orchestrator
 from shared_state import SharedState
+from stock_shadow_verification_contract import StockShadowVerificationPolicy
 from web.api import WebControlServer
 from web.schemas import WebControlState
 
@@ -141,6 +144,76 @@ class WebControlCenterTest(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_shadow_verification_summary_and_detail_are_read_only(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                orchestrator, server = self.make_server(root)
+                observer = StockShadowVerificationAdapter(
+                    orchestrator.event_bus,
+                    ledger_file=root / "verification.jsonl",
+                    policy=StockShadowVerificationPolicy(horizon_seconds=3600),
+                    config_fingerprint="web-test-fingerprint",
+                )
+                orchestrator.adapters.insert(-1, observer)
+                await orchestrator.start()
+                server.start()
+                now = datetime.now(UTC)
+                try:
+                    orchestrator.event_bus.publish(
+                        Event(
+                            topic="STOCK_SHADOW_OBSERVED",
+                            source="stock",
+                            payload={
+                                "payload": {
+                                    "symbol": "AAPL",
+                                    "source_event_id": "source-web-1",
+                                    "analysis_timestamp": now.isoformat(),
+                                    "source_timestamp": now.isoformat(),
+                                    "quote_timestamp": (now - timedelta(seconds=1)).isoformat(),
+                                    "latest_candle_timestamp": (now - timedelta(days=1)).isoformat(),
+                                    "entry_price": 100,
+                                    "legacy": {"direction": "LONG", "probability": 70},
+                                    "shadow": {
+                                        "status": "CALCULATED",
+                                        "direction": "LONG",
+                                        "probability": 65,
+                                        "feature_quality": {"status": "PASS"},
+                                    },
+                                    "data_audit": {
+                                        "status": "READY",
+                                        "feature_quality": {"status": "PASS"},
+                                        "reason_codes": ["SD_READY"],
+                                    },
+                                    "shadow_risk": {
+                                        "status": "CALCULATED",
+                                        "risk": {
+                                            "action": "LONG",
+                                            "entry_price": 100,
+                                            "stop_loss": 98,
+                                            "take_profit": [102],
+                                        },
+                                    },
+                                }
+                            },
+                        )
+                    )
+                    summary = get_json(f"{server.url}/api/shadow-verification/summary?days=7")
+                    verification_id = summary["records"][0]["verification_id"]
+                    encoded = urllib.parse.quote(verification_id, safe="")
+                    detail = get_json(f"{server.url}/api/shadow-verification/{encoded}")
+                finally:
+                    server.stop()
+                    await orchestrator.stop()
+
+                self.assertEqual(summary["summary"]["shadow_cases"], 1)
+                self.assertEqual(summary["asset_scope"], "stock")
+                self.assertFalse(summary["ready_for_telegram"])
+                self.assertEqual(detail["record"]["verification_id"], verification_id)
+                self.assertNotIn("candles", json.dumps(detail).lower())
+
+        asyncio.run(run())
+
     def test_websocket_receives_live_event(self) -> None:
         async def run() -> None:
             with tempfile.TemporaryDirectory() as temp:
@@ -221,6 +294,8 @@ class WebControlCenterTest(unittest.TestCase):
         self.assertIn("outcome_coverage_percent", script)
         self.assertIn("hit_rate_denominator", script)
         self.assertIn("rateWithFraction", script)
+        self.assertIn("renderShadowVerification", script)
+        self.assertIn("Live Shadow Verification", page)
         self.assertIn("scheduleWebSocketReconnect", script)
         self.assertIn("if (state.pollTimer !== null) return", script)
         self.assertIn("window.requestAnimationFrame", script)

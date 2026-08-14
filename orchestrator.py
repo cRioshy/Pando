@@ -13,15 +13,25 @@ from adapters.control_center_adapter import ControlCenterAdapter
 from adapters.crypto_adapter import CryptoAdapter
 from adapters.crypto_trade_tracker import CryptoTradeTracker
 from adapters.decision_signal_adapter import DecisionSignalAdapter
+from adapters.decision_gate_audit_adapter import DecisionGateAuditAdapter
 from adapters.neurobrain_receiver_adapter import NeuroBrainReceiverAdapter
 from adapters.outcome_tracker import OutcomeTracker
 from adapters.stock_adapter import StockAdapter
+from adapters.stock_shadow_verification_adapter import StockShadowVerificationAdapter
 from adapters.telegram_adapter import TelegramAdapter
 from config import PlatformConfig
+from decision_gate_contract import DecisionGatePolicy
 from event_bus import Event, EventBus
 from health_monitor import HealthMonitor, HealthReport
 from service_error_journal import ServiceErrorJournal
 from shared_state import SharedState
+from stock_data_contract import StockDataPolicy
+from stock_shadow_candidate import StockShadowPolicy
+from stock_shadow_risk import StockShadowRiskPolicy
+from stock_shadow_verification_contract import (
+    StockShadowVerificationPolicy,
+    configuration_fingerprint,
+)
 
 
 class ServiceAdapter(Protocol):
@@ -327,6 +337,24 @@ class Orchestrator:
                 "cycles",
                 "published_results",
                 "test_mode",
+                "stock_data_observer_enabled",
+                "stock_data_audits",
+                "stock_data_ready",
+                "stock_data_blocked",
+                "stock_candle_successes",
+                "stock_candle_failures",
+                "last_stock_data_status",
+                "last_stock_data_reason_codes",
+                "stock_shadow_candidates",
+                "stock_shadow_long",
+                "stock_shadow_short",
+                "stock_shadow_hold",
+                "last_stock_shadow_direction",
+                "last_stock_shadow_probability",
+                "stock_shadow_risk_plans",
+                "stock_shadow_risk_blocked",
+                "last_stock_shadow_risk_status",
+                "last_stock_shadow_risk_reason_codes",
                 "queue_depth",
                 "queue_capacity",
                 "batch_size",
@@ -435,6 +463,33 @@ class Orchestrator:
     def _default_adapters(self) -> list[ServiceAdapter]:
         """Return safe placeholders for Phase 3 ground-system validation."""
 
+        verification_policy = StockShadowVerificationPolicy(
+            horizon_seconds=self.config.stock_shadow_verification_horizon_seconds,
+            neutral_band_percent=self.config.stock_shadow_verification_neutral_band_percent,
+        )
+        verification_fingerprint = configuration_fingerprint(
+            {
+                "stock_data_minimum_candles": self.config.stock_data_minimum_candles,
+                "stock_data_full_warmup_candles": self.config.stock_data_full_warmup_candles,
+                "stock_data_maximum_candle_age_seconds": self.config.stock_data_maximum_candle_age_seconds,
+                "stock_data_maximum_quote_age_seconds": self.config.stock_data_maximum_quote_age_seconds,
+                "stock_data_maximum_future_skew_seconds": self.config.stock_data_maximum_future_skew_seconds,
+                "stock_data_maximum_entry_deviation_percent": self.config.stock_data_maximum_entry_deviation_percent,
+                "stock_shadow_long_bullish_score": self.config.stock_shadow_long_bullish_score,
+                "stock_shadow_short_bullish_score": self.config.stock_shadow_short_bullish_score,
+                "stock_shadow_risk_atr_multiplier": self.config.stock_shadow_risk_atr_multiplier,
+                "stock_shadow_risk_minimum_distance_percent": self.config.stock_shadow_risk_minimum_distance_percent,
+                "stock_shadow_risk_targets": [
+                    self.config.stock_shadow_risk_target_1_multiple,
+                    self.config.stock_shadow_risk_target_2_multiple,
+                    self.config.stock_shadow_risk_target_3_multiple,
+                ],
+                "stock_shadow_risk_price_decimals": self.config.stock_shadow_risk_price_decimals,
+                "verification_observer_version": verification_policy.observer_version,
+                "verification_horizon_seconds": verification_policy.horizon_seconds,
+                "verification_neutral_band_percent": verification_policy.neutral_band_percent,
+            }
+        )
         return [
             CryptoAdapter(
                 self.event_bus,
@@ -452,6 +507,23 @@ class Orchestrator:
                 rotation_bytes=self.config.brain_event_rotation_bytes,
                 day_warning_bytes=self.config.brain_event_day_warning_bytes,
             ),
+            *(
+                [
+                    DecisionGateAuditAdapter(
+                        self.event_bus,
+                        policy=DecisionGatePolicy(
+                            minimum_probability=self.config.decision_gate_minimum_probability,
+                            minimum_confidence=self.config.decision_gate_minimum_confidence,
+                            confidence_tolerance=self.config.decision_gate_confidence_tolerance,
+                        ),
+                        audit_file=self.config.decision_gate_audit_file,
+                        ledger_rotation_bytes=self.config.decision_gate_audit_rotation_bytes,
+                        ledger_max_archives=self.config.decision_gate_audit_max_archives,
+                    )
+                ]
+                if self.config.decision_gate_observer_enabled
+                else []
+            ),
             DecisionSignalAdapter(
                 self.event_bus,
                 decisions_file=self.config.platform_decisions_file,
@@ -464,6 +536,20 @@ class Orchestrator:
                 outcomes_file=self.config.trade_outcomes_file,
                 evaluation_horizon_seconds=self.config.simulated_outcome_horizon_seconds,
                 ledger_rotation_bytes=self.config.jsonl_ledger_rotation_bytes,
+            ),
+            *(
+                [
+                    StockShadowVerificationAdapter(
+                        self.event_bus,
+                        ledger_file=self.config.stock_shadow_verification_file,
+                        policy=verification_policy,
+                        config_fingerprint=verification_fingerprint,
+                        ledger_rotation_bytes=self.config.stock_shadow_verification_rotation_bytes,
+                        ledger_max_archives=self.config.stock_shadow_verification_max_archives,
+                    )
+                ]
+                if self.config.stock_shadow_verification_enabled
+                else []
             ),
             *(
                 [
@@ -490,7 +576,35 @@ class Orchestrator:
                 self.config.stock_project_path,
                 test_mode=self.config.stock_test_mode,
                 live_price_display=self.config.stock_live_price_display,
+                stock_data_observer_enabled=self.config.stock_data_observer_enabled,
+                daily_candle_limit=self.config.stock_daily_candle_limit,
+                candle_cache_ttl_seconds=self.config.stock_candle_cache_ttl_seconds,
+                stock_data_policy=StockDataPolicy(
+                    minimum_candles=self.config.stock_data_minimum_candles,
+                    full_warmup_candles=self.config.stock_data_full_warmup_candles,
+                    maximum_candle_age_seconds=self.config.stock_data_maximum_candle_age_seconds,
+                    maximum_quote_age_seconds=self.config.stock_data_maximum_quote_age_seconds,
+                    maximum_future_skew_seconds=self.config.stock_data_maximum_future_skew_seconds,
+                    maximum_entry_deviation_percent=self.config.stock_data_maximum_entry_deviation_percent,
+                ),
+                stock_shadow_policy=StockShadowPolicy(
+                    minimum_candles=self.config.stock_data_minimum_candles,
+                    full_warmup_candles=self.config.stock_data_full_warmup_candles,
+                    long_bullish_score=self.config.stock_shadow_long_bullish_score,
+                    short_bullish_score=self.config.stock_shadow_short_bullish_score,
+                ),
+                stock_shadow_risk_policy=StockShadowRiskPolicy(
+                    atr_multiplier=self.config.stock_shadow_risk_atr_multiplier,
+                    minimum_distance_percent=self.config.stock_shadow_risk_minimum_distance_percent,
+                    take_profit_multiples=(
+                        self.config.stock_shadow_risk_target_1_multiple,
+                        self.config.stock_shadow_risk_target_2_multiple,
+                        self.config.stock_shadow_risk_target_3_multiple,
+                    ),
+                    price_decimals=self.config.stock_shadow_risk_price_decimals,
+                ),
                 cycle_timeout_seconds=self.config.adapter_cycle_timeout_seconds,
+                nonblocking_cycle=True,
             ),
             *(
                 [CommodityAdapter(self.event_bus, symbols=list(self.config.commodity_symbols))]

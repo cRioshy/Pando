@@ -24,6 +24,23 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_CRYPTO_LIVE_PRICE_DISPLAY": "1",
                 "PANDORICKKI_STOCK_TEST_MODE": "0",
                 "PANDORICKKI_STOCK_LIVE_PRICE_DISPLAY": "1",
+                "PANDORICKKI_STOCK_DATA_OBSERVER_ENABLED": "1",
+                "PANDORICKKI_STOCK_DAILY_CANDLE_LIMIT": "300",
+                "PANDORICKKI_STOCK_CANDLE_CACHE_TTL_SECONDS": "600",
+                "PANDORICKKI_STOCK_DATA_MINIMUM_CANDLES": "210",
+                "PANDORICKKI_STOCK_DATA_FULL_WARMUP_CANDLES": "220",
+                "PANDORICKKI_STOCK_SHADOW_LONG_BULLISH_SCORE": "64",
+                "PANDORICKKI_STOCK_SHADOW_SHORT_BULLISH_SCORE": "36",
+                "PANDORICKKI_STOCK_SHADOW_RISK_ATR_MULTIPLIER": "1.25",
+                "PANDORICKKI_STOCK_SHADOW_RISK_MINIMUM_DISTANCE_PERCENT": "0.75",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_1_MULTIPLE": "1.5",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_2_MULTIPLE": "2.5",
+                "PANDORICKKI_STOCK_SHADOW_RISK_TARGET_3_MULTIPLE": "4",
+                "PANDORICKKI_STOCK_SHADOW_RISK_PRICE_DECIMALS": "3",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED": "1",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE": "C:/tmp/pandorickki-data/verification.jsonl",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_HORIZON_SECONDS": "7200",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT": "0.1",
                 "PANDORICKKI_COMMODITIES_ENABLED": "1",
                 "PANDORICKKI_DATA_DIR": "C:/tmp/pandorickki-data",
                 "PANDORICKKI_CONTROL_CENTER_ENABLED": "0",
@@ -42,6 +59,10 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_TELEGRAM_DRY_RUN": "1",
                 "PANDORICKKI_SIMULATED_OPEN_TRADES_FILE": "C:/tmp/pandorickki-data/open_trades.json",
                 "PANDORICKKI_TRADE_OUTCOMES_FILE": "C:/tmp/pandorickki-data/outcomes.jsonl",
+                "PANDORICKKI_DECISION_GATE_OBSERVER_ENABLED": "1",
+                "PANDORICKKI_DECISION_GATE_MINIMUM_PROBABILITY": "65",
+                "PANDORICKKI_DECISION_GATE_MINIMUM_CONFIDENCE": "62.5",
+                "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE": "3",
             },
             clear=False,
         ):
@@ -54,6 +75,23 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.crypto_symbols, ["BTCUSDT", "SOLUSDT"])
         self.assertFalse(config.stock_test_mode)
         self.assertTrue(config.stock_live_price_display)
+        self.assertTrue(config.stock_data_observer_enabled)
+        self.assertEqual(config.stock_daily_candle_limit, 300)
+        self.assertEqual(config.stock_candle_cache_ttl_seconds, 600.0)
+        self.assertEqual(config.stock_data_minimum_candles, 210)
+        self.assertEqual(config.stock_data_full_warmup_candles, 220)
+        self.assertEqual(config.stock_shadow_long_bullish_score, 64.0)
+        self.assertEqual(config.stock_shadow_short_bullish_score, 36.0)
+        self.assertEqual(config.stock_shadow_risk_atr_multiplier, 1.25)
+        self.assertEqual(config.stock_shadow_risk_minimum_distance_percent, 0.75)
+        self.assertEqual(config.stock_shadow_risk_target_1_multiple, 1.5)
+        self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.5)
+        self.assertEqual(config.stock_shadow_risk_target_3_multiple, 4.0)
+        self.assertEqual(config.stock_shadow_risk_price_decimals, 3)
+        self.assertTrue(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_file, Path("C:/tmp/pandorickki-data/verification.jsonl"))
+        self.assertEqual(config.stock_shadow_verification_horizon_seconds, 7200.0)
+        self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.1)
         self.assertTrue(config.commodities_enabled)
         self.assertEqual(config.commodity_symbols, ["GC=F", "CL=F"])
         self.assertEqual(config.data_dir, Path("C:/tmp/pandorickki-data"))
@@ -74,6 +112,10 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertTrue(config.telegram_dry_run)
         self.assertEqual(config.simulated_open_trades_file, Path("C:/tmp/pandorickki-data/open_trades.json"))
         self.assertEqual(config.trade_outcomes_file, Path("C:/tmp/pandorickki-data/outcomes.jsonl"))
+        self.assertTrue(config.decision_gate_observer_enabled)
+        self.assertEqual(config.decision_gate_minimum_probability, 65.0)
+        self.assertEqual(config.decision_gate_minimum_confidence, 62.5)
+        self.assertEqual(config.decision_gate_confidence_tolerance, 3.0)
 
     def test_orchestrator_uses_configured_paths(self) -> None:
         config = PlatformConfig(
@@ -95,6 +137,17 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.crypto_live_price_display)
         self.assertTrue(config.stock_test_mode)
         self.assertFalse(config.stock_live_price_display)
+        self.assertFalse(config.stock_data_observer_enabled)
+        self.assertEqual(config.stock_daily_candle_limit, 260)
+        self.assertEqual(config.stock_shadow_risk_atr_multiplier, 1.0)
+        self.assertEqual(config.stock_shadow_risk_minimum_distance_percent, 0.5)
+        self.assertEqual(config.stock_shadow_risk_target_1_multiple, 1.0)
+        self.assertEqual(config.stock_shadow_risk_target_2_multiple, 2.0)
+        self.assertEqual(config.stock_shadow_risk_target_3_multiple, 3.0)
+        self.assertEqual(config.stock_shadow_risk_price_decimals, 4)
+        self.assertFalse(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_horizon_seconds, 86400.0)
+        self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.05)
         self.assertFalse(config.commodities_enabled)
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
@@ -102,6 +155,9 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.neurobrain_queue_capacity, 2048)
         self.assertEqual(config.neurobrain_batch_size, 64)
         self.assertEqual(config.neurobrain_flush_interval_seconds, 0.25)
+        self.assertFalse(config.decision_gate_observer_enabled)
+        self.assertIsNone(config.decision_gate_minimum_probability)
+        self.assertIsNone(config.decision_gate_minimum_confidence)
 
     def test_custom_data_dir_derives_error_journal_paths(self) -> None:
         config = PlatformConfig(data_dir=Path("C:/tmp/custom-pandorickki-data"))
@@ -125,6 +181,37 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertIn("commodity", [adapter.name for adapter in commodities_enabled.adapters])
         self.assertIn("outcome_tracker", [adapter.name for adapter in enabled.adapters])
         self.assertNotIn("control_center", [adapter.name for adapter in disabled.adapters])
+
+    def test_decision_gate_observer_requires_explicit_thresholds_and_is_separate(self) -> None:
+        config = PlatformConfig(
+            decision_gate_observer_enabled=True,
+            decision_gate_minimum_probability=65.0,
+            decision_gate_minimum_confidence=60.0,
+        )
+        names = [adapter.name for adapter in Orchestrator(config=config).adapters]
+
+        self.assertIn("decision_gate_observer", names)
+        self.assertLess(names.index("brain"), names.index("decision_gate_observer"))
+        self.assertLess(names.index("decision_gate_observer"), names.index("decision_core"))
+        self.assertIn("decision_core", names)
+
+        with self.assertRaises(ValueError):
+            Orchestrator(config=PlatformConfig(decision_gate_observer_enabled=True))
+
+    def test_stock_shadow_verification_is_optional_and_stock_only(self) -> None:
+        config = PlatformConfig(
+            stock_data_observer_enabled=True,
+            stock_shadow_verification_enabled=True,
+        )
+        names = [adapter.name for adapter in Orchestrator(config=config).adapters]
+
+        self.assertIn("stock_shadow_verification", names)
+        self.assertLess(names.index("outcome_tracker"), names.index("stock_shadow_verification"))
+        self.assertLess(names.index("stock_shadow_verification"), names.index("stock"))
+        self.assertNotIn(
+            "stock_shadow_verification",
+            [adapter.name for adapter in Orchestrator(config=PlatformConfig()).adapters],
+        )
 
     def test_html_control_center_contains_switch_commands(self) -> None:
         html = (Path(__file__).resolve().parents[1] / "control_center.html").read_text(encoding="utf-8")
