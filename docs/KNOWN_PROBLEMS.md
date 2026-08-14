@@ -1,8 +1,26 @@
 # Bekannte Probleme
 
-Stand: 12. August 2026
+Stand: 14. August 2026
 
 ## Offen
+
+### KP-027 – Draft-PR #23 und #24 besaßen keine GitHub-CI-/Review-Abdeckung
+
+- **Priorität:** mittel
+- **Status:** für PR #23 nach ausdrücklicher Mergefreigabe akzeptiert; für Draft-PR #24 weiterhin offen
+- **Beobachtung:** GitHub meldete für beide Branches keine Statuschecks und keine Reviews. PR #23 wurde nach konfliktfreier lokaler Prüfung, 318/318 Tests und ausdrücklicher Benutzerfreigabe als `c751fe1` nach `main` gemergt. PR #24 bleibt Draft, besitzt weiterhin keine unabhängige CI-/Review-Freigabe und ist jetzt direkt auf `main` gerichtet.
+- **Lokale Evidenz:** Beide getrennten Diffs und Merge-Simulationen sind konfliktfrei; 0 Runtime-/History-Pfade, 0 Secret-Mustertreffer, 318/318 aktuelle Gesamttests sowie JavaScript- und Python-Syntax bestanden.
+- **Sicherheitsregel:** Keinen fehlenden Check als bestanden darstellen. PR #24 bis zu einer neuen ausdrücklichen Mergefreigabe im Draft belassen.
+- **Nächster Schritt:** Aktualisierten PR #24 gegen `main` separat reviewen; Merge nur nach ausdrücklicher Freigabe.
+
+### KP-026 – Regime v1 benötigt reale Coverage und Schwellenvalidierung
+
+- **Priorität:** mittel
+- **Status:** Implementierung, Tests und kurzer kontrollierter Live-Observer-Test abgeschlossen; längere Coverage und Schwellenvalidierung bleiben offen
+- **Beobachtung:** Der Classifier ist deterministisch und mehrdimensional, seine Parameter sind aber noch nicht gegen ausreichende unabhängige Marktphasen und spätere Outcomes validiert. Stocks besitzen nur `1d`, Crypto nur `15m`; fehlende Timeframes werden sichtbar ausgewiesen.
+- **Sicherheitsregel:** Regime-Werte nicht in LONG/SHORT/HOLD, Gate, Telegram oder Orders übersetzen. `UNKNOWN` und `DEGRADED` nicht wegfiltern. Keine Schwellen automatisch anhand kurzer Läufe optimieren.
+- **Live-Smoke-Test:** BTCUSDT-`15m` ergab `DOWN + MEDIUM + WEAKENING`, AAPL-`1d` sicher `UNKNOWN + HIGH + UNKNOWN`; 2/2 Snapshots, 0 Drops, 0 Fehler, Queue leer, Worker gestoppt und keine verbotenen Events. Dies ist nur ein technischer Plausibilitätstest und keine Schwellenvalidierung.
+- **Nächster Schritt:** Nach Review und separater Freigabe eine ausreichend lange read-only Coverage über unabhängige Marktphasen sammeln und später zeitpunktgerecht mit Outcomes auswerten. Keinen automatischen Fit oder Decision-Einfluss aktivieren.
 
 ### KP-025 – Stock- und Verification-Consumer blockierten den Gesamtzyklus
 
@@ -88,9 +106,9 @@ Stand: 12. August 2026
 ### KP-019 – Sporadischer Windows-Temp-Verzeichnisfehler in der Gesamtsuite
 
 - **Priorität:** niedrig
-- **Status:** einmalig beobachtet; direkte und vollständige Wiederholung grün
-- **Beobachtung:** Ein Gesamtlauf bestand 264 fachliche Tests, endete aber beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test einmal mit `WinError 145` (Verzeichnis nicht leer). Derselbe Test bestand direkt danach isoliert.
-- **Auswirkung:** Kein Hinweis auf eine fachliche Regression des Decision Gates; die Wiederholung bestand 265/265 Tests.
+- **Status:** sporadisch reproduziert; isolierte und vollständige Wiederholungen jeweils grün
+- **Beobachtung:** Der Windows-Fehler `WinError 145` trat am 14. August 2026 nach dem PR-#24-Retargeting erneut ausschließlich beim Aufräumen eines `TemporaryDirectory` nach dem Learning-Cache-Test auf. Derselbe Test bestand direkt danach isoliert mit 1/1.
+- **Auswirkung:** Kein Hinweis auf eine fachliche Decision-/Stock-/Regime-Regression; die unmittelbare vollständige Wiederholung bestand mit 318/318 Tests.
 - **Nächster Fix:** Nur bei erneuter Reproduktion den noch schreibenden Learning-/Storage-Worker gezielt instrumentieren.
 
 ### KP-020 – Sandbox-Starts besitzen keinen Zugriff auf öffentliche Marktdaten

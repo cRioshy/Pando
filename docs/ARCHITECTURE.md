@@ -4,6 +4,27 @@ Stand: 12. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 
+## Market Regime v1 – observer-only
+
+```mermaid
+flowchart LR
+    CRYPTO["Crypto 15m Candles"] --> CQ["Feature Quality Contract"]
+    STOCK["Public Stock 1d Candles"] --> SQ["Feature Quality Contract"]
+    CQ --> QUEUE["Bounded Regime Queue"]
+    SQ --> QUEUE
+    QUEUE --> FE["Feature Engine"]
+    FE --> CLASSIFIER["Market Regime Classifier v1<br/>Trend / Volatility / Phase"]
+    CLASSIFIER --> SNAP["Compact MarketRegimeSnapshot"]
+    SNAP --> LEDGER["Append-only Rotating JSONL"]
+    SNAP --> EVENT["MARKET_REGIME_OBSERVED"]
+    SNAP --> API["Read-only API / Coverage"]
+    API --> UI["Control Center Market Regime"]
+    CLASSIFIER -. "keine Verbindung" .-> DECISION["Decision Core / Shadow Gate"]
+    CLASSIFIER -. "keine Verbindung" .-> SAFE["Telegram / Orders"]
+```
+
+Die Rohkerzenübergabe ist ein direkter interner Funktionsaufruf vom Crypto-/Stock-Adapter zur Queue und kein EventBus-Payload. Der Worker ist Drop-newest, batchfähig, restart-safe und drainiert beim Shutdown. Nur der kompakte versionierte Snapshot wird publiziert und gespeichert.
+
 ## Nicht blockierender Stock- und Verification-Lauf
 
 ```mermaid

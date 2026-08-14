@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from adapters.crypto_market_data_service import CryptoMarketDataError, CryptoMarketDataService
@@ -77,6 +77,7 @@ class CryptoAdapter:
         load_existing_brain: bool = False,
         suppress_output: bool = True,
         market_data_service: CryptoMarketDataService | None = None,
+        regime_submitter: Callable[..., bool] | None = None,
     ) -> None:
         self.event_bus = event_bus
         self.crypto_project_path = crypto_project_path
@@ -96,6 +97,7 @@ class CryptoAdapter:
         self._previous_modules: dict[str, ModuleType | None] = {}
         self._price_service = CryptoPriceService()
         self._market_data_service = market_data_service or CryptoMarketDataService()
+        self._regime_submitter = regime_submitter
         self._feature_engine = FeatureEngine()
         self._last_live_price_source: str | None = None
         self._last_price_diagnostics: dict[str, Any] = {}
@@ -470,6 +472,17 @@ class CryptoAdapter:
             },
         )
         event.payload["event_id"] = event.event_id
+        if self._regime_submitter is not None:
+            raw = result.get("raw_result")
+            market_data = raw.get("market_data") if isinstance(raw, dict) else None
+            candles = market_data.get("candles") if isinstance(market_data, dict) else None
+            self._regime_submitter(
+                symbol=result.get("symbol"),
+                asset_type="crypto",
+                timeframe=result.get("timeframe") or self.timeframe,
+                candles=candles,
+                source_event_id=event.event_id,
+            )
         self.event_bus.publish(event)
 
     def _publish(self, event_type: str, payload: dict[str, Any]) -> None:

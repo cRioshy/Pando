@@ -28,6 +28,35 @@ STOCK_PATH = Path(__file__).resolve().parents[2] / "pandorick_stock_bot"
 
 
 class StockAdapterTest(unittest.TestCase):
+    def test_regime_observer_receives_only_private_public_candles(self) -> None:
+        submitted = []
+        bus = EventBus()
+        seen = []
+        bus.subscribe(STOCK_ANALYSIS_FINISHED, seen.append)
+        adapter = StockAdapter(
+            bus,
+            STOCK_PATH,
+            regime_submitter=lambda **item: submitted.append(item) is None,
+        )
+        source_candles = [{"timestamp": 1, "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 10}]
+        adapter._publish_analysis_finished(
+            {
+                "symbol": "AAPL",
+                "timeframe": None,
+                "source_timestamp": "2026-08-12T00:00:00+00:00",
+                "_market_regime_candles": source_candles,
+                "_market_regime_timeframe": "1d",
+            }
+        )
+
+        self.assertEqual(len(submitted), 1)
+        self.assertEqual(submitted[0]["candles"], source_candles)
+        self.assertEqual(submitted[0]["source_event_id"], seen[0].event_id)
+        active = seen[0].payload["payload"]
+        self.assertNotIn("_market_regime_candles", active)
+        self.assertNotIn("_market_regime_timeframe", active)
+        self.assertNotIn("market_regime", active)
+
     def test_public_candles_are_audited_without_reclassifying_placeholder_decision(self) -> None:
         class CandleService:
             def fetch_daily_candles(self, symbol: str, *, limit: int) -> StockCandleSnapshot:

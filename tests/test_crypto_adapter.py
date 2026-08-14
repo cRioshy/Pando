@@ -57,6 +57,38 @@ class CryptoAdapterTest(unittest.TestCase):
                 f"No candle provider available for {symbol}.", diagnostics=diagnostics
             )
 
+    def test_regime_observer_receives_candles_without_changing_analysis_event(self) -> None:
+        async def run() -> None:
+            submitted = []
+            bus = EventBus()
+            seen = []
+            bus.subscribe(CRYPTO_ANALYSIS_FINISHED, seen.append)
+            adapter = CryptoAdapter(
+                bus,
+                CRYPTO_PROJECT,
+                symbols=["BTCUSDT"],
+                candle_limit=60,
+                test_mode=False,
+                market_data_service=self._SuccessfulMarketService(),
+                regime_submitter=lambda **item: submitted.append(item) is None,
+            )
+            await adapter.start()
+            try:
+                results = await adapter.run_once()
+            finally:
+                await adapter.stop()
+
+            self.assertEqual(len(submitted), 1)
+            self.assertEqual(submitted[0]["asset_type"], "crypto")
+            self.assertEqual(submitted[0]["timeframe"], "15m")
+            self.assertEqual(len(submitted[0]["candles"]), 60)
+            self.assertEqual(submitted[0]["source_event_id"], seen[0].event_id)
+            active = seen[0].payload["payload"]
+            self.assertEqual(active, results[0])
+            self.assertNotIn("market_regime", active)
+
+        asyncio.run(run())
+
     def test_crypto_adapter_uses_pipeline_without_bot_loop(self) -> None:
         async def run() -> None:
             bus = EventBus()

@@ -98,6 +98,46 @@ class RouteMixin:
 
         app = self.server.app
         query = query or {}
+        if path == "/api/v1/regime/current":
+            self._send_json(app.api_market_regime_current(
+                asset_type=(query.get("asset_type") or [None])[0],
+                symbol=(query.get("symbol") or [None])[0],
+            ))
+            return
+        if path == "/api/v1/regime/history":
+            try:
+                limit = int((query.get("limit") or ["100"])[0])
+                offset = int((query.get("offset") or ["0"])[0])
+                days_raw = (query.get("days") or [None])[0]
+                days = int(days_raw) if days_raw not in {None, ""} else None
+            except ValueError:
+                self._send_json({"error": "limit, offset and days must be integers"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(app.api_market_regime_history(
+                asset_type=(query.get("asset_type") or [None])[0],
+                symbol=(query.get("symbol") or [None])[0],
+                days=days,
+                limit=limit,
+                offset=offset,
+            ))
+            return
+        if path == "/api/v1/regime/statistics":
+            try:
+                days_raw = (query.get("days") or [None])[0]
+                days = int(days_raw) if days_raw not in {None, ""} else None
+            except ValueError:
+                self._send_json({"error": "days must be an integer"}, HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(app.api_market_regime_statistics(
+                asset_type=(query.get("asset_type") or [None])[0],
+                symbol=(query.get("symbol") or [None])[0],
+                days=days,
+            ))
+            return
+        if path.startswith("/api/v1/regime/"):
+            symbol = unquote(path.removeprefix("/api/v1/regime/"))
+            self._send_json(app.api_market_regime_current(symbol=symbol))
+            return
         if self._is_rick_endpoint(path):
             if not self._authorize_rick(path):
                 return

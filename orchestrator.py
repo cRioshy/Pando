@@ -14,6 +14,7 @@ from adapters.crypto_adapter import CryptoAdapter
 from adapters.crypto_trade_tracker import CryptoTradeTracker
 from adapters.decision_signal_adapter import DecisionSignalAdapter
 from adapters.decision_gate_audit_adapter import DecisionGateAuditAdapter
+from adapters.market_regime_observer_adapter import MarketRegimeObserverAdapter
 from adapters.neurobrain_receiver_adapter import NeuroBrainReceiverAdapter
 from adapters.outcome_tracker import OutcomeTracker
 from adapters.stock_adapter import StockAdapter
@@ -490,7 +491,21 @@ class Orchestrator:
                 "verification_neutral_band_percent": verification_policy.neutral_band_percent,
             }
         )
+        regime_observer = (
+            MarketRegimeObserverAdapter(
+                self.event_bus,
+                ledger_file=self.config.market_regime_file,
+                ledger_rotation_bytes=self.config.market_regime_rotation_bytes,
+                ledger_max_archives=self.config.market_regime_max_archives,
+                queue_capacity=self.config.market_regime_queue_capacity,
+                batch_size=self.config.market_regime_batch_size,
+                flush_interval_seconds=self.config.market_regime_flush_interval_seconds,
+            )
+            if self.config.market_regime_observer_enabled
+            else None
+        )
         return [
+            *([regime_observer] if regime_observer is not None else []),
             CryptoAdapter(
                 self.event_bus,
                 self.config.crypto_project_path,
@@ -499,6 +514,7 @@ class Orchestrator:
                 candle_limit=self.config.crypto_candle_limit,
                 test_mode=not self.config.live_crypto,
                 live_price_display=self.config.crypto_live_price_display,
+                regime_submitter=regime_observer.submit if regime_observer is not None else None,
             ),
             BrainAdapter(
                 self.event_bus,
@@ -605,6 +621,7 @@ class Orchestrator:
                 ),
                 cycle_timeout_seconds=self.config.adapter_cycle_timeout_seconds,
                 nonblocking_cycle=True,
+                regime_submitter=regime_observer.submit if regime_observer is not None else None,
             ),
             *(
                 [CommodityAdapter(self.event_bus, symbols=list(self.config.commodity_symbols))]

@@ -41,6 +41,11 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE": "C:/tmp/pandorickki-data/verification.jsonl",
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_HORIZON_SECONDS": "7200",
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_NEUTRAL_BAND_PERCENT": "0.1",
+                "PANDORICKKI_MARKET_REGIME_OBSERVER_ENABLED": "1",
+                "PANDORICKKI_MARKET_REGIME_FILE": "C:/tmp/pandorickki-data/regimes.jsonl",
+                "PANDORICKKI_MARKET_REGIME_QUEUE_CAPACITY": "123",
+                "PANDORICKKI_MARKET_REGIME_BATCH_SIZE": "11",
+                "PANDORICKKI_MARKET_REGIME_FLUSH_INTERVAL": "0.125",
                 "PANDORICKKI_COMMODITIES_ENABLED": "1",
                 "PANDORICKKI_DATA_DIR": "C:/tmp/pandorickki-data",
                 "PANDORICKKI_CONTROL_CENTER_ENABLED": "0",
@@ -92,6 +97,11 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.stock_shadow_verification_file, Path("C:/tmp/pandorickki-data/verification.jsonl"))
         self.assertEqual(config.stock_shadow_verification_horizon_seconds, 7200.0)
         self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.1)
+        self.assertTrue(config.market_regime_observer_enabled)
+        self.assertEqual(config.market_regime_file, Path("C:/tmp/pandorickki-data/regimes.jsonl"))
+        self.assertEqual(config.market_regime_queue_capacity, 123)
+        self.assertEqual(config.market_regime_batch_size, 11)
+        self.assertEqual(config.market_regime_flush_interval_seconds, 0.125)
         self.assertTrue(config.commodities_enabled)
         self.assertEqual(config.commodity_symbols, ["GC=F", "CL=F"])
         self.assertEqual(config.data_dir, Path("C:/tmp/pandorickki-data"))
@@ -148,6 +158,10 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertFalse(config.stock_shadow_verification_enabled)
         self.assertEqual(config.stock_shadow_verification_horizon_seconds, 86400.0)
         self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.05)
+        self.assertFalse(config.market_regime_observer_enabled)
+        self.assertEqual(config.market_regime_queue_capacity, 512)
+        self.assertEqual(config.market_regime_batch_size, 32)
+        self.assertEqual(config.market_regime_flush_interval_seconds, 0.25)
         self.assertFalse(config.commodities_enabled)
         self.assertFalse(config.telegram_enabled)
         self.assertTrue(config.telegram_dry_run)
@@ -210,6 +224,19 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertLess(names.index("stock_shadow_verification"), names.index("stock"))
         self.assertNotIn(
             "stock_shadow_verification",
+            [adapter.name for adapter in Orchestrator(config=PlatformConfig()).adapters],
+        )
+
+    def test_market_regime_observer_is_optional_and_precedes_market_sources(self) -> None:
+        config = PlatformConfig(market_regime_observer_enabled=True)
+        orchestrator = Orchestrator(config=config)
+        names = [adapter.name for adapter in orchestrator.adapters]
+
+        self.assertIn("market_regime_observer", names)
+        self.assertLess(names.index("market_regime_observer"), names.index("crypto"))
+        self.assertLess(names.index("market_regime_observer"), names.index("stock"))
+        self.assertNotIn(
+            "market_regime_observer",
             [adapter.name for adapter in Orchestrator(config=PlatformConfig()).adapters],
         )
 

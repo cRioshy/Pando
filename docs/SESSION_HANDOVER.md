@@ -1,5 +1,256 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: PR #23 mergen und PR #24 auf main umstellen
+
+### Datum und Uhrzeit
+
+14. August 2026, 10:51 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe den zuvor geprüften Stock-/Polling-/Verification-PR #23 kontrolliert nach `main` mergen. Anschließend den Market-Regime-PR #24 auf den neuen `main` umstellen, weiterhin als Draft belassen und Diff, Konfliktfreiheit, Tests und Sicherheitsgrenzen erneut prüfen. PR #24 nicht mergen.
+
+### Durchgeführte Arbeiten
+
+- Verpflichtende Übergabe- und Market-Regime-Vertragsdokumente erneut vollständig gelesen.
+- GitHub-Authentifizierung, Remote, Working Tree, beide PR-Heads, Basis-SHAs, Merge-Status und Repository-Mergeverfahren unmittelbar vor dem Merge geprüft.
+- PR #23 mit erwartetem Head `4f685522267b33277f1fa3da2444b132dd2cfbff` aus Draft genommen und per normalem Merge-Commit nach `main` gemergt; Branch nicht gelöscht.
+- Merge-Commit `c751fe18e966dc6800d80925c8c7020093c85e8e` und vollständige Erreichbarkeit des PR-Heads aus `origin/main` verifiziert.
+- PR #24 von `agent/integrate-decision-gate-observer` auf `main` umgestellt und ausdrücklich als Draft/offen/ungemergt belassen.
+- Neuen `main` ohne Rebase oder Force-Push per normalem Merge-Commit `6f8d96f3035d1b9a57df66ce0a2a4fd02a2d4496` in `agent/market-regime-contract-v1` aufgenommen.
+- PR-#24-Diff erneut geprüft: weiterhin exakt 29 Regime-/Adapter-/API-/UI-/Test-/Dokumentationspfade, konfliktfreie Merge-Simulation, keine Runtime-/History-/Ledgerpfade und keine Secret-Mustertreffer.
+- Getesteten Branch einschließlich `main`-Merge und Zustandsdokumentation als Commit `7c7d4f8f0598f0dc943a86b9ab4be53baba979ca` auf `origin/agent/market-regime-contract-v1` veröffentlicht. Lokal und Remote waren anschließend `0/0` synchron; GitHub zeigte PR #24 weiterhin offen, Draft, ungemergt und gegen `main`.
+
+### Veränderte Dateien
+
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `gh auth status`, GitHub Pull-Request-/Repository-API, `gh pr ready`, `gh pr merge`, `gh pr edit`
+- `git status`, `git fetch`, `git rev-parse`, `git merge-base`, `git rev-list`
+- `git merge-tree --write-tree`, `git diff --check`, Scope- und Secret-Musterprüfung
+- `git merge --no-edit origin/main`
+- `.venv\Scripts\python.exe -m unittest discover -s tests -q`
+- isolierter `unittest`-Lauf für `test_legacy_cache_without_metric_contract_is_rebuilt`
+- `node --check web/static/control_center.js`
+- `.venv\Scripts\python.exe -m py_compile ...` für Decision-/Stock-/Regime-/Orchestrator-/Web-Kernmodule
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Erster Gesamtlauf nach Retargeting: 317 fachliche Tests bestanden; ein Fehler ausschließlich beim Windows-`TemporaryDirectory`-Cleanup des Learning-Report-Tests mit bekanntem `WinError 145` (KP-019).
+- Betroffener Test unmittelbar isoliert: 1/1 bestanden in 0,010 Sekunden.
+- Unmittelbare vollständige Wiederholung: 318/318 bestanden in 42,246 Sekunden.
+- JavaScript-Syntax und Python-Kompilierung: bestanden.
+- PR-#24-Diffprüfung: sauber; 29 Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer.
+- Merge-Simulation PR #24 gegen neuen `main`: konfliktfrei.
+
+### Bekannte Fehler
+
+- KP-019 trat erneut sporadisch beim Windows-Temp-Cleanup auf; isolierter Test und vollständige Wiederholung waren grün. Kein Hinweis auf eine fachliche Stock-/Regime-/Merge-Regression.
+- KP-027 bleibt für PR #24 teilweise offen: weiterhin keine GitHub-Checks und keine Reviews. PR #23 wurde nach dokumentierter lokaler Prüfung und ausdrücklicher Benutzerfreigabe gemergt.
+- KP-026 bleibt offen: längere unabhängige Regime-Coverage und Schwellenvalidierung fehlen weiterhin.
+
+### Getroffene Architekturentscheidungen
+
+- Der geprüfte Stock-/Polling-/Verification-Stand ist nun Bestandteil von `main`.
+- Market Regime v1 bleibt ein separater Draft-PR direkt gegen `main`, observer-only und ohne Decision-, Telegram- oder Orderkopplung.
+- Historie wurde nicht umgeschrieben: kein Rebase, kein Force-Push und kein Branch-Löschen.
+
+### Nicht abgeschlossene Punkte
+
+- PR #24 bleibt Draft und ungemergt; GitHub-CI/Review fehlen weiterhin.
+- Kein kontrollierter Produktionsneustart mit Market Regime v1 wurde ausgeführt, da der PR noch nicht gemergt ist.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Abschlussbericht vorlegen und PR #24 als Draft belassen. PR #24 nur nach einer neuen ausdrücklichen Freigabe aus Draft nehmen oder mergen; erst nach einem späteren Merge einen kontrollierten Produktionsneustart und observer-only Liveprüfung durchführen.
+
+## Aktuelle Aufgabe: Draft-PR #23 und #24 fachlich prüfen
+
+### Datum und Uhrzeit
+
+13. August 2026, 12:01 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den Stock-/Polling-/Verification-Draft-PR #23 und anschließend den darauf gestapelten Market-Regime-Draft-PR #24 hinsichtlich Scope, Branch-Basis, Konflikten, Checks, Secrets, Runtime-Daten, Tests und Sicherheitsgrenzen prüfen. Nichts mergen und keinen Produktcode verändern.
+
+### Durchgeführte Arbeiten
+
+- Verpflichtende Übergabe- und Market-Regime-Vertragsdokumente erneut vollständig gelesen und aktuellen lokalen Branch/Remote geprüft.
+- GitHub-Metadaten, Commits, Dateien, Reviews, Checks und Merge-Status für PR #23 und #24 schreibgeschützt abgerufen.
+- Beide Remote-Branches aktualisiert und getrennte Drei-Punkt-Diffs gegen ihre jeweilige Basis geprüft.
+- PR #23 gegen `main` und PR #24 gegen `agent/integrate-decision-gate-observer` per `git merge-tree --write-tree` konfliktfrei simuliert.
+- Beide Änderungsumfänge auf Runtime-/History-/Ledger-/Secret-Pfade und typische Secret-Muster geprüft.
+- Sicherheitsrelevante Defaults und neue Observer-Payloads gegen Telegram-/Order-/Decision-Grenzen geprüft.
+- Aktuelle gestapelte Gesamtsuite, JavaScript-Syntax und Python-Kompilierung erneut ausgeführt.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `git status`, `git branch --show-current`, `git rev-parse`, `git remote -v`, `git fetch`
+- `gh pr view`, `gh pr checks`, GitHub Pull-Request-API
+- `git diff --name-status`, `git diff --check`, Scope-/Secret-Musterprüfung
+- `git merge-tree --write-tree` für beide PR-Stufen
+- `.venv\Scripts\python.exe -m unittest discover -s tests -q`
+- `node --check web/static/control_center.js`
+- `.venv\Scripts\python.exe -m py_compile ...` für die neuen und geänderten Kernmodule
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Vollständige aktuelle Regression: 318/318 Tests bestanden in 40,963 Sekunden.
+- JavaScript-Syntax: bestanden.
+- Python-Kompilierung der Decision-/Stock-/Regime-/Orchestrator-/Web-Kernmodule: bestanden.
+- PR #23: 48 geänderte Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer, Diffprüfung sauber, Merge-Simulation konfliktfrei; GitHub `mergeable=true`, `mergeable_state=clean`.
+- PR #24: 29 geänderte Pfade, 0 Runtime-/History-/Ledgerpfade, 0 Secret-Mustertreffer, Diffprüfung sauber, Merge-Simulation konfliktfrei; GitHub `mergeable=true`, `mergeable_state=clean`.
+- GitHub meldet für beide Branches keine Checks und keine Reviews. Dies ist kein bestandener CI-Lauf, sondern eine fehlende CI-/Review-Abdeckung.
+
+### Bekannte Fehler
+
+- KP-027 neu dokumentiert: Für PR #23 und #24 sind keine GitHub-Checks eingerichtet beziehungsweise gemeldet und keine Reviews vorhanden.
+- KP-026 bleibt offen: Der Regime-Classifier benötigt längere unabhängige Coverage und Schwellenvalidierung.
+- Die bestehenden Stock-Verification-, `SPCX`- und historischen Storage-Grenzen bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Architekturänderung vorgenommen.
+- PR #24 bleibt gestapelt auf PR #23. PR #24 darf nicht vor PR #23 in `main` integriert werden.
+- Observer-only-Grenzen bleiben erhalten: kein aktiver Decision-Einfluss, keine Telegram-Freigabe und keine Orderausführung.
+
+### Nicht abgeschlossene Punkte
+
+- Kein PR wurde gemergt oder aus dem Draft-Status genommen.
+- Es existiert weiterhin keine unabhängige GitHub-CI- oder menschliche Review-Freigabe.
+- Nach einem später ausdrücklich freigegebenen Merge von PR #23 muss PR #24 auf `main` umgestellt beziehungsweise gegen den neuen `main` neu geprüft werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PR #23 im Draft belassen, bis der Benutzer den Merge nach Kenntnis der fehlenden GitHub-CI-/Review-Abdeckung ausdrücklich freigibt. Erst PR #23 mergen; danach PR #24 auf `main` retargeten, Merge-Status und vollständige Tests erneut prüfen und PR #24 weiterhin separat als Draft behandeln.
+
+## Aktuelle Aufgabe: Market Regime Contract v1 observer-only implementieren
+
+### Datum und Uhrzeit
+
+12. August 2026, 22:13 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach sauberem Abschluss von Phase 0 auf einem separaten Branch einen deterministischen, restart-sicheren Market-Regime-Observer mit unabhängigen Achsen für Trendrichtung, Volatilität und Trendphase implementieren. Bestehende Decisions, Shadow Decisions, Confidence, Outcomes, Telegram, Orders, Stimpy, Ren, `main` und das separate PANDO-Token-Projekt unverändert lassen.
+
+### Durchgeführte Arbeiten
+
+- Branch `agent/market-regime-contract-v1` vom gesicherten Phase-0-Head `4f685522267b33277f1fa3da2444b132dd2cfbff` erstellt.
+- Versionierten Vertrag `pandorickki.market-regime-snapshot` v1 mit endlichen Scores von 0 bis 1 und strikt getrennten Achsen implementiert.
+- Deterministische `feature_snapshot_id`, `regime_id` und einen SHA-256-`config_fingerprint` definiert. `source_event_id` dient nur der Rückverfolgung und nicht der kanonischen Identität.
+- Feature-Quality-Vertrag fail-closed eingebunden: `OK`, confidence-begrenztes `DEGRADED` und vollständiges `UNKNOWN` bei `REJECTED`.
+- Echte Crypto-`15m`-Kerzen und öffentliche Stock-`1d`-Kerzen intern angebunden. Der Stock-Legacy-Einzeilenfallback wird nicht verwendet; fehlende reale Timeframes werden explizit ausgewiesen.
+- Begrenzte Drop-newest-Queue, Batch-Worker, append-only rotierendes JSONL-Ledger, Restart-Deduplizierung und vollständig drainierenden Shutdown umgesetzt.
+- Ausschließlich kompakte `MARKET_REGIME_OBSERVED`-Ereignisse ergänzt; Rohkerzen, vollständige Features, `raw_result`, Secrets und lokale Pfade bleiben außerhalb öffentlicher Payloads.
+- GET-only API mit Filterung, Zeitraum, Limits und Pagination sowie read-only Control-Center-Bereich ohne Tradebuttons oder Empfehlungen ergänzt.
+- Coverage über sämtliche zulässigen Kategorien einschließlich Nullwerten, häufigste Kombinationen und Assetklassen implementiert.
+- Kurzen isolierten Live-Smoke-Test mit öffentlichen BTCUSDT-`15m`- und AAPL-`1d`-Daten ausgeführt. Er verwendete ausschließlich temporären Speicher und veränderte weder den laufenden Dienst auf Port 8000 noch vorhandene Runtime-/History-Daten.
+- AFTER-Backup per kontrolliertem Staging und PowerShell `Compress-Archive` erstellt und vollständig geprüft: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge. `.git`, `docs`, `tests`, `AGENTS.md` und Regime-Quellen sind enthalten; .NET-Öffnung und vollständige Testextraktion waren erfolgreich, beide temporären Prüfverzeichnisse wurden anschließend sicher entfernt.
+- Implementierungsstand als Commit `226931eb9ba0f4ddbf719b3dbd3675dcbd8a2fc1` mit Nachricht `Add observer-only market regime contract v1` gesichert und ausschließlich auf `origin/agent/market-regime-contract-v1` gepusht; lokal und Remote waren danach `0/0` synchron.
+- Draft-PR #24 erstellt: `https://github.com/cRioshy/Pando/pull/24`. Er ist `OPEN`, `isDraft=true`, hat Head `agent/market-regime-contract-v1` und Basis `agent/integrate-decision-gate-observer`. `main` blieb auf `14e19bf0a4e79860732ff3b6bba4135a2504b909` unverändert; PR #23 blieb Draft und ungemergt.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `AGENTS.md`
+- `README.md`
+- `adapters/crypto_adapter.py`
+- `adapters/stock_adapter.py`
+- `config.py`
+- `docs/ARCHITECTURE.md`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+- `orchestrator.py`
+- `tests/test_config.py`
+- `tests/test_crypto_adapter.py`
+- `tests/test_stock_adapter.py`
+- `tests/test_web_control_center.py`
+- `web/api.py`
+- `web/routes.py`
+- `web/static/control_center.html`
+- `web/static/control_center.js`
+
+### Neue Dateien
+
+- `market_regime_contract.py`
+- `adapters/market_regime_observer_adapter.py`
+- `scripts/market_regime_live_smoke.py`
+- `tests/test_market_regime_contract.py`
+- `tests/test_market_regime_observer_adapter.py`
+- `docs/MARKET_REGIME_CONTRACT.md`
+- `docs/DATA_MODEL.md`
+- `docs/API.md`
+- `docs/SECURITY_BOUNDARIES.md`
+
+### Ausgeführte Befehle
+
+- Pflichtdokument-, Struktur-, Import-, Diff-, Branch- und Remote-Prüfungen mit PowerShell, `rg` und Git
+- gezielte `python -m unittest`-Läufe für Vertrag, Observer, Konfiguration, Crypto, Stocks und Web/API
+- vollständige `python -m unittest discover -s tests -q`-Regression
+- `node --check web/static/control_center.js`
+- `git diff --check`
+- `.venv\Scripts\python.exe scripts\market_regime_live_smoke.py` mit öffentlichem Netzwerkzugriff
+- kontrollierte rekursive Staging-Kopie, `Compress-Archive`, .NET-`ZipFile.OpenRead` und `Expand-Archive` für das AFTER-Backup
+- `git commit`, `git push --set-upstream`, `gh pr create --draft` und abschließende Branch-/PR-/Remote-Prüfungen
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Gezielte Abschluss-Suite: 55/55 bestanden in 9,195 Sekunden.
+- Vollständige Regression: 318/318 bestanden in 43,245 Sekunden.
+- JavaScript-Syntax: bestanden.
+- Diff-Prüfung: keine Inhaltsfehler; nur erwartete LF/CRLF-Hinweise.
+- Ein versuchter `pytest`-Aufruf wurde nicht ausgeführt, weil `pytest` nicht in der Projekt-`.venv` installiert ist. Es wurde nichts installiert; die dokumentierte `unittest`-Suite lief vollständig erfolgreich.
+- Isolierter Live-Smoke-Test: 2 Eingaben, 2 persistierte Snapshots, 1 Batch, 0 Duplikate, 0 Drops, 0 Fehler, Queue-Tiefe 0 und Worker nach Shutdown beendet. Laufzeit 1,616 Sekunden, CPU-Zeit 0,484 Sekunden.
+- BTCUSDT: `DOWN + MEDIUM + WEAKENING`, Quality `OK`, Timeframe `15m`, fehlend `1m/5m/1h/4h`.
+- AAPL: `UNKNOWN + HIGH + UNKNOWN`, Quality `OK`, Timeframe `1d`, fehlend `1m/5m/15m/1h/4h`. `UNKNOWN` wurde sicher beibehalten und nicht künstlich ersetzt.
+- Ereignisse: ausschließlich Start, zwei `MARKET_REGIME_OBSERVED` und Stop. Keine Decision-, Signal-, Shadow-, Trade-, Telegram- oder Orderereignisse. Temporäres Ledger nach erfolgreicher Prüfung entfernt.
+- AFTER-Backup: 1.201 plausible Einträge und 1.512.476.762 Byte; `.git`, `docs`, `tests`, `AGENTS.md` und Quellcode vorhanden; Testextraktion bestanden.
+
+### Bekannte Fehler
+
+- KP-026 bleibt offen: Ein kurzer Zweimarkt-Smoke-Test validiert keine fachlichen Schwellen oder Marktphasen-Coverage.
+- Die bestehende Stock-Verification-Laufunterbrechung, `SPCX`-Quote-Grenze und zwei beschädigten historischen Backup-JSONs bleiben unverändert dokumentiert.
+- `pytest` ist nicht Teil der Projekt-`.venv`; die verbindliche Suite verwendet `unittest`.
+
+### Getroffene Architekturentscheidungen
+
+- Regime v1 bleibt vollständig observer-only und besitzt keine Kante zu Decision Core, Shadow Gate, Outcome-Entscheidung, Trade Tracker, Telegram oder Orders.
+- Drei Regime-Achsen bleiben unabhängig; keine Kombination wird in LONG, SHORT, HOLD oder NO-TRADE übersetzt.
+- Persistenz liegt hinter einer begrenzten Queue. Kanonische Identität basiert auf Marktdaten, Vertrag, Classifier und Konfiguration, nicht auf restart-abhängigen Event-IDs.
+- API und UI zeigen ausschließlich kompakte, read-only Projektionen. Coverage führt alle Vertragsklassen explizit, auch wenn ihr Zähler null ist.
+
+### Nicht abgeschlossene Punkte
+
+- Reale mehrwöchige Coverage und Outcome-Auswertung sind bewusst nicht gestartet.
+- Keine automatische Regime-Regel, Schwellenoptimierung oder Stimpy-Verbindung implementiert.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #24 fachlich prüfen und ausdrücklich nicht mergen, solange der gestapelte Phase-0-PR #23 nicht geprüft ist. Danach nur mit separater Freigabe eine längere observer-only Regime-Coverage starten; keinen Fit, keine Decision-Regel und keine Telegram-/Orderkopplung aktivieren.
+
 ## Aktuelle Aufgabe: Phase 0 – bestehenden Stock-/Polling-/Verification-Stand sichern
 
 ### Datum und Uhrzeit
