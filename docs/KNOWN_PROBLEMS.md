@@ -4,14 +4,22 @@ Stand: 14. August 2026
 
 ## Offen
 
-### KP-027 – Draft-PR #23 und #24 besaßen keine GitHub-CI-/Review-Abdeckung
+### KP-028 – `Compress-Archive` lässt versteckte `.git`-Inhalte aus
+
+- **Priorität:** niedrig, betriebliche Backup-Methode
+- **Status:** am 14. August 2026 erkannt und durch geprüfte .NET-ZIP-Erstellung umgangen
+- **Beobachtung:** Eine vollständige kontrollierte Staging-Kopie enthielt `.git`, `docs`, `tests` und `AGENTS.md`. Das daraus mit Windows PowerShell `Compress-Archive` erstellte ZIP enthielt jedoch kein `.git` und war deshalb kein vollständiges Repository-Backup.
+- **Sichere Behandlung:** Das ungültige, ausschließlich in dieser Aufgabe erzeugte ZIP wurde nach Dokumentation gelöscht. Das endgültige `pandorickbacktooback.zip` wurde mit `.NET ZipFile.CreateFromDirectory` erstellt und durch OpenRead, 1.266 vollständige Datei-Streams sowie Testextraktion einschließlich `.git/HEAD` verifiziert.
+- **Nächster Schritt:** Für vollständige Repository-Backups weiterhin 7-Zip bevorzugen. Falls 7-Zip fehlt, kontrolliertes Staging plus .NET-ZIP verwenden und `.git/HEAD` ausdrücklich prüfen; `Compress-Archive` nicht ungeprüft als vollständig akzeptieren.
+
+### KP-027 – PR #23 und #24 besaßen keine GitHub-CI-/Review-Abdeckung
 
 - **Priorität:** mittel
-- **Status:** für PR #23 nach ausdrücklicher Mergefreigabe akzeptiert; für Draft-PR #24 weiterhin offen
-- **Beobachtung:** GitHub meldete für beide Branches keine Statuschecks und keine Reviews. PR #23 wurde nach konfliktfreier lokaler Prüfung, 318/318 Tests und ausdrücklicher Benutzerfreigabe als `c751fe1` nach `main` gemergt. PR #24 bleibt Draft, besitzt weiterhin keine unabhängige CI-/Review-Freigabe und ist jetzt direkt auf `main` gerichtet.
+- **Status:** für beide PRs nach vollständiger lokaler Prüfung und jeweiliger ausdrücklicher Mergefreigabe akzeptiert; Prozessrisiko bleibt dokumentiert
+- **Beobachtung:** GitHub meldete für beide Branches keine Statuschecks und keine Reviews. PR #23 wurde als `c751fe1`, PR #24 am 14. August 2026 als `e7718c8` nach `main` gemergt. Vor beiden Merges waren Diff und Merge-Simulation konfliktfrei; für den finalen Regime-Head bestand die unmittelbare vollständige Wiederholung mit 318/318 Tests.
 - **Lokale Evidenz:** Beide getrennten Diffs und Merge-Simulationen sind konfliktfrei; 0 Runtime-/History-Pfade, 0 Secret-Mustertreffer, 318/318 aktuelle Gesamttests sowie JavaScript- und Python-Syntax bestanden.
-- **Sicherheitsregel:** Keinen fehlenden Check als bestanden darstellen. PR #24 bis zu einer neuen ausdrücklichen Mergefreigabe im Draft belassen.
-- **Nächster Schritt:** Aktualisierten PR #24 gegen `main` separat reviewen; Merge nur nach ausdrücklicher Freigabe.
+- **Sicherheitsregel:** Fehlende GitHub-Checks weiterhin nicht als bestanden darstellen. Für zukünftige PRs nach Möglichkeit unabhängige CI-/Review-Abdeckung einrichten und die lokale Evidenz nicht damit gleichsetzen.
+- **Nächster Schritt:** Vor dem nächsten größeren PR entscheiden, ob eine minimale GitHub-Actions-Testmatrix eingerichtet werden soll; keine bestehende Runtime- oder Tradingkonfiguration dafür verändern.
 
 ### KP-026 – Regime v1 benötigt reale Coverage und Schwellenvalidierung
 
@@ -20,6 +28,7 @@ Stand: 14. August 2026
 - **Beobachtung:** Der Classifier ist deterministisch und mehrdimensional, seine Parameter sind aber noch nicht gegen ausreichende unabhängige Marktphasen und spätere Outcomes validiert. Stocks besitzen nur `1d`, Crypto nur `15m`; fehlende Timeframes werden sichtbar ausgewiesen.
 - **Sicherheitsregel:** Regime-Werte nicht in LONG/SHORT/HOLD, Gate, Telegram oder Orders übersetzen. `UNKNOWN` und `DEGRADED` nicht wegfiltern. Keine Schwellen automatisch anhand kurzer Läufe optimieren.
 - **Live-Smoke-Test:** BTCUSDT-`15m` ergab `DOWN + MEDIUM + WEAKENING`, AAPL-`1d` sicher `UNKNOWN + HIGH + UNKNOWN`; 2/2 Snapshots, 0 Drops, 0 Fehler, Queue leer, Worker gestoppt und keine verbotenen Events. Dies ist nur ein technischer Plausibilitätstest und keine Schwellenvalidierung.
+- **Produktive Liveprüfung vom 14. August 2026:** Vier vollständige Crypto-/Stockzyklen auf dem gemergten `main` endeten mit allen Services `OK`, 0 Fehlern und 0 STALE. Der Observer hielt acht aktuelle Symbole und 21 append-only Snapshots, Queue 0/512. Crypto lieferte drei `OK`-Regimes auf echten `15m`-Daten; Stocks verwendeten echte `1d`-Daten, wobei `UNKNOWN` und der erwartete `SPCX`-Reject sichtbar blieben. Telegram-/Order-/Decision-Grenzen blieben unverändert.
 - **Nächster Schritt:** Nach Review und separater Freigabe eine ausreichend lange read-only Coverage über unabhängige Marktphasen sammeln und später zeitpunktgerecht mit Outcomes auswerten. Keinen automatischen Fit oder Decision-Einfluss aktivieren.
 
 ### KP-025 – Stock- und Verification-Consumer blockierten den Gesamtzyklus
@@ -115,7 +124,7 @@ Stand: 14. August 2026
 
 - **Priorität:** niedrig, betriebliche Entwicklungsumgebung
 - **Status:** verstanden und durch kontrollierten Netzwerkstart umgangen
-- **Beobachtung:** Zwei kontrollierte Startversuche innerhalb der eingeschränkten Codex-Sandbox erzeugten sechs neue `CRYPTO_SERVICE_ERROR`-Journalzeilen mit `WinError 10013` für Binance und Bitget. Beide Prozesse wurden geordnet beendet. Beim anschließend ausdrücklich freigegebenen Netzwerkstart arbeiteten Crypto und Stock über vier Zyklen fehlerfrei; seit dessen Start entstand kein neuer Dienstfehler.
+- **Beobachtung:** Kontrollierte Startversuche innerhalb der eingeschränkten Codex-Sandbox erzeugten `CRYPTO_SERVICE_ERROR`-Ereignisse mit `WinError 10013` für Binance und Bitget. Der Befund wurde am 14. August 2026 beim Neustart auf dem gemergten Regime-`main` erneut bestätigt; der betroffene Prozess wurde geordnet beendet. Beim anschließend ausdrücklich freigegebenen Netzwerkstart arbeiteten Crypto und Stock über vier Zyklen fehlerfrei; seit dessen Start entstand kein neuer Sitzungsfehler.
 - **Auswirkung:** Kein Produktcodefehler und kein Datenverlust. Ein Sandbox-Prozess kann Live-Crypto jedoch nicht sinnvoll verifizieren.
 - **Nächster Fix:** Live-Crypto-Starts aus Codex weiterhin nur mit der vorgesehenen Netzwerkfreigabe ausführen; Journalzeilen nicht löschen oder umschreiben.
 

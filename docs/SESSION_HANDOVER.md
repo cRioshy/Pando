@@ -1,5 +1,149 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: vollständiges Desktop-Backup `pandorickbacktooback.zip`
+
+### Datum und Uhrzeit
+
+14. August 2026, 12:45 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Ein vollständiges, geprüftes Backup des lokalen PandorickKi-Projekts unter dem ausdrücklich gewünschten Namen `pandorickbacktooback.zip` auf dem Desktop erstellen. `.git`, Quellcode, Dokumentation, Tests und vorhandene Projektdaten mussten enthalten bleiben; `.venv`, Caches, Build-Artefakte und vorhandene ZIP-Dateien sollten ausgeschlossen werden.
+
+### Durchgeführte Arbeiten
+
+- Projekt- und Desktoppfad aufgelöst und geprüft, dass kein gleichnamiges Backup überschrieben wird.
+- Festgestellt, dass 7-Zip nicht installiert ist; deshalb kontrollierte Staging-Kopie per `robocopy` erstellt.
+- Den ersten durch ein zu kurzes Befehlszeitlimit verwaisten Kopierprozess eindeutig identifiziert, ausschließlich diesen Prozess beendet und nur dessen unvollständiges heutiges Staging entfernt. Ein älteres fremdes Temp-Staging blieb unangetastet.
+- Vollständige neue Staging-Kopie mit 1.266 Dateien und 11.142.793.930 Byte erstellt; `.git`, `docs`, `tests` und `AGENTS.md` waren vorhanden.
+- Ersten `Compress-Archive`-Versuch als ungültig erkannt, weil das versteckte `.git` fehlte. Das ausschließlich von dieser Aufgabe erzeugte ungültige ZIP mit 1.533.419.967 Byte wurde dokumentiert und gelöscht, um Platz für den gültigen Ersatz zu schaffen.
+- Endgültiges ZIP mit `.NET ZipFile.CreateFromDirectory` inklusive versteckter Dateien erzeugt.
+- Archiv über `.NET OpenRead`, Pflichtinhalte, vollständiges Lesen aller Datei-Streams und gezielte Testextraktion geprüft.
+- Nach erfolgreicher Prüfung ausschließlich das heutige Staging und das Testextraktionsverzeichnis entfernt.
+- PandorickKi während der Arbeiten nicht gestoppt oder konfiguriert; Health blieb `OK`.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Außerhalb des Repositorys: `C:\Users\Admin\Desktop\pandorickbacktooback.zip`
+
+### Ausgeführte Befehle
+
+- Pfad-, Git-, 7-Zip- und Pflichtstrukturprüfung mit PowerShell
+- kontrollierte `robocopy`-Staging-Kopie mit Ausschlüssen für `.venv`, Caches, Build-Verzeichnisse und `*.zip`
+- `Compress-Archive` als geprüfter, aber verworfener erster Archivierungsversuch
+- `.NET ZipFile.CreateFromDirectory` für das endgültige Archiv
+- `.NET ZipFile.OpenRead`, vollständiger Stream-Lesetest und gezielte `ExtractToFile`-Testextraktion
+- kontrollierte Bereinigung ausschließlich der eindeutig benannten heutigen Temp-Verzeichnisse
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Endgültige ZIP-Größe: 1.538.424.058 Byte.
+- Archiveinträge: 1.267 einschließlich Verzeichniseintrag; 1.266 Datei-Streams.
+- Vollständiger Stream-Test: 1.266/1.266 Dateien und 11.142.793.930 unkomprimierte Byte ohne Lesefehler.
+- Pflichtinhalte vorhanden: `.git/HEAD`, `AGENTS.md`, `docs/`, `tests/` und `main.py`.
+- Testextraktion bestanden für `.git/HEAD`, `AGENTS.md`, `main.py`, `docs/CURRENT_SYSTEM_STATE.md` und `tests/test_market_regime_contract.py`; extrahierte Dateigrößen stimmten mit den ZIP-Einträgen überein.
+- Staging- und Testextraktionsverzeichnis nach erfolgreicher Prüfung vollständig entfernt.
+
+### Bekannte Fehler
+
+- KP-028 neu dokumentiert: Windows PowerShell `Compress-Archive` ließ das versteckte `.git` trotz korrekter Staging-Kopie aus. Für vollständige Repository-Backups ist deshalb die geprüfte .NET-ZIP-Methode erforderlich, wenn 7-Zip fehlt.
+- Das Backup wurde während des laufenden observer-only Betriebs aus einer kontrollierten Staging-Kopie erstellt. Stark veränderliche Runtime-Dateien entsprechen ihrem jeweiligen Kopierzeitpunkt; Quellcode, `.git`, Dokumentation und Tests sind konsistent enthalten.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produkt- oder Laufzeitarchitektur geändert.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Die drei verpflichtenden Handover-Dokumentänderungen dieser Backup-Aufgabe entstanden nach der Staging-Kopie und sind deshalb nicht Bestandteil dieses ZIP-Zeitpunkts; der zuvor dokumentierte Entwicklungsstand ist enthalten.
+- Backup ist lokal auf dem Desktop und wurde nicht zu GitHub oder einem externen Speicher übertragen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PandorickKi unverändert weiterlaufen lassen. Das geprüfte Desktop-Backup als lokalen Wiederherstellungspunkt behalten; am 17. August 2026 den siebentägigen Stock-Verification-Lauf kontrolliert und rein deskriptiv auswerten.
+
+## Aktuelle Aufgabe: PR #24 mergen und Market Regime v1 kontrolliert produktiv verifizieren
+
+### Datum und Uhrzeit
+
+14. August 2026, 11:25 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe den vollständig geprüften Market-Regime-PR #24 nach `main` mergen, PandorickKi kontrolliert auf dem neuen `main` neu starten und den observer-only Regimepfad über mehrere vollständige Livezyklen prüfen. Stock-Verification-Vertrag, Telegram-Sperre und Order-Sperre mussten unverändert bleiben.
+
+### Durchgeführte Arbeiten
+
+- PR #24 unmittelbar vor dem Merge nochmals auf erwarteten Head, Basis, Konfliktfreiheit und Scope geprüft.
+- PR #24 aus Draft genommen und per normalem Merge-Commit nach `main` gemergt; kein Rebase, kein Force-Push und kein Branch-Löschen.
+- GitHub-Merge als PR #24, Status `MERGED`, Mergezeit `2026-08-14T09:00:39Z` und Merge-Commit `e7718c81613957d480653e89a2f82db686958b0d` verifiziert.
+- Alten Produktionsprozess über `POST /api/control/stop` kontrolliert beendet und Portfreigabe geprüft.
+- Lokalen Branch `main` per Fast-Forward auf `origin/main`/`e7718c8` aktualisiert.
+- Runtime-Preflight mit der Projekt-`.venv` erfolgreich ausgeführt.
+- Ersten Neustartversuch innerhalb der eingeschränkten Codex-Umgebung nach eindeutigem `WinError 10013` für Binance/Bitget kontrolliert beendet. Keine Produktkonfiguration wurde geändert.
+- PandorickKi anschließend mit normalem Netzwerkzugriff und unveränderten 60/60-Gate-, Stock-Verification-, Telegram- und Order-Sicherheitswerten neu gestartet; zusätzlich ausschließlich `PANDORICKKI_MARKET_REGIME_OBSERVER_ENABLED=1` aktiviert.
+- Vier vollständige Crypto- und Stockzyklen live beobachtet und Regime-API, öffentliche Payloads, Control-Center-Markierung, Queue, Health, STALE, Fehler, Telegram, Orders und Verification-Fingerprint geprüft.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `gh pr ready 24`, `gh pr merge 24 --merge --match-head-commit ...`, `gh pr view 24 --json ...`
+- `git status`, `git switch main`, `git merge --ff-only origin/main`, `git rev-parse`, `git rev-list`
+- `.venv\Scripts\python.exe scripts\runtime_preflight.py`
+- `POST /api/control/stop` sowie wiederholte GET-Prüfungen von `/api/health`, `/api/status`, `/api/config/public`, `/api/v1/regime/current` und `/api/v1/regime/statistics`
+- Verbotene-Felder-Prüfung der öffentlichen Regime-Payload und statische Prüfung der ausgelieferten Control-Center-Seite auf den Market-Regime-Bereich
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Bereits vor dem Merge auf exakt dem gemergten Head: unmittelbare vollständige Wiederholung 318/318 bestanden; JavaScript-Syntax, Python-Kompilierung, Diff-, Scope-, Secret- und Merge-Simulation bestanden.
+- Runtime-Preflight nach Merge: bestanden mit Python 3.12.13 und erkanntem Legacy-Crypto-Pfad.
+- Kontrollierter Produktivlauf: vier vollständige Crypto- und vier vollständige Stockzyklen; am Ende Plattform und alle Services `OK`, Sitzungsfehler 0, STALE 0.
+- Crypto: 3/3 Live-Symbole pro Zyklus, aktuelle Binance-Preise, `last_error=null`.
+- Stock: 5 Ergebnisse je Zyklus; im zweiten dokumentierten Zyklus 3 `READY`, 2 `BLOCKED`, 4 Candle-Erfolge und 1 erwarteter `SPCX`-Fehler.
+- Market Regime: Observer `OK`, Worker aktiv, Queue 0/512, 13 Batches nach vier Zyklen, acht aktuelle Symbole und 21 append-only History-Snapshots.
+- Aktuelle Crypto-Regimes: BTCUSDT und ETHUSDT `STRONG_DOWN + HIGH + WEAKENING`, XRPUSDT `STRONG_DOWN + MEDIUM + WEAKENING`, jeweils Quality `OK`, Timeframe `15m`.
+- Aktuelle Stock-Regimes: MSFT `UP + HIGH + WEAKENING`, NVDA `UP + LOW + WEAKENING`, TSLA `DOWN + LOW + REVERSAL`, AAPL sicher teilweise `UNKNOWN`, SPCX vollständig `UNKNOWN`/`REJECTED`, jeweils nur echte `1d`-Daten.
+- Öffentliche Regime-Payload: keine Candles, Features, `raw_result`, Stock-Shadow-/Audit-/Candle-Felder oder Secrets; alle acht Snapshots `OBSERVER_ONLY`, `affects_active_decision=false`, `ready_for_telegram=false`, `order_execution_allowed=false`.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`. Stock-Verification: weiterhin aktiv, observer-only und Fingerprint unverändert `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`.
+
+### Bekannte Fehler
+
+- KP-026 bleibt offen: 21 kurze Live-Snapshots sind keine fachliche Schwellenvalidierung und decken noch keine unabhängigen Marktphasen ab.
+- KP-020 wurde beim ersten eingeschränkten Start erneut bestätigt: Sandbox-Prozesse dürfen öffentliche Marktdaten-Sockets nicht öffnen. Der kontrollierte Neustart mit Netzwerkfreigabe läuft seitdem fehlerfrei.
+- KP-019 bleibt als sporadischer Windows-Test-Cleanupfehler dokumentiert; in dieser Aufgabe wurde kein neuer Unit-Testlauf benötigt, weil exakt der zuvor vollständig geprüfte Head gemergt wurde.
+
+### Getroffene Architekturentscheidungen
+
+- Market Regime v1 ist nun Bestandteil von `main`, bleibt aber strikt observer-only und ohne Kante zu Decision Core, Shadow Gate, Outcomes, Telegram oder Orders.
+- Der sieben Tage laufende Stock-Verification-Vertrag wurde über den Neustart hinweg unverändert erhalten.
+- Keine Runtime-, History-, Lern-, Ledger- oder Konfigurationsdaten wurden gelöscht oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Die längere unabhängige Regime-Coverage und spätere Outcome-Auswertung fehlen weiterhin.
+- Keine Regime-Schwelle wurde kalibriert; keine automatische Regime-zu-Decision-Regel wurde eingeführt.
+- Der freigegebene Stock-Verification-Lauf soll erst nach mindestens sieben Tagen am 17. August 2026 deskriptiv ausgewertet werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PandorickKi auf `main` unverändert observer-only weiterlaufen lassen. Am 17. August 2026 zuerst den sieben Tage umfassenden Stock-Verification-Zeitraum kontrolliert beenden und dedupliziert/deskriptiv auswerten; parallel darf Regime-Coverage nur gesammelt, aber weder automatisch gefittet noch mit Decision Core, Telegram oder Orders gekoppelt werden.
+
 ## Aktuelle Aufgabe: PR #23 mergen und PR #24 auf main umstellen
 
 ### Datum und Uhrzeit
