@@ -28,6 +28,13 @@ STOCK_SHADOW_VERIFICATION_HEARTBEAT = "STOCK_SHADOW_VERIFICATION_HEARTBEAT"
 STOCK_SHADOW_VERIFICATION_ERROR = "STOCK_SHADOW_VERIFICATION_ERROR"
 STOCK_SHADOW_VERIFICATION_STOPPED = "STOCK_SHADOW_VERIFICATION_STOPPED"
 
+VERIFICATION_MODE_NORMAL = "NORMAL"
+VERIFICATION_MODE_DRAIN = "DRAIN"
+VERIFICATION_MODE_STOPPED = "STOPPED"
+VERIFICATION_MODES = frozenset(
+    {VERIFICATION_MODE_NORMAL, VERIFICATION_MODE_DRAIN, VERIFICATION_MODE_STOPPED}
+)
+
 
 @dataclass
 class StockShadowVerificationStatus:
@@ -45,6 +52,8 @@ class StockShadowVerificationStatus:
     last_symbol: str | None = None
     last_event_at: str | None = None
     last_error: str | None = None
+    requested_mode: str = VERIFICATION_MODE_NORMAL
+    mode: str = VERIFICATION_MODE_NORMAL
 
 
 class StockShadowVerificationAdapter:
@@ -62,51 +71,91 @@ class StockShadowVerificationAdapter:
         ledger_rotation_bytes: int = 20 * 1024 * 1024,
         ledger_max_archives: int = 8,
         outcome_batch_size: int = 8,
+        mode: str = VERIFICATION_MODE_NORMAL,
     ) -> None:
         self.event_bus = event_bus
         self.ledger_file = ledger_file
         self.policy = policy
         self.config_fingerprint = str(config_fingerprint)
         self.outcome_batch_size = max(int(outcome_batch_size), 1)
+        self.requested_mode = str(mode or "").strip().upper()
+        self.mode = (
+            self.requested_mode
+            if self.requested_mode in VERIFICATION_MODES
+            else VERIFICATION_MODE_STOPPED
+        )
         self.ledger = RotatingJsonlLedger(
             ledger_file,
             max_bytes=ledger_rotation_bytes,
             max_archives=ledger_max_archives,
         )
-        self.status = StockShadowVerificationStatus()
+        self.status = StockShadowVerificationStatus(
+            requested_mode=self.requested_mode,
+            mode=self.mode,
+        )
         self._records: dict[str, dict[str, Any]] = {}
         self._source_index: dict[str, str] = {}
         self._decision_index: dict[str, str] = {}
-        self._subscribed = False
+        self._subscriptions: list[tuple[str, Any]] = []
         self._loaded = False
         self._lock = RLock()
         self._generation = 0
         self._snapshot_cache: dict[tuple[int, int], tuple[int, dict[str, Any]]] = {}
 
     async def start(self) -> None:
+        if self.requested_mode not in VERIFICATION_MODES:
+            self.status.running = False
+            self.status.healthy = False
+            self.status.last_error = f"unsupported verification mode: {self.requested_mode or '<empty>'}"
+            self._publish(
+                STOCK_SHADOW_VERIFICATION_ERROR,
+                {
+                    "error": self.status.last_error,
+                    "mode": VERIFICATION_MODE_STOPPED,
+                    "asset_scope": "stock",
+                },
+            )
+            return
+        if self.mode == VERIFICATION_MODE_STOPPED:
+            self.status.running = False
+            self.status.healthy = True
+            self.status.last_error = None
+            self._publish(
+                STOCK_SHADOW_VERIFICATION_STARTED,
+                {"status": "stopped", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+            )
+            return
         if not self._loaded:
             self._load_ledger()
             self._loaded = True
-        if not self._subscribed:
-            self.event_bus.subscribe(STOCK_SHADOW_OBSERVED, self._handle_observation)
-            self.event_bus.subscribe(DECISION_CREATED, self._handle_decision)
-            self.event_bus.subscribe(SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome)
-            self.event_bus.subscribe(STOCK_ANALYSIS_FINISHED, self._handle_stock_price)
-            self._subscribed = True
+        if not self._subscriptions:
+            subscriptions = [
+                (DECISION_CREATED, self._handle_decision),
+                (SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome),
+                (STOCK_ANALYSIS_FINISHED, self._handle_stock_price),
+            ]
+            if self.mode == VERIFICATION_MODE_NORMAL:
+                subscriptions.insert(0, (STOCK_SHADOW_OBSERVED, self._handle_observation))
+            for topic, handler in subscriptions:
+                self.event_bus.subscribe(topic, handler)
+            self._subscriptions = subscriptions
         self.status.running = True
         self.status.healthy = True
         self.status.last_error = None
-        self._publish(STOCK_SHADOW_VERIFICATION_STARTED, {"status": "started", "mode": "OBSERVER_ONLY"})
+        self._publish(
+            STOCK_SHADOW_VERIFICATION_STARTED,
+            {"status": "started", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+        )
 
     async def stop(self) -> None:
-        if self._subscribed:
-            self.event_bus.unsubscribe(STOCK_SHADOW_OBSERVED, self._handle_observation)
-            self.event_bus.unsubscribe(DECISION_CREATED, self._handle_decision)
-            self.event_bus.unsubscribe(SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome)
-            self.event_bus.unsubscribe(STOCK_ANALYSIS_FINISHED, self._handle_stock_price)
-            self._subscribed = False
+        for topic, handler in self._subscriptions:
+            self.event_bus.unsubscribe(topic, handler)
+        self._subscriptions = []
         self.status.running = False
-        self._publish(STOCK_SHADOW_VERIFICATION_STOPPED, {"status": "stopped", "mode": "OBSERVER_ONLY"})
+        self._publish(
+            STOCK_SHADOW_VERIFICATION_STOPPED,
+            {"status": "stopped", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+        )
 
     async def run_once(self) -> list[Event]:
         return [
@@ -115,7 +164,8 @@ class StockShadowVerificationAdapter:
                 source=self.name,
                 payload={
                     "status": "ok" if self.status.healthy else "warning",
-                    "mode": "OBSERVER_ONLY",
+                    "mode": self.mode,
+                    "observer_mode": "OBSERVER_ONLY",
                     "cases": self.status.cases,
                     "completed_outcomes": self.status.completed_outcomes,
                     "persisted_records": self.status.persisted_records,
@@ -130,6 +180,8 @@ class StockShadowVerificationAdapter:
                 "running": self.status.running,
                 "healthy": self.status.healthy,
                 "mode": "OBSERVER_ONLY",
+                "verification_mode": self.mode,
+                "requested_mode": self.requested_mode,
                 "asset_scope": "stock",
                 "cases": self.status.cases,
                 "decision_links": self.status.decision_links,
@@ -188,7 +240,7 @@ class StockShadowVerificationAdapter:
             return _public_record(deepcopy(record)) if record is not None else None
 
     def _handle_observation(self, event: Event) -> None:
-        if not self.status.running:
+        if not self.status.running or self.mode != VERIFICATION_MODE_NORMAL:
             return
         try:
             data = _payload_data(event)
@@ -229,7 +281,7 @@ class StockShadowVerificationAdapter:
             self._record_error(exc)
 
     def _handle_decision(self, event: Event) -> None:
-        if not self.status.running:
+        if not self.status.running or self.mode not in {VERIFICATION_MODE_NORMAL, VERIFICATION_MODE_DRAIN}:
             return
         try:
             data = _payload_data(event)
@@ -259,7 +311,7 @@ class StockShadowVerificationAdapter:
             self._record_error(exc)
 
     def _handle_tracker_outcome(self, event: Event) -> None:
-        if not self.status.running:
+        if not self.status.running or self.mode not in {VERIFICATION_MODE_NORMAL, VERIFICATION_MODE_DRAIN}:
             return
         try:
             data = _payload_data(event)
@@ -290,7 +342,7 @@ class StockShadowVerificationAdapter:
             self._record_error(exc)
 
     def _handle_stock_price(self, event: Event) -> None:
-        if not self.status.running:
+        if not self.status.running or self.mode not in {VERIFICATION_MODE_NORMAL, VERIFICATION_MODE_DRAIN}:
             return
         try:
             data = _payload_data(event)

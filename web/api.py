@@ -539,6 +539,7 @@ class WebControlServer:
             "web_port": self.port,
             "storage_scan_interval_seconds": config.storage_scan_interval_seconds,
             "stock_shadow_verification_enabled": config.stock_shadow_verification_enabled,
+            "stock_shadow_verification_mode": config.stock_shadow_verification_mode,
             "market_regime_observer_enabled": config.market_regime_observer_enabled,
         }
 

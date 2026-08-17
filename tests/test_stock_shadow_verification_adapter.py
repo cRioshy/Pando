@@ -13,7 +13,11 @@ from pathlib import Path
 from adapters.decision_signal_adapter import DECISION_CREATED
 from adapters.outcome_tracker import SIMULATED_TRADE_CLOSED
 from adapters.stock_adapter import STOCK_ANALYSIS_FINISHED, STOCK_SHADOW_OBSERVED
-from adapters.stock_shadow_verification_adapter import StockShadowVerificationAdapter
+from adapters.stock_shadow_verification_adapter import (
+    VERIFICATION_MODE_DRAIN,
+    VERIFICATION_MODE_STOPPED,
+    StockShadowVerificationAdapter,
+)
 from event_bus import Event, EventBus
 from stock_shadow_verification_contract import StockShadowVerificationPolicy
 
@@ -75,13 +79,82 @@ def decision(*, source_id: str = "stock-source-1", decision_id: str = "decision:
 
 
 class StockShadowVerificationAdapterTest(unittest.TestCase):
-    def make_adapter(self, root: Path, bus: EventBus) -> StockShadowVerificationAdapter:
+    def make_adapter(
+        self,
+        root: Path,
+        bus: EventBus,
+        *,
+        mode: str = "NORMAL",
+    ) -> StockShadowVerificationAdapter:
         return StockShadowVerificationAdapter(
             bus,
             ledger_file=root / "verification.jsonl",
             policy=StockShadowVerificationPolicy(horizon_seconds=1, neutral_band_percent=0.0),
             config_fingerprint="fingerprint-v1",
+            mode=mode,
         )
+
+    def test_drain_restarts_existing_cases_without_creating_new_cases(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                normal_bus = EventBus()
+                normal = self.make_adapter(root, normal_bus)
+                await normal.start()
+                normal_bus.publish(observed())
+                verification_id = normal.snapshot()["records"][0]["verification_id"]
+                await normal.stop()
+
+                drain_bus = EventBus()
+                drain = self.make_adapter(root, drain_bus, mode=VERIFICATION_MODE_DRAIN)
+                await drain.start()
+                drain_bus.publish(observed(source_id="new-source-must-not-create"))
+                drain_bus.publish(decision())
+                drain_bus.publish(
+                    Event(
+                        topic=STOCK_ANALYSIS_FINISHED,
+                        source="stock",
+                        payload={
+                            "payload": {
+                                "market_type": "stock",
+                                "symbol": "AAPL",
+                                "current_price": 102.0,
+                                "price_timestamp": datetime.now(UTC).isoformat(),
+                            }
+                        },
+                    )
+                )
+                snapshot = drain.snapshot()
+                health = await drain.health()
+                await drain.stop()
+
+                self.assertEqual(snapshot["summary"]["shadow_cases"], 1)
+                self.assertEqual(snapshot["summary"]["outcomes"]["COMPLETED"], 1)
+                self.assertEqual(drain.detail(verification_id)["legacy"]["decision_id"], "decision:stock-1")
+                self.assertEqual(health["verification_mode"], VERIFICATION_MODE_DRAIN)
+
+        asyncio.run(run())
+
+    def test_stopped_and_unknown_modes_fail_closed_without_subscriptions(self) -> None:
+        async def run() -> None:
+            for mode, healthy in ((VERIFICATION_MODE_STOPPED, True), ("UNSUPPORTED", False)):
+                with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
+                    root = Path(temp)
+                    bus = EventBus()
+                    adapter = self.make_adapter(root, bus, mode=mode)
+                    await adapter.start()
+                    bus.publish(observed())
+                    bus.publish(decision())
+                    health = await adapter.health()
+                    await adapter.stop()
+
+                    self.assertEqual(adapter.snapshot()["summary"]["shadow_cases"], 0)
+                    self.assertFalse((root / "verification.jsonl").exists())
+                    self.assertFalse(health["running"])
+                    self.assertEqual(health["healthy"], healthy)
+                    self.assertEqual(health["verification_mode"], VERIFICATION_MODE_STOPPED)
+
+        asyncio.run(run())
 
     def test_creation_idempotence_decision_link_outcome_and_restart(self) -> None:
         async def run() -> None:

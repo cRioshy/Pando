@@ -149,6 +149,7 @@ class PlatformConfig:
     decision_gate_minimum_confidence: float | None = None
     decision_gate_confidence_tolerance: float = 0.0
     stock_shadow_verification_enabled: bool = False
+    stock_shadow_verification_mode: str = "NORMAL"
     stock_shadow_verification_file: Path = PROJECT_ROOT / "data" / "stock_shadow_verification.jsonl"
     stock_shadow_verification_rotation_bytes: int = 20 * 1024 * 1024
     stock_shadow_verification_max_archives: int = 8
@@ -419,6 +420,9 @@ class PlatformConfig:
             stock_shadow_verification_enabled=_env_bool(
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_ENABLED", False
             ),
+            stock_shadow_verification_mode=os.getenv(
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_MODE", "NORMAL"
+            ).strip().upper(),
             stock_shadow_verification_file=_env_path(
                 "PANDORICKKI_STOCK_SHADOW_VERIFICATION_FILE",
                 data_dir / "stock_shadow_verification.jsonl",

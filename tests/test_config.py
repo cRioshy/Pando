@@ -68,6 +68,7 @@ class PlatformConfigTest(unittest.TestCase):
                 "PANDORICKKI_DECISION_GATE_MINIMUM_PROBABILITY": "65",
                 "PANDORICKKI_DECISION_GATE_MINIMUM_CONFIDENCE": "62.5",
                 "PANDORICKKI_DECISION_GATE_CONFIDENCE_TOLERANCE": "3",
+                "PANDORICKKI_STOCK_SHADOW_VERIFICATION_MODE": "DRAIN",
             },
             clear=False,
         ):
@@ -94,6 +95,7 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.stock_shadow_risk_target_3_multiple, 4.0)
         self.assertEqual(config.stock_shadow_risk_price_decimals, 3)
         self.assertTrue(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_mode, "DRAIN")
         self.assertEqual(config.stock_shadow_verification_file, Path("C:/tmp/pandorickki-data/verification.jsonl"))
         self.assertEqual(config.stock_shadow_verification_horizon_seconds, 7200.0)
         self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.1)
@@ -156,6 +158,7 @@ class PlatformConfigTest(unittest.TestCase):
         self.assertEqual(config.stock_shadow_risk_target_3_multiple, 3.0)
         self.assertEqual(config.stock_shadow_risk_price_decimals, 4)
         self.assertFalse(config.stock_shadow_verification_enabled)
+        self.assertEqual(config.stock_shadow_verification_mode, "NORMAL")
         self.assertEqual(config.stock_shadow_verification_horizon_seconds, 86400.0)
         self.assertEqual(config.stock_shadow_verification_neutral_band_percent, 0.05)
         self.assertFalse(config.market_regime_observer_enabled)

@@ -562,6 +562,7 @@ class Orchestrator:
                         config_fingerprint=verification_fingerprint,
                         ledger_rotation_bytes=self.config.stock_shadow_verification_rotation_bytes,
                         ledger_max_archives=self.config.stock_shadow_verification_max_archives,
+                        mode=self.config.stock_shadow_verification_mode,
                     )
                 ]
                 if self.config.stock_shadow_verification_enabled
