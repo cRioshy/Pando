@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -153,6 +155,84 @@ class StockShadowVerificationAdapterTest(unittest.TestCase):
                     self.assertFalse(health["running"])
                     self.assertEqual(health["healthy"], healthy)
                     self.assertEqual(health["verification_mode"], VERIFICATION_MODE_STOPPED)
+
+        asyncio.run(run())
+
+    def test_ledger_lock_conflict_fails_closed_without_subscriptions(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                first = self.make_adapter(root, EventBus())
+                blocked_bus = EventBus()
+                blocked = self.make_adapter(root, blocked_bus, mode=VERIFICATION_MODE_DRAIN)
+
+                await first.start()
+                await blocked.start()
+                blocked_bus.publish(observed())
+                blocked_health = await blocked.health()
+
+                self.assertFalse(blocked_health["running"])
+                self.assertFalse(blocked_health["healthy"])
+                self.assertFalse(blocked_health["ledger_lock_acquired"])
+                self.assertIn("ledger lock already held", blocked_health["last_error"])
+                self.assertEqual(blocked.snapshot()["summary"]["shadow_cases"], 0)
+
+                await blocked.stop()
+                await first.stop()
+
+                restarted_bus = EventBus()
+                restarted = self.make_adapter(root, restarted_bus)
+                await restarted.start()
+                restarted_bus.publish(observed())
+                self.assertEqual(restarted.snapshot()["summary"]["shadow_cases"], 1)
+                await restarted.stop()
+
+        asyncio.run(run())
+
+    def test_parallel_duplicate_price_events_complete_exactly_once(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                adapter = self.make_adapter(root, bus)
+                await adapter.start()
+                bus.publish(observed())
+                quote = Event(
+                    topic=STOCK_ANALYSIS_FINISHED,
+                    source="stock",
+                    payload={
+                        "payload": {
+                            "market_type": "stock",
+                            "symbol": "AAPL",
+                            "current_price": 102.0,
+                            "price_timestamp": datetime.now(UTC).isoformat(),
+                        }
+                    },
+                )
+                barrier = threading.Barrier(8)
+
+                def publish_once() -> None:
+                    barrier.wait()
+                    bus.publish(quote)
+
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    futures = [pool.submit(publish_once) for _ in range(8)]
+                    for future in futures:
+                        future.result()
+
+                snapshot = adapter.snapshot()
+                await adapter.stop()
+                lines = [
+                    json.loads(line)
+                    for line in (root / "verification.jsonl").read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                ]
+
+                self.assertEqual(snapshot["summary"]["outcomes"]["COMPLETED"], 1)
+                self.assertEqual(
+                    sum(line.get("record_type") == "OUTCOME_COMPLETED" for line in lines),
+                    1,
+                )
 
         asyncio.run(run())
 
