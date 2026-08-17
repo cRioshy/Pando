@@ -1,6 +1,18 @@
 # Nächste Schritte
 
-Stand: 14. August 2026
+Stand: 17. August 2026
+
+## Verification-Stabilisierung und kontrolliertes Drain
+
+- **Erfassung beendet:** finaler API-Snapshot am 17. August 2026 um 19:14 Uhr Europe/Berlin mit Plattform und 13/13 Services `OK`; 7-Tage-Sicht 19.100 Fälle, davon 13.563 `COMPLETED`, 1.692 `PENDING` und 3.845 `UNKNOWN`.
+- **Gesamtledger geprüft:** 55.131 gültige Zeilen, null JSON-Fehler, 19.164 eindeutige Fälle; 13.615 `COMPLETED`, 1.692 `PENDING`, 3.857 `UNKNOWN`. 194 historische IDs besitzen je eine zusätzliche Completion-Zeile und bleiben unverändert.
+- **Implementiert:** explizites `NORMAL`/`DRAIN`/`STOPPED`, unbekannte Modi fail-closed, DRAIN ohne neue Fälle, gehärtete Outcome-JSON-Persistenz, serialisierte Completion und exklusiver Ledger-Lock.
+- **Commits:** `57d63c7 Add verification drain mode`, `c0a881d Harden outcome persistence`, `4472a98 Fix completion idempotency`; vorhandene ältere Übergabedokumente separat als `20069ef` gesichert.
+- **Tests:** 47/47 gezielte und 325/325 vollständige Tests bestanden; Python-Kompilierung, JavaScript-Syntax und Diffprüfung bestanden.
+- **AFTER-Backup bestanden:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-17_19-29-44_AFTER.zip`, 1.587.549.058 Byte, 1.313 Einträge, SHA-256 `E9378D017F235219FA78B84ACEA9DBB0EF738E7EFEADFBEBB9454A21B17B5CAD`; vollständiger Stream-Test und zentrale Testextraktion bestanden.
+- **DRAIN-Smoke bestanden:** Fall-/Creation-Zähler konstant 19.164; 32 bestehende Fälle abgeschlossen, `COMPLETED` 13.615 → 13.647, `PENDING` 1.692 → 1.660, historische Zusatz-Completions konstant 194, JSON-Fehler 0. Telegram aus/Dry-Run/0 Sendungen, Orders gesperrt. Stop gab Port in 1,961 Sekunden frei.
+- **Jetzt:** Abschlussdokumentation separat committen, Branch pushen und Draft-PR gegen `main` erstellen; nicht mergen.
+- **Nächster fachlicher Schritt:** DRAIN nur nach ausdrücklicher Freigabe erneut starten und den verbleibenden Pending-Bestand kontrolliert abbauen. Erst danach eine kanonisch deduplizierte, rein deskriptive Verification-Auswertung planen; noch keine Kalibrierung, Research View, Gate-, Telegram- oder Orderkopplung beginnen.
 
 ## Lokaler Wiederherstellungspunkt
 

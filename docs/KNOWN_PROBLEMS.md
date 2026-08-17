@@ -4,6 +4,24 @@ Stand: 14. August 2026
 
 ## Offen
 
+### KP-030 – Historische Verification-Completion-Duplikate bleiben im append-only Ledger
+
+- **Priorität:** mittel für spätere deskriptive Auswertung, keine Laufzeitgefährdung
+- **Status:** Ursache für neue Einträge behoben; 194 historische Zusatzzeilen bleiben bewusst unverändert
+- **Beobachtung:** Der gestoppte Gesamtbestand vom 17. August 2026 enthält 13.809 `OUTCOME_COMPLETED`-Zeilen für 13.615 eindeutige Verification-IDs. Genau 194 IDs besitzen je eine zweite Completion-Zeile.
+- **Ursache:** Der frühere Completion-Pfad kopierte `PENDING`-Kandidaten unter Lock, löste die Sperre und schrieb anschließend. Parallele Quoteereignisse konnten denselben Fall deshalb mehrfach abschließen.
+- **Sichere Behandlung:** Neue Completion-Vorgänge prüfen und schreiben vollständig unter derselben Adapter-Sperre; zusätzlich verhindert ein lebenslang gehaltener exklusiver Ledger-Lock mehrere Writer. Bestehende Zeilen werden nicht gelöscht oder umgeschrieben.
+- **Nächster Schritt:** Spätere read-only Auswertung nach kanonischer `verification_id` deduplizieren und die 194 Zusatzzeilen separat ausweisen; keine automatische Kalibrierung daraus starten.
+
+### KP-029 – Kontrollierter Stop hing nach bereits gestopptem Orchestrator am Prozessende
+
+- **Priorität:** mittel, Lifecycle/Shutdown
+- **Status:** offen zur Beobachtung; beim anschließenden DRAIN-Smoke nicht erneut aufgetreten
+- **Beobachtung:** `POST /api/control/stop` wurde um 19:15 Uhr angenommen und `/api/status` meldete `running=false` sowie `stop_requested=true`. Das Verification-Ledger war stabil, aber PID 6184 hielt Port 8000 nach mehr als 45 Sekunden weiter offen. Nach Prüfung der exakten PID und stabiler Writer wurde ausschließlich dieser Prozess beendet; Port und PID waren danach frei und alle geprüften Runtime-Dateien blieben stabil.
+- **Abgrenzung:** Kein JSONL-Fehler und kein Datenverlust festgestellt. Der heutige Stabilisierungscode ändert den allgemeinen Orchestrator-/Webserver-Shutdown nicht.
+- **DRAIN-Gegenprobe:** Der spätere kontrollierte Stop der neuen DRAIN-Instanz gab Port 8000 in 1,961 Sekunden frei; der Prozess endete vollständig und das Ledger blieb quieszent.
+- **Nächster Schritt:** Bei erneuter Reproduktion Thread-/Adapterabschluss gezielt instrumentieren; keinen ungezielten Prozessabbruch verwenden.
+
 ### KP-028 – `Compress-Archive` lässt versteckte `.git`-Inhalte aus
 
 - **Priorität:** niedrig, betriebliche Backup-Methode
@@ -188,6 +206,14 @@ Stand: 14. August 2026
 - **Nächster Fix:** Nur bei erneuter Beobachtung den HTTP-Request-Handler so härten, dass erwartbare lokale Client-Abbrüche kompakt protokolliert werden. Keine Priorität vor dem Feature-Datenqualitätsvertrag.
 
 ## Behoben oder entschärft
+
+### KP-R16 – Outcome-Zustandsdatei und Verification-Completion waren kollisionsanfällig
+
+- **Status:** behoben und am 17. August 2026 mit gezielten sowie vollständigen Tests verifiziert
+- Der allgemeine `OutcomeTracker` verwendet für `simulated_open_trades.json` jetzt `atomic_write_json`; Snapshot und Dateischreiben bleiben gemeinsam unter derselben Adapter-Sperre. Eindeutige Temp-Dateien, `fsync` und begrenzte Windows-Retries ersetzen den festen `*.tmp`-Pfad.
+- Verification-Completion prüft unter Lock erneut `PENDING` und führt Ledger-Append plus Materialized-View-Apply serialisiert aus. Ein exklusiver Prozess-/OS-Dateilock verhindert mehrere aktive Writer für dasselbe Ledger und startet bei Konflikt ohne Subscriptions.
+- Tests decken zwei simulierte `PermissionError`-Retries, 24 parallele Outcome-Snapshots, acht parallele doppelte Quoteereignisse, Restart, Lockkonflikt sowie Lockfreigabe ab. 47/47 gezielte und 325/325 vollständige Tests bestanden.
+- Bestehende Runtime- und Historydateien wurden nicht umgeschrieben; die 194 historischen Completion-Zusatzzeilen bleiben als KP-030 sichtbar.
 
 ### KP-R15 – UI-Reconnect, STALE und Lifecycle waren unvollständig
 

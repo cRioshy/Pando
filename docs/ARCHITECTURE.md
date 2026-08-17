@@ -1,6 +1,6 @@
 # PandorickKi – Ist-Architektur
 
-Stand: 12. August 2026
+Stand: 17. August 2026
 
 Dieses Dokument beschreibt ausschließlich die im aktuellen Code nachweisbare Architektur. Es ist keine Zielarchitektur.
 
@@ -40,6 +40,27 @@ flowchart LR
 ```
 
 Der Produktions-Orchestrator erstellt keinen überlappenden Stocklauf und wartet nicht auf die blockierende Legacy-/Normalisierungspipeline. Fertige Ergebnisse werden in einem Folgetakt publiziert. Der Verification-Consumer sortiert fällige Fälle nach `evaluation_due_at` und verarbeitet je Stock-Quote höchstens acht. Nicht verarbeitete Fälle bleiben `PENDING` und werden nach Neustart unverändert aus dem Ledger rekonstruiert.
+
+## Verification-Modi, Idempotenz und Ledger-Eigentum
+
+```mermaid
+flowchart LR
+    CONFIG["Verification Mode"] --> NORMAL["NORMAL"]
+    CONFIG --> DRAIN["DRAIN"]
+    CONFIG --> STOPPED["STOPPED / unknown fail-closed"]
+    NORMAL --> CREATE["STOCK_SHADOW_OBSERVED: neue Fälle"]
+    NORMAL --> EXISTING["bestehende Links und Outcomes"]
+    DRAIN -. "keine neuen Fälle" .-> CREATE
+    DRAIN --> EXISTING
+    STOPPED -. "keine Subscriptions" .-> BUS["EventBus"]
+    CREATE --> LOCK["Adapter RLock + exklusiver Ledger-Lock"]
+    EXISTING --> LOCK
+    LOCK --> RECHECK["PENDING unter Lock erneut prüfen"]
+    RECHECK --> APPEND["ein Append + Materialized View"]
+    APPEND --> LEDGER["append-only Verification JSONL"]
+```
+
+`NORMAL` ist der rückwärtskompatible Erfassungsmodus. `DRAIN` abonniert ausschließlich Decision-, Tracker- und Stock-Quote-Ereignisse für bereits rekonstruierte Fälle. `STOPPED` und unbekannte Werte besitzen keine Verification-Subscriptions. Vor Ledger-Lesen und Subscriptions muss ein exklusiver Prozess-/Dateilock erworben werden; er bleibt bis zum vollständigen Adapter-Stop gehalten. Ein Konflikt setzt den Adapter auf ungesund, veröffentlicht nur den kompakten Fehlerstatus und bleibt ohne Subscriptions. Completion-Selektion, erneute `PENDING`-Prüfung, fsync-Append und In-Memory-Apply liegen unter derselben reentranten Sperre, sodass parallele Quoteereignisse genau eine Completion erzeugen.
 
 ## Stock-Datengrenze (read-only Shadow und Audit integriert)
 

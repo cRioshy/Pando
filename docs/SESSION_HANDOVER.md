@@ -1,5 +1,104 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Verification-Stabilisierung nach siebentägigem Stock-Lauf
+
+### Datum und Uhrzeit
+
+17. August 2026, 19:58 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den freigegebenen siebentägigen Stock-Verification-Erfassungslauf mit einem finalen Snapshot beenden, PandorickKi sicher stoppen und anschließend drei getrennte Stabilitätsänderungen implementieren: Verification-DRAIN-Modus, konfliktresistente Outcome-Persistenz und idempotente Completion mit exklusivem Ledger-Eigentum. Danach vollständig testen, geprüftes AFTER-Backup erstellen, ausschließlich im DRAIN-Modus kurz live verifizieren, auf einen separaten Branch veröffentlichen und einen Draft-PR gegen `main` erstellen. Produktive Decision-/Confidence-/Gate-/Telegram-/Order-/Market-Regime-Logik durfte nicht verändert werden.
+
+### Durchgeführte Arbeiten
+
+- Die fällige Codex-Automatisierung war aktiv eingetragen, hatte um 19:12 Uhr aber keinen separaten Task erzeugt. Sie wurde vor manueller Fortsetzung pausiert, um einen verspäteten Parallellauf auszuschließen. Dies änderte keine Repositorydatei.
+- Pflichtdokumente, Verification-Vertrag, tatsächlicher Code, Git-/Remote-Zustand und Runtime erneut geprüft.
+- Finalen API-Snapshot um 19:14 Uhr erfasst: Plattform und alle 13 Services `OK`, 7-Tage-Sicht 19.100 Fälle, 13.563 `COMPLETED`, 1.692 `PENDING`, 3.845 `UNKNOWN`; Telegram aus/Dry-Run/0 Sendungen und Telegram-/Orderfreigaben `false`.
+- Stop-API angenommen; Verification-Ledger wurde quieszent. Der alte Prozess hielt Port 8000 trotz `running=false` länger als 45 Sekunden. Nach exakter PID- und Writerprüfung wurde ausschließlich PID 6184 beendet; Port und PID waren danach frei, alle geprüften Writer stabil.
+- Gestoppten Gesamtbestand read-only ausgewertet: 55.131 gültige JSONL-Zeilen, null JSON-Fehler, 19.164 eindeutige Fälle, 13.615 `COMPLETED`, 1.692 `PENDING`, 3.857 `UNKNOWN`; 13.809 Completion-Zeilen für 13.615 IDs, also 194 historische Zusatzzeilen.
+- Die bereits vorhandenen drei Dokumentänderungen eindeutig früheren Backup-/PR-/Liveaufgaben zugeordnet, Branch `agent/verification-stabilization` angelegt und ausschließlich diese Änderungen als Commit `20069ef Document backup and regime deployment status` gesichert.
+- Commit `57d63c7 Add verification drain mode`: `NORMAL`, `DRAIN`, `STOPPED`, unbekannte Werte fail-closed; DRAIN ohne neue Observation-Subscription, aber mit existing-only Decision-/Tracker-/Quote-Verarbeitung; Konfiguration und read-only öffentliche Modusprojektion ergänzt.
+- Commit `c0a881d Harden outcome persistence`: `OutcomeTracker` verwendet den bestehenden `atomic_write_json`-Helper; Snapshot und Schreiben bleiben unter derselben Adapter-Sperre. Eindeutige Temp-Dateien, `fsync`, atomarer Replace und begrenzte Windows-Retries sind aktiv.
+- Commit `4472a98 Fix completion idempotency`: Completion wird vollständig unter Lock erneut auf `PENDING` geprüft, append-only geschrieben und angewendet. Exklusiver Prozess-/OS-Dateilock wird über die gesamte Verification-Adapterlebensdauer gehalten; Lockkonflikte starten ohne Subscriptions.
+- Gezielte Tests, vollständige Regression, Python-Kompilierung, JavaScript-Syntax und Diffprüfung ausgeführt.
+- Geprüftes AFTER-Backup aus gestoppter Runtime erstellt. Die erste Pflichtprüfung verwendete fälschlich Slash-Namen, während .NET unter Windows Backslashes lieferte; das bereits vollständig gestreamte Archiv wurde nicht ungeprüft akzeptiert. Separator-normalisierte Prüfung und Testextraktion bestätigten danach den vollständigen Inhalt. Staging und Testextraktion wurden erst anschließend entfernt.
+- Genau eine neue Instanz mit Verification `DRAIN`, Telegram aus/Dry-Run und sicheren Observerwerten gestartet. `VERIFICATION_CREATED` und kanonische Fallzahl blieben exakt 19.164; 32 bestehende Fälle wurden abgeschlossen, `COMPLETED` 13.615 → 13.647 und `PENDING` 1.692 → 1.660. Historische Zusatz-Completions blieben 194, JSON-Fehler null.
+- DRAIN-Prozess kontrolliert gestoppt: Portfreigabe nach 1,961 Sekunden, Prozess vollständig beendet, Ledger quieszent.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `adapters/outcome_tracker.py`
+- `adapters/stock_shadow_verification_adapter.py`
+- `config.py`
+- `jsonl_ledger.py`
+- `orchestrator.py`
+- `web/api.py`
+- `tests/test_config.py`
+- `tests/test_jsonl_ledger.py`
+- `tests/test_outcome_tracker.py`
+- `tests/test_stock_shadow_verification_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- Keine neue versionierte Projektdatei.
+- Außerhalb des Repositorys: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-17_19-29-44_AFTER.zip`.
+- Ignorierte Runtime-Artefakte: DRAIN-Stdout/Stderr-Logs und die persistente Verification-Lockdatei; keine History wurde gelöscht oder umgeschrieben.
+
+### Ausgeführte Befehle
+
+- Pflichtdokument-, Code-, Git-, Prozess-, Port-, API-, Ledger- und Runtime-Prüfungen mit PowerShell, `rg`, Git und read-only Python-JSONL-Auswertung.
+- `POST /api/control/stop`, exakte PID-/Writerprüfung und ausschließlich beim alten festhängenden Prozess `Stop-Process -Id 6184 -Force`.
+- `git switch -c agent/verification-stabilization`, getrennte `git add`/`git commit`-Schritte und wiederholtes `git diff --check`.
+- Gezielte `unittest`-Läufe sowie `.venv\Scripts\python.exe -m unittest discover -s tests -q`.
+- `.venv\Scripts\python.exe -m compileall -q .`, `py_compile` der Kernmodule und `node --check web\static\control_center.js`.
+- Kontrollierte `robocopy`-Staging-Kopie, `.NET ZipFile.CreateFromDirectory`, vollständiges Lesen aller ZIP-Dateistreams, separator-normalisierte Pflichtprüfung, zentrale Testextraktion und SHA-256.
+- Runtime-Preflight und verborgener `Start-Process` für genau eine DRAIN-Instanz mit explizit sicheren Umgebungswerten.
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Drain-/Config-/Web-Zielsuite: 27/27 bestanden in 7,397 Sekunden.
+- Outcome-/Atomic-JSON-Zielsuite: 16/16 bestanden in 1,319 Sekunden.
+- Idempotenz-/Ledger-Lock-Zielsuite: 9/9 bestanden in 0,360 Sekunden.
+- Gemeinsame Abschluss-Zielsuite: 47/47 bestanden in 7,947 Sekunden.
+- Vollständige Regression: 325/325 bestanden in 46,795 Sekunden.
+- Python-Kompilierung, JavaScript-Syntax und `git diff --check`: bestanden; nur erwartete LF/CRLF-Hinweise.
+- Tests beweisen unter anderem: DRAIN-Restart ohne neue Fälle, STOPPED/unknown fail-closed, zwei simulierte Permission-Retries, 24 parallele vollständige Outcome-Snapshots, acht parallele doppelte Quoteereignisse mit genau einer Completion, exklusiver Lockkonflikt ohne Subscriptions und erneuter Start nach Lockfreigabe.
+- AFTER-Backup: 1.587.549.058 Byte, 1.313 Einträge/1.312 Dateien, 11.763.410.095 unkomprimierte Byte; vollständiger Stream-Test und Testextraktion bestanden; SHA-256 `E9378D017F235219FA78B84ACEA9DBB0EF738E7EFEADFBEBB9454A21B17B5CAD`.
+- DRAIN-Liveprüfung: Fallzahl konstant 19.164; 32 bestehende Completions; Pending minus 32; historische Zusatzzeilen konstant; JSON-Fehler 0; Telegram aus/Dry-Run/0, Telegram-/Orderfreigaben `false`; sauberer Stop 1,961 Sekunden.
+
+### Bekannte Fehler
+
+- KP-030: 194 historische Completion-Zusatzzeilen bleiben append-only erhalten und müssen in späteren read-only Auswertungen kanonisch nach `verification_id` dedupliziert werden.
+- KP-029: Der alte Produktionsprozess hing einmal nach angenommenem Stop; der neue DRAIN-Gegenlauf stoppte sauber in 1,961 Sekunden. Nur bei erneuter Reproduktion gezielt instrumentieren.
+- Große `/api/status`-Antworten liefen während aggressiver Polling-Abfragen zeitweise ins Client-Timeout; `/api/health` blieb `OK`, Ledger und übrige Writer liefen weiter. Dies wurde nicht als Produktfix in den Meilenstein aufgenommen.
+- Bereits bekannte Regime-Coverage-, `SPCX`-, Storage- und Sandbox-Netzwerkgrenzen bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Verification-Erfassung und Abbau sind explizit getrennte Prozessmodi. DRAIN darf keine neuen Fälle anlegen.
+- Exklusives Ledger-Eigentum ist Voraussetzung vor Rekonstruktion und EventBus-Subscriptions; Konflikte sind fail-closed.
+- Append und Materialized-View-Apply bleiben innerhalb derselben Adapter-Sperre; historische Ledgerzeilen werden niemals korrigierend umgeschrieben.
+- Der allgemeine Outcome-Zustand nutzt den bestehenden gemeinsamen Atomic-JSON-Pfad; Brain-Manifest und andere Writer bleiben außerhalb dieses Meilensteins.
+- Keine Änderung an Decision Core, Confidence, Gate, Telegram, Orders, Market Regime, Stimpy, Shitzo oder Research View.
+
+### Nicht abgeschlossene Punkte
+
+- Abschlussdokumentations-Commit, Push und Draft-PR werden unmittelbar nach dieser Übergabe erstellt; `main` bleibt unverändert und der PR darf nicht gemergt werden.
+- 1.660 Verification-Fälle bleiben `PENDING`; DRAIN wurde nach der kurzen erfolgreichen Invariantenprüfung bewusst wieder gestoppt.
+- Keine kanonisch deduplizierte fachliche Auswertung, Kalibrierung oder Research View begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Branch und Commit-Scope nochmals prüfen, diese Abschlussdokumentation separat committen, `agent/verification-stabilization` auf den korrekten Remote `https://github.com/cRioshy/Pando.git` pushen und einen Draft-PR gegen `main` erstellen. Nicht mergen. Danach nur nach ausdrücklicher Freigabe DRAIN erneut starten, um die verbleibenden 1.660 Pending-Fälle weiter abzubauen; erst nach ausreichendem Abschlussbestand eine deduplizierte rein deskriptive Auswertung planen.
+
 ## Aktuelle Aufgabe: vollständiges Desktop-Backup `pandorickbacktooback.zip`
 
 ### Datum und Uhrzeit
