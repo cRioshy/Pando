@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from atomic_json import atomic_write_json
 from adapters.crypto_trade_tracker import CRYPTO_TRADE_UPDATED
 from adapters.decision_signal_adapter import DECISION_CREATED, SIGNAL_CREATED
 from event_bus import Event, EventBus
@@ -422,7 +422,7 @@ class OutcomeTracker:
 
         with self._lock:
             payload = {decision_id: asdict(trade) for decision_id, trade in self._open_trades.items()}
-        self._atomic_write_json(self.open_trades_file, payload)
+            atomic_write_json(self.open_trades_file, payload)
 
     def _append_outcome_record(self, record_type: str, payload: dict[str, Any]) -> None:
         """Append one JSONL outcome lifecycle record and fsync it."""
@@ -434,19 +434,6 @@ class OutcomeTracker:
         }
         self.outcomes_file.parent.mkdir(parents=True, exist_ok=True)
         RotatingJsonlLedger(self.outcomes_file, max_bytes=self.ledger_rotation_bytes).append(record)
-
-    def _atomic_write_json(self, path: Path, payload: Any) -> None:
-        """Write JSON through a validated temporary file and atomic replace."""
-
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_name(f"{path.name}.tmp")
-        text = json.dumps(payload, indent=2, ensure_ascii=True)
-        json.loads(text)
-        with tmp_path.open("w", encoding="utf-8") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
 
     def _payload_data(self, event: Event) -> dict[str, Any]:
         """Return nested event payload data."""

@@ -6,7 +6,9 @@ import asyncio
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest.mock import patch
 
 from adapters.crypto_trade_tracker import CRYPTO_TRADE_UPDATED
 from adapters.decision_signal_adapter import DECISION_CREATED, SIGNAL_CREATED
@@ -110,6 +112,70 @@ def market_update(
 
 
 class OutcomeTrackerTest(unittest.TestCase):
+    def test_open_trade_persistence_retries_transient_replace_conflict(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                tracker = OutcomeTracker(
+                    bus,
+                    open_trades_file=root / "open.json",
+                    outcomes_file=root / "outcomes.jsonl",
+                )
+                real_replace = __import__("os").replace
+                attempts = 0
+
+                def flaky_replace(source: Path, destination: Path) -> None:
+                    nonlocal attempts
+                    attempts += 1
+                    if attempts < 3:
+                        raise PermissionError(13, "temporary sharing violation", str(destination))
+                    real_replace(source, destination)
+
+                await tracker.start()
+                with patch("atomic_json.os.replace", side_effect=flaky_replace):
+                    bus.publish(decision("LONG"))
+                await tracker.stop()
+
+                payload = json.loads((root / "open.json").read_text(encoding="utf-8"))
+                self.assertIn("decision-1", payload)
+                self.assertGreaterEqual(attempts, 3)
+                self.assertEqual(list(root.glob(".open.json.*.tmp")), [])
+
+        asyncio.run(run())
+
+    def test_parallel_open_trade_updates_leave_one_complete_json_snapshot(self) -> None:
+        async def run() -> None:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                bus = EventBus()
+                tracker = OutcomeTracker(
+                    bus,
+                    open_trades_file=root / "open.json",
+                    outcomes_file=root / "outcomes.jsonl",
+                )
+                await tracker.start()
+
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    futures = [
+                        pool.submit(
+                            bus.publish,
+                            decision("LONG", decision_id=f"decision-{index}", symbol=f"SYM{index}"),
+                        )
+                        for index in range(24)
+                    ]
+                    for future in futures:
+                        future.result()
+
+                await tracker.stop()
+                payload = json.loads((root / "open.json").read_text(encoding="utf-8"))
+
+                self.assertEqual(len(payload), 24)
+                self.assertEqual(set(payload), {f"decision-{index}" for index in range(24)})
+                self.assertEqual(list(root.glob(".open.json.*.tmp")), [])
+
+        asyncio.run(run())
+
     def test_duration_seconds_normalizes_legacy_naive_timestamps_to_utc(self) -> None:
         cases = (
             ("2026-07-22T10:00:00", "2026-07-22T10:05:00", 300.0),
