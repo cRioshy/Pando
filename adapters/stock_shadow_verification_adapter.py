@@ -14,7 +14,12 @@ from adapters.decision_signal_adapter import DECISION_CREATED
 from adapters.outcome_tracker import SIMULATED_TRADE_CLOSED
 from adapters.stock_adapter import STOCK_ANALYSIS_FINISHED, STOCK_SHADOW_OBSERVED
 from event_bus import Event, EventBus
-from jsonl_ledger import RotatingJsonlLedger, related_jsonl_files
+from jsonl_ledger import (
+    ExclusiveFileLock,
+    LedgerLockUnavailableError,
+    RotatingJsonlLedger,
+    related_jsonl_files,
+)
 from stock_shadow_verification_contract import (
     StockShadowVerificationPolicy,
     build_verification_record,
@@ -27,6 +32,13 @@ STOCK_SHADOW_VERIFICATION_UPDATED = "STOCK_SHADOW_VERIFICATION_UPDATED"
 STOCK_SHADOW_VERIFICATION_HEARTBEAT = "STOCK_SHADOW_VERIFICATION_HEARTBEAT"
 STOCK_SHADOW_VERIFICATION_ERROR = "STOCK_SHADOW_VERIFICATION_ERROR"
 STOCK_SHADOW_VERIFICATION_STOPPED = "STOCK_SHADOW_VERIFICATION_STOPPED"
+
+VERIFICATION_MODE_NORMAL = "NORMAL"
+VERIFICATION_MODE_DRAIN = "DRAIN"
+VERIFICATION_MODE_STOPPED = "STOPPED"
+VERIFICATION_MODES = frozenset(
+    {VERIFICATION_MODE_NORMAL, VERIFICATION_MODE_DRAIN, VERIFICATION_MODE_STOPPED}
+)
 
 
 @dataclass
@@ -45,6 +57,9 @@ class StockShadowVerificationStatus:
     last_symbol: str | None = None
     last_event_at: str | None = None
     last_error: str | None = None
+    requested_mode: str = VERIFICATION_MODE_NORMAL
+    mode: str = VERIFICATION_MODE_NORMAL
+    ledger_lock_acquired: bool = False
 
 
 class StockShadowVerificationAdapter:
@@ -62,51 +77,113 @@ class StockShadowVerificationAdapter:
         ledger_rotation_bytes: int = 20 * 1024 * 1024,
         ledger_max_archives: int = 8,
         outcome_batch_size: int = 8,
+        mode: str = VERIFICATION_MODE_NORMAL,
     ) -> None:
         self.event_bus = event_bus
         self.ledger_file = ledger_file
         self.policy = policy
         self.config_fingerprint = str(config_fingerprint)
         self.outcome_batch_size = max(int(outcome_batch_size), 1)
+        self.requested_mode = str(mode or "").strip().upper()
+        self.mode = (
+            self.requested_mode
+            if self.requested_mode in VERIFICATION_MODES
+            else VERIFICATION_MODE_STOPPED
+        )
         self.ledger = RotatingJsonlLedger(
             ledger_file,
             max_bytes=ledger_rotation_bytes,
             max_archives=ledger_max_archives,
         )
-        self.status = StockShadowVerificationStatus()
+        self.status = StockShadowVerificationStatus(
+            requested_mode=self.requested_mode,
+            mode=self.mode,
+        )
+        self._ledger_lock = ExclusiveFileLock(ledger_file.with_name(f"{ledger_file.name}.lock"))
         self._records: dict[str, dict[str, Any]] = {}
         self._source_index: dict[str, str] = {}
         self._decision_index: dict[str, str] = {}
-        self._subscribed = False
+        self._subscriptions: list[tuple[str, Any]] = []
         self._loaded = False
         self._lock = RLock()
         self._generation = 0
         self._snapshot_cache: dict[tuple[int, int], tuple[int, dict[str, Any]]] = {}
 
     async def start(self) -> None:
+        if self.requested_mode not in VERIFICATION_MODES:
+            self.status.running = False
+            self.status.healthy = False
+            self.status.last_error = f"unsupported verification mode: {self.requested_mode or '<empty>'}"
+            self._publish(
+                STOCK_SHADOW_VERIFICATION_ERROR,
+                {
+                    "error": self.status.last_error,
+                    "mode": VERIFICATION_MODE_STOPPED,
+                    "asset_scope": "stock",
+                },
+            )
+            return
+        if self.mode == VERIFICATION_MODE_STOPPED:
+            self.status.running = False
+            self.status.healthy = True
+            self.status.last_error = None
+            self._publish(
+                STOCK_SHADOW_VERIFICATION_STARTED,
+                {"status": "stopped", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+            )
+            return
+        try:
+            self._ledger_lock.acquire()
+            self.status.ledger_lock_acquired = True
+        except (OSError, LedgerLockUnavailableError) as exc:
+            self.status.running = False
+            self.status.healthy = False
+            self.status.ledger_lock_acquired = False
+            self.status.last_error = str(exc)
+            self._publish(
+                STOCK_SHADOW_VERIFICATION_ERROR,
+                {
+                    "error": str(exc),
+                    "mode": self.mode,
+                    "asset_scope": "stock",
+                    "reason_code": "VERIFICATION_LEDGER_LOCK_UNAVAILABLE",
+                },
+            )
+            return
         if not self._loaded:
             self._load_ledger()
             self._loaded = True
-        if not self._subscribed:
-            self.event_bus.subscribe(STOCK_SHADOW_OBSERVED, self._handle_observation)
-            self.event_bus.subscribe(DECISION_CREATED, self._handle_decision)
-            self.event_bus.subscribe(SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome)
-            self.event_bus.subscribe(STOCK_ANALYSIS_FINISHED, self._handle_stock_price)
-            self._subscribed = True
+        if not self._subscriptions:
+            subscriptions = [
+                (DECISION_CREATED, self._handle_decision),
+                (SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome),
+                (STOCK_ANALYSIS_FINISHED, self._handle_stock_price),
+            ]
+            if self.mode == VERIFICATION_MODE_NORMAL:
+                subscriptions.insert(0, (STOCK_SHADOW_OBSERVED, self._handle_observation))
+            for topic, handler in subscriptions:
+                self.event_bus.subscribe(topic, handler)
+            self._subscriptions = subscriptions
         self.status.running = True
         self.status.healthy = True
         self.status.last_error = None
-        self._publish(STOCK_SHADOW_VERIFICATION_STARTED, {"status": "started", "mode": "OBSERVER_ONLY"})
+        self._publish(
+            STOCK_SHADOW_VERIFICATION_STARTED,
+            {"status": "started", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+        )
 
     async def stop(self) -> None:
-        if self._subscribed:
-            self.event_bus.unsubscribe(STOCK_SHADOW_OBSERVED, self._handle_observation)
-            self.event_bus.unsubscribe(DECISION_CREATED, self._handle_decision)
-            self.event_bus.unsubscribe(SIMULATED_TRADE_CLOSED, self._handle_tracker_outcome)
-            self.event_bus.unsubscribe(STOCK_ANALYSIS_FINISHED, self._handle_stock_price)
-            self._subscribed = False
-        self.status.running = False
-        self._publish(STOCK_SHADOW_VERIFICATION_STOPPED, {"status": "stopped", "mode": "OBSERVER_ONLY"})
+        with self._lock:
+            self.status.running = False
+            for topic, handler in self._subscriptions:
+                self.event_bus.unsubscribe(topic, handler)
+            self._subscriptions = []
+            self._ledger_lock.release()
+            self.status.ledger_lock_acquired = False
+        self._publish(
+            STOCK_SHADOW_VERIFICATION_STOPPED,
+            {"status": "stopped", "mode": self.mode, "observer_mode": "OBSERVER_ONLY"},
+        )
 
     async def run_once(self) -> list[Event]:
         return [
@@ -115,7 +192,8 @@ class StockShadowVerificationAdapter:
                 source=self.name,
                 payload={
                     "status": "ok" if self.status.healthy else "warning",
-                    "mode": "OBSERVER_ONLY",
+                    "mode": self.mode,
+                    "observer_mode": "OBSERVER_ONLY",
                     "cases": self.status.cases,
                     "completed_outcomes": self.status.completed_outcomes,
                     "persisted_records": self.status.persisted_records,
@@ -130,6 +208,9 @@ class StockShadowVerificationAdapter:
                 "running": self.status.running,
                 "healthy": self.status.healthy,
                 "mode": "OBSERVER_ONLY",
+                "verification_mode": self.mode,
+                "requested_mode": self.requested_mode,
+                "ledger_lock_acquired": self.status.ledger_lock_acquired,
                 "asset_scope": "stock",
                 "cases": self.status.cases,
                 "decision_links": self.status.decision_links,
@@ -188,8 +269,6 @@ class StockShadowVerificationAdapter:
             return _public_record(deepcopy(record)) if record is not None else None
 
     def _handle_observation(self, event: Event) -> None:
-        if not self.status.running:
-            return
         try:
             data = _payload_data(event)
             record = build_verification_record(
@@ -200,37 +279,37 @@ class StockShadowVerificationAdapter:
             verification_id = str(record["verification_id"])
             source_event_id = str(data.get("source_event_id") or "")
             with self._lock:
+                if not self.status.running or self.mode != VERIFICATION_MODE_NORMAL:
+                    return
                 existing = self._records.get(verification_id)
-            if existing is not None:
-                if source_event_id and source_event_id not in existing.get("source_event_ids", []):
-                    entry = {
-                        "record_type": "SOURCE_EVENT_LINKED",
-                        "timestamp": datetime.now(UTC).isoformat(),
-                        "verification_id": verification_id,
-                        "source_event_id": source_event_id,
-                    }
-                    self._append_and_apply(entry)
-                    self.status.source_aliases += 1
-                else:
-                    self.status.duplicates_ignored += 1
-                return
-            entry = {
-                "record_type": "VERIFICATION_CREATED",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "verification_id": verification_id,
-                "payload": record,
-            }
-            self._append_and_apply(entry)
-            self.status.cases = len(self._records)
-            self.status.last_symbol = record.get("symbol")
-            self.status.last_event_at = entry["timestamp"]
+                if existing is not None:
+                    if source_event_id and source_event_id not in existing.get("source_event_ids", []):
+                        entry = {
+                            "record_type": "SOURCE_EVENT_LINKED",
+                            "timestamp": datetime.now(UTC).isoformat(),
+                            "verification_id": verification_id,
+                            "source_event_id": source_event_id,
+                        }
+                        self._append_and_apply(entry)
+                        self.status.source_aliases += 1
+                    else:
+                        self.status.duplicates_ignored += 1
+                    return
+                entry = {
+                    "record_type": "VERIFICATION_CREATED",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "verification_id": verification_id,
+                    "payload": record,
+                }
+                self._append_and_apply(entry)
+                self.status.cases = len(self._records)
+                self.status.last_symbol = record.get("symbol")
+                self.status.last_event_at = entry["timestamp"]
             self._publish(STOCK_SHADOW_VERIFICATION_UPDATED, _public_record(record))
         except Exception as exc:  # noqa: BLE001 - observer failures must not affect market flow
             self._record_error(exc)
 
     def _handle_decision(self, event: Event) -> None:
-        if not self.status.running:
-            return
         try:
             data = _payload_data(event)
             if str(data.get("market_type") or "").lower() != "stock":
@@ -238,101 +317,119 @@ class StockShadowVerificationAdapter:
             source_event_id = str(data.get("source_event_id") or "")
             decision_id = str(data.get("decision_id") or "")
             with self._lock:
+                if not self.status.running or self.mode not in {
+                    VERIFICATION_MODE_NORMAL,
+                    VERIFICATION_MODE_DRAIN,
+                }:
+                    return
                 verification_id = self._source_index.get(source_event_id)
                 existing_id = (
                     _mapping(self._records.get(verification_id, {}).get("legacy")).get("decision_id")
                     if verification_id
                     else None
                 )
-            if not verification_id or not decision_id or existing_id == decision_id:
-                return
-            entry = {
-                "record_type": "LEGACY_DECISION_LINKED",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "verification_id": verification_id,
-                "decision_id": decision_id,
-                "decision_event_id": event.event_id,
-            }
-            self._append_and_apply(entry)
-            self.status.decision_links += 1
+                if not verification_id or not decision_id or existing_id == decision_id:
+                    return
+                entry = {
+                    "record_type": "LEGACY_DECISION_LINKED",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "verification_id": verification_id,
+                    "decision_id": decision_id,
+                    "decision_event_id": event.event_id,
+                }
+                self._append_and_apply(entry)
+                self.status.decision_links += 1
         except Exception as exc:  # noqa: BLE001
             self._record_error(exc)
 
     def _handle_tracker_outcome(self, event: Event) -> None:
-        if not self.status.running:
-            return
         try:
             data = _payload_data(event)
             if str(data.get("market_type") or "").lower() != "stock":
                 return
             decision_id = str(data.get("decision_id") or "")
             with self._lock:
+                if not self.status.running or self.mode not in {
+                    VERIFICATION_MODE_NORMAL,
+                    VERIFICATION_MODE_DRAIN,
+                }:
+                    return
                 verification_id = self._decision_index.get(decision_id)
                 tracker = _mapping(_mapping(self._records.get(verification_id, {}).get("outcome")).get("tracker"))
-            if not verification_id or tracker:
-                return
-            projection = {
-                "decision_id": decision_id,
-                "result_type": data.get("result_type"),
-                "gross_profit_percent": data.get("gross_profit_percent"),
-                "exit_time": data.get("exit_time"),
-                "close_reason": data.get("close_reason"),
-            }
-            entry = {
-                "record_type": "TRACKER_OUTCOME_LINKED",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "verification_id": verification_id,
-                "payload": projection,
-            }
-            self._append_and_apply(entry)
-            self.status.tracker_links += 1
+                if not verification_id or tracker:
+                    return
+                projection = {
+                    "decision_id": decision_id,
+                    "result_type": data.get("result_type"),
+                    "gross_profit_percent": data.get("gross_profit_percent"),
+                    "exit_time": data.get("exit_time"),
+                    "close_reason": data.get("close_reason"),
+                }
+                entry = {
+                    "record_type": "TRACKER_OUTCOME_LINKED",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "verification_id": verification_id,
+                    "payload": projection,
+                }
+                self._append_and_apply(entry)
+                self.status.tracker_links += 1
         except Exception as exc:  # noqa: BLE001
             self._record_error(exc)
 
     def _handle_stock_price(self, event: Event) -> None:
-        if not self.status.running:
-            return
         try:
             data = _payload_data(event)
             symbol = str(data.get("symbol") or "").upper()
             price = data.get("current_price", data.get("price"))
             quote_timestamp = data.get("price_timestamp")
             now = datetime.now(UTC)
+            updates: list[dict[str, Any]] = []
             with self._lock:
-                candidates = [
-                    deepcopy(record)
+                if not self.status.running or self.mode not in {
+                    VERIFICATION_MODE_NORMAL,
+                    VERIFICATION_MODE_DRAIN,
+                }:
+                    return
+                candidate_ids = [
+                    str(record.get("verification_id"))
                     for record in self._records.values()
                     if record.get("symbol") == symbol
                     and _mapping(record.get("outcome")).get("status") == "PENDING"
                 ]
-            candidates.sort(key=lambda item: str(item.get("evaluation_due_at") or ""))
-            candidates = candidates[: self.outcome_batch_size]
-            for record in candidates:
-                outcome = complete_forward_outcome(
-                    record,
-                    exit_price=price,
-                    quote_timestamp=quote_timestamp,
-                    evaluated_at=now,
+                candidate_ids.sort(
+                    key=lambda item: str(self._records[item].get("evaluation_due_at") or "")
                 )
-                if outcome is None:
-                    continue
-                entry = {
-                    "record_type": "OUTCOME_COMPLETED",
-                    "timestamp": now.isoformat(),
-                    "verification_id": record["verification_id"],
-                    "payload": outcome,
-                }
-                self._append_and_apply(entry)
-                self.status.completed_outcomes += 1
-                updated = self.detail(str(record["verification_id"]))
-                if updated is not None:
-                    self._publish(STOCK_SHADOW_VERIFICATION_UPDATED, updated)
+                for verification_id in candidate_ids[: self.outcome_batch_size]:
+                    current = self._records.get(verification_id)
+                    if current is None or _mapping(current.get("outcome")).get("status") != "PENDING":
+                        continue
+                    outcome = complete_forward_outcome(
+                        deepcopy(current),
+                        exit_price=price,
+                        quote_timestamp=quote_timestamp,
+                        evaluated_at=now,
+                    )
+                    if outcome is None:
+                        continue
+                    if _mapping(current.get("outcome")).get("status") != "PENDING":
+                        continue
+                    entry = {
+                        "record_type": "OUTCOME_COMPLETED",
+                        "timestamp": now.isoformat(),
+                        "verification_id": verification_id,
+                        "payload": outcome,
+                    }
+                    self._append_and_apply(entry)
+                    self.status.completed_outcomes += 1
+                    updates.append(_public_record(deepcopy(self._records[verification_id])))
+            for updated in updates:
+                self._publish(STOCK_SHADOW_VERIFICATION_UPDATED, updated)
         except Exception as exc:  # noqa: BLE001
             self._record_error(exc)
 
     def _append_and_apply(self, entry: dict[str, Any]) -> None:
-        self.ledger.append(entry)
         with self._lock:
+            self.ledger.append(entry)
             self._apply_entry(entry)
             self._generation += 1
             self._snapshot_cache.clear()
@@ -400,8 +497,9 @@ class StockShadowVerificationAdapter:
             record["outcome"] = _mapping(entry.get("payload"))
 
     def _record_error(self, exc: Exception) -> None:
-        self.status.healthy = False
-        self.status.last_error = str(exc)
+        with self._lock:
+            self.status.healthy = False
+            self.status.last_error = str(exc)
         self._publish(
             STOCK_SHADOW_VERIFICATION_ERROR,
             {"error": str(exc), "mode": "OBSERVER_ONLY", "asset_scope": "stock"},

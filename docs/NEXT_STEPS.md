@@ -1,6 +1,26 @@
 # Nächste Schritte
 
-Stand: 14. August 2026
+Stand: 17. August 2026
+
+## Verification-Stabilisierung und kontrolliertes Drain
+
+- **Erfassung beendet:** finaler API-Snapshot am 17. August 2026 um 19:14 Uhr Europe/Berlin mit Plattform und 13/13 Services `OK`; 7-Tage-Sicht 19.100 Fälle, davon 13.563 `COMPLETED`, 1.692 `PENDING` und 3.845 `UNKNOWN`.
+- **Gesamtledger geprüft:** 55.131 gültige Zeilen, null JSON-Fehler, 19.164 eindeutige Fälle; 13.615 `COMPLETED`, 1.692 `PENDING`, 3.857 `UNKNOWN`. 194 historische IDs besitzen je eine zusätzliche Completion-Zeile und bleiben unverändert.
+- **Implementiert:** explizites `NORMAL`/`DRAIN`/`STOPPED`, unbekannte Modi fail-closed, DRAIN ohne neue Fälle, gehärtete Outcome-JSON-Persistenz, serialisierte Completion und exklusiver Ledger-Lock.
+- **Commits:** `57d63c7 Add verification drain mode`, `c0a881d Harden outcome persistence`, `4472a98 Fix completion idempotency`; vorhandene ältere Übergabedokumente separat als `20069ef` gesichert.
+- **Tests:** 47/47 gezielte und 325/325 vollständige Tests bestanden; Python-Kompilierung, JavaScript-Syntax und Diffprüfung bestanden.
+- **AFTER-Backup bestanden:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-17_19-29-44_AFTER.zip`, 1.587.549.058 Byte, 1.313 Einträge, SHA-256 `E9378D017F235219FA78B84ACEA9DBB0EF738E7EFEADFBEBB9454A21B17B5CAD`; vollständiger Stream-Test und zentrale Testextraktion bestanden.
+- **DRAIN-Smoke bestanden:** Fall-/Creation-Zähler konstant 19.164; 32 bestehende Fälle abgeschlossen, `COMPLETED` 13.615 → 13.647, `PENDING` 1.692 → 1.660, historische Zusatz-Completions konstant 194, JSON-Fehler 0. Telegram aus/Dry-Run/0 Sendungen, Orders gesperrt. Stop gab Port in 1,961 Sekunden frei.
+- **Veröffentlicht:** Branch `agent/verification-stabilization`, Head zunächst `e2ae21f`, wurde auf `origin` gepusht; Draft-PR #25 (`https://github.com/cRioshy/Pando/pull/25`) ist `OPEN` und `isDraft=true` gegen `main`. Nicht mergen.
+- **Nächster fachlicher Schritt:** DRAIN nur nach ausdrücklicher Freigabe erneut starten und den verbleibenden Pending-Bestand kontrolliert abbauen. Erst danach eine kanonisch deduplizierte, rein deskriptive Verification-Auswertung planen; noch keine Kalibrierung, Research View, Gate-, Telegram- oder Orderkopplung beginnen.
+
+## Lokaler Wiederherstellungspunkt
+
+- **Erledigt am 14. August 2026:** geprüftes Desktop-Backup `C:\Users\Admin\Desktop\pandorickbacktooback.zip` erstellt.
+- 1.538.424.058 Byte, 1.267 Archiveinträge, `.git`, Dokumentation, Tests, `AGENTS.md`, Quellcode und vorhandene Projektdaten enthalten.
+- Vollständiger Lesetest aller 1.266 Datei-Streams über 11.142.793.930 unkomprimierte Byte sowie zentrale Testextraktion bestanden.
+- `.venv`, bekannte Cache-/Build-Verzeichnisse und vorhandene ZIP-Dateien wurden ausgeschlossen; das laufende PandorickKi wurde nicht gestoppt oder verändert.
+- Backup lokal behalten und nicht ungeprüft überschreiben. Nächster fachlicher Schritt bleibt die Verification-Auswertung am 17. August 2026.
 
 ## Market Regime Contract v1
 
@@ -11,8 +31,11 @@ Stand: 14. August 2026
 - **AFTER-Backup validiert:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-12_22-16-19_AFTER.zip`, 1.512.476.762 Byte, 1.201 Einträge, `.git`/Docs/Tests/Quellen enthalten und Testextraktion bestanden.
 - **PR #24 aktualisiert:** Basis ist jetzt `main`; der neue `main` wurde ohne Rebase oder Force-Push in den Regime-Branch aufgenommen. Der Diff bleibt auf 29 Regime-Pfade begrenzt und konfliktfrei.
 - **Retargeting-Verifikation:** erster Gesamtlauf traf einmal KP-019 (`WinError 145` beim Temp-Cleanup); isoliert 1/1 und unmittelbare vollständige Wiederholung 318/318 bestanden. Syntax, Scope, Secrets und Diff sind sauber.
-- **Jetzt:** PR #24 weiterhin Draft und ungemergt lassen. Erst nach neuer ausdrücklicher Freigabe aus Draft nehmen oder mergen; anschließend kontrollierten Produktionsneustart und observer-only Liveprüfung durchführen.
-- **Danach nur nach separater Freigabe:** längere read-only Regime-Coverage sammeln; keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
+- **PR #24 integriert:** Nach ausdrücklicher Freigabe am 14. August 2026 als normaler Merge-Commit `e7718c81613957d480653e89a2f82db686958b0d` nach `main` gemergt; GitHub meldet PR #24 `MERGED`.
+- **Produktionsneustart und Liveprüfung abgeschlossen:** vier vollständige Crypto-/Stockzyklen, alle Services `OK`, 0 Sitzungsfehler, 0 STALE, Regime-Queue 0/512, acht aktuelle Symbole und 21 append-only Snapshots. Öffentliche Payloads enthalten keine Rohkerzen, Features, `raw_result`, Stock-Shadow-/Auditfelder oder Secrets.
+- **Sicherheitsgrenzen bestätigt:** alle Regime-Snapshots observer-only und ohne aktiven Decision-Einfluss; Telegram aus/Dry-Run/0 Sendungen, Orders gesperrt und Stock-Verification-Fingerprint unverändert.
+- **Jetzt:** laufenden observer-only Betrieb unverändert lassen und Coverage sammeln. Keine Schwellen automatisch fitten und keine Verbindung zu Decision Core, Shadow Gate, Telegram oder Orders herstellen.
+- **Nächster terminierter Schritt:** am 17. August 2026 den freigegebenen siebentägigen Stock-Verification-Lauf kontrolliert beenden und dedupliziert/deskriptiv auswerten; Regime-Coverage dabei getrennt halten.
 
 ## Wiederaufnahme nach PC-Ausfall
 

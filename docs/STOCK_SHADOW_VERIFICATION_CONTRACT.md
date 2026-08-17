@@ -16,6 +16,17 @@ Ein `verification_id` wird deterministisch aus Symbol, Legacy-Quellzeitpunkt, ö
 
 Das Ledger ist ausschließlich append-only. Einträge besitzen getrennte Recordtypen für Beobachtung, zusätzliche Source-ID, Decision-Verknüpfung, Tracker-Verknüpfung und Outcome-Abschluss. Bestehende Legacy-, Decision- und Outcome-History wird weder migriert noch umgeschrieben. Beim Start wird der Materialized View aus aktiver Datei und vorhandenen Archiven rekonstruiert.
 
+Pro Ledger darf genau ein Verification-Writer aktiv sein. Vor dem Lesen und vor EventBus-Subscriptions wird ein exklusiver Prozess-/OS-Dateilock erworben und bis zum vollständigen Adapter-Stop gehalten. Ein Lockkonflikt ist fail-closed: keine Verification-Subscriptions und keine Ledger-Schreibvorgänge. Completion-Selektion, erneute Prüfung auf `PENDING`, append-only Schreiben und Apply auf den Materialized View erfolgen unter derselben Adapter-Sperre. Parallele oder doppelte Quoteereignisse dürfen deshalb nur eine neue Completion-Zeile je noch offenem Fall erzeugen. Vorhandene historische Duplikatzeilen werden nicht umgeschrieben und müssen bei read-only Auswertungen kanonisch nach `verification_id` behandelt werden.
+
+## Betriebsmodi
+
+- `NORMAL`: erzeugt neue Fälle aus `STOCK_SHADOW_OBSERVED` und verarbeitet bestehende Decision-, Tracker- und Quote-Verknüpfungen.
+- `DRAIN`: abonniert keine neuen Beobachtungen und erzeugt keine neuen Fälle; bereits rekonstruierte Fälle dürfen weiterhin Decision-/Tracker-Links und fällige Outcomes erhalten.
+- `STOPPED`: keine Verification-Subscriptions und keine Ledgeraktivität.
+- unbekannte oder leere Werte: effektiver Zustand `STOPPED`, ungesund/fail-closed und ohne Subscriptions.
+
+Der Modus ist Prozesskonfiguration und verändert keine vorhandenen Ledgerzeilen. Ein Neustart in `DRAIN` rekonstruiert den bisherigen Materialized View und führt ausschließlich bestehende Fälle weiter.
+
 ## Statusbegriffe
 
 - Entscheidung: `LONG`, `SHORT`, `HOLD` oder `UNKNOWN`

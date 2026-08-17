@@ -1,5 +1,250 @@
 # Session-Handover
 
+## Aktuelle Aufgabe: Verification-Stabilisierung nach siebentägigem Stock-Lauf
+
+### Datum und Uhrzeit
+
+17. August 2026, 20:06 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Den freigegebenen siebentägigen Stock-Verification-Erfassungslauf mit einem finalen Snapshot beenden, PandorickKi sicher stoppen und anschließend drei getrennte Stabilitätsänderungen implementieren: Verification-DRAIN-Modus, konfliktresistente Outcome-Persistenz und idempotente Completion mit exklusivem Ledger-Eigentum. Danach vollständig testen, geprüftes AFTER-Backup erstellen, ausschließlich im DRAIN-Modus kurz live verifizieren, auf einen separaten Branch veröffentlichen und einen Draft-PR gegen `main` erstellen. Produktive Decision-/Confidence-/Gate-/Telegram-/Order-/Market-Regime-Logik durfte nicht verändert werden.
+
+### Durchgeführte Arbeiten
+
+- Die fällige Codex-Automatisierung war aktiv eingetragen, hatte um 19:12 Uhr aber keinen separaten Task erzeugt. Sie wurde vor manueller Fortsetzung pausiert, um einen verspäteten Parallellauf auszuschließen. Dies änderte keine Repositorydatei.
+- Pflichtdokumente, Verification-Vertrag, tatsächlicher Code, Git-/Remote-Zustand und Runtime erneut geprüft.
+- Finalen API-Snapshot um 19:14 Uhr erfasst: Plattform und alle 13 Services `OK`, 7-Tage-Sicht 19.100 Fälle, 13.563 `COMPLETED`, 1.692 `PENDING`, 3.845 `UNKNOWN`; Telegram aus/Dry-Run/0 Sendungen und Telegram-/Orderfreigaben `false`.
+- Stop-API angenommen; Verification-Ledger wurde quieszent. Der alte Prozess hielt Port 8000 trotz `running=false` länger als 45 Sekunden. Nach exakter PID- und Writerprüfung wurde ausschließlich PID 6184 beendet; Port und PID waren danach frei, alle geprüften Writer stabil.
+- Gestoppten Gesamtbestand read-only ausgewertet: 55.131 gültige JSONL-Zeilen, null JSON-Fehler, 19.164 eindeutige Fälle, 13.615 `COMPLETED`, 1.692 `PENDING`, 3.857 `UNKNOWN`; 13.809 Completion-Zeilen für 13.615 IDs, also 194 historische Zusatzzeilen.
+- Die bereits vorhandenen drei Dokumentänderungen eindeutig früheren Backup-/PR-/Liveaufgaben zugeordnet, Branch `agent/verification-stabilization` angelegt und ausschließlich diese Änderungen als Commit `20069ef Document backup and regime deployment status` gesichert.
+- Commit `57d63c7 Add verification drain mode`: `NORMAL`, `DRAIN`, `STOPPED`, unbekannte Werte fail-closed; DRAIN ohne neue Observation-Subscription, aber mit existing-only Decision-/Tracker-/Quote-Verarbeitung; Konfiguration und read-only öffentliche Modusprojektion ergänzt.
+- Commit `c0a881d Harden outcome persistence`: `OutcomeTracker` verwendet den bestehenden `atomic_write_json`-Helper; Snapshot und Schreiben bleiben unter derselben Adapter-Sperre. Eindeutige Temp-Dateien, `fsync`, atomarer Replace und begrenzte Windows-Retries sind aktiv.
+- Commit `4472a98 Fix completion idempotency`: Completion wird vollständig unter Lock erneut auf `PENDING` geprüft, append-only geschrieben und angewendet. Exklusiver Prozess-/OS-Dateilock wird über die gesamte Verification-Adapterlebensdauer gehalten; Lockkonflikte starten ohne Subscriptions.
+- Gezielte Tests, vollständige Regression, Python-Kompilierung, JavaScript-Syntax und Diffprüfung ausgeführt.
+- Geprüftes AFTER-Backup aus gestoppter Runtime erstellt. Die erste Pflichtprüfung verwendete fälschlich Slash-Namen, während .NET unter Windows Backslashes lieferte; das bereits vollständig gestreamte Archiv wurde nicht ungeprüft akzeptiert. Separator-normalisierte Prüfung und Testextraktion bestätigten danach den vollständigen Inhalt. Staging und Testextraktion wurden erst anschließend entfernt.
+- Genau eine neue Instanz mit Verification `DRAIN`, Telegram aus/Dry-Run und sicheren Observerwerten gestartet. `VERIFICATION_CREATED` und kanonische Fallzahl blieben exakt 19.164; 32 bestehende Fälle wurden abgeschlossen, `COMPLETED` 13.615 → 13.647 und `PENDING` 1.692 → 1.660. Historische Zusatz-Completions blieben 194, JSON-Fehler null.
+- DRAIN-Prozess kontrolliert gestoppt: Portfreigabe nach 1,961 Sekunden, Prozess vollständig beendet, Ledger quieszent.
+- Abschlussdokumentation separat als Commit `e2ae21f Document verification stabilization handover` gesichert.
+- Branch `agent/verification-stabilization` ausschließlich auf `origin` (`https://github.com/cRioshy/Pando.git`) gepusht und Draft-PR #25 gegen `main` erstellt: `https://github.com/cRioshy/Pando/pull/25`. GitHub bestätigt `OPEN`, `isDraft=true`, Basis `main` und Head `agent/verification-stabilization`; es wurde nichts gemergt.
+
+### Veränderte Dateien
+
+- `.env.example`
+- `adapters/outcome_tracker.py`
+- `adapters/stock_shadow_verification_adapter.py`
+- `config.py`
+- `jsonl_ledger.py`
+- `orchestrator.py`
+- `web/api.py`
+- `tests/test_config.py`
+- `tests/test_jsonl_ledger.py`
+- `tests/test_outcome_tracker.py`
+- `tests/test_stock_shadow_verification_adapter.py`
+- `docs/CURRENT_SYSTEM_STATE.md`
+- `docs/ARCHITECTURE.md`
+- `docs/STOCK_SHADOW_VERIFICATION_CONTRACT.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+- `docs/SESSION_HANDOVER.md`
+
+### Neue Dateien
+
+- Keine neue versionierte Projektdatei.
+- Außerhalb des Repositorys: `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-17_19-29-44_AFTER.zip`.
+- Ignorierte Runtime-Artefakte: DRAIN-Stdout/Stderr-Logs und die persistente Verification-Lockdatei; keine History wurde gelöscht oder umgeschrieben.
+
+### Ausgeführte Befehle
+
+- Pflichtdokument-, Code-, Git-, Prozess-, Port-, API-, Ledger- und Runtime-Prüfungen mit PowerShell, `rg`, Git und read-only Python-JSONL-Auswertung.
+- `POST /api/control/stop`, exakte PID-/Writerprüfung und ausschließlich beim alten festhängenden Prozess `Stop-Process -Id 6184 -Force`.
+- `git switch -c agent/verification-stabilization`, getrennte `git add`/`git commit`-Schritte und wiederholtes `git diff --check`.
+- Gezielte `unittest`-Läufe sowie `.venv\Scripts\python.exe -m unittest discover -s tests -q`.
+- `.venv\Scripts\python.exe -m compileall -q .`, `py_compile` der Kernmodule und `node --check web\static\control_center.js`.
+- Kontrollierte `robocopy`-Staging-Kopie, `.NET ZipFile.CreateFromDirectory`, vollständiges Lesen aller ZIP-Dateistreams, separator-normalisierte Pflichtprüfung, zentrale Testextraktion und SHA-256.
+- Runtime-Preflight und verborgener `Start-Process` für genau eine DRAIN-Instanz mit explizit sicheren Umgebungswerten.
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Drain-/Config-/Web-Zielsuite: 27/27 bestanden in 7,397 Sekunden.
+- Outcome-/Atomic-JSON-Zielsuite: 16/16 bestanden in 1,319 Sekunden.
+- Idempotenz-/Ledger-Lock-Zielsuite: 9/9 bestanden in 0,360 Sekunden.
+- Gemeinsame Abschluss-Zielsuite: 47/47 bestanden in 7,947 Sekunden.
+- Vollständige Regression: 325/325 bestanden in 46,795 Sekunden.
+- Python-Kompilierung, JavaScript-Syntax und `git diff --check`: bestanden; nur erwartete LF/CRLF-Hinweise.
+- Tests beweisen unter anderem: DRAIN-Restart ohne neue Fälle, STOPPED/unknown fail-closed, zwei simulierte Permission-Retries, 24 parallele vollständige Outcome-Snapshots, acht parallele doppelte Quoteereignisse mit genau einer Completion, exklusiver Lockkonflikt ohne Subscriptions und erneuter Start nach Lockfreigabe.
+- AFTER-Backup: 1.587.549.058 Byte, 1.313 Einträge/1.312 Dateien, 11.763.410.095 unkomprimierte Byte; vollständiger Stream-Test und Testextraktion bestanden; SHA-256 `E9378D017F235219FA78B84ACEA9DBB0EF738E7EFEADFBEBB9454A21B17B5CAD`.
+- DRAIN-Liveprüfung: Fallzahl konstant 19.164; 32 bestehende Completions; Pending minus 32; historische Zusatzzeilen konstant; JSON-Fehler 0; Telegram aus/Dry-Run/0, Telegram-/Orderfreigaben `false`; sauberer Stop 1,961 Sekunden.
+
+### Bekannte Fehler
+
+- KP-030: 194 historische Completion-Zusatzzeilen bleiben append-only erhalten und müssen in späteren read-only Auswertungen kanonisch nach `verification_id` dedupliziert werden.
+- KP-029: Der alte Produktionsprozess hing einmal nach angenommenem Stop; der neue DRAIN-Gegenlauf stoppte sauber in 1,961 Sekunden. Nur bei erneuter Reproduktion gezielt instrumentieren.
+- Große `/api/status`-Antworten liefen während aggressiver Polling-Abfragen zeitweise ins Client-Timeout; `/api/health` blieb `OK`, Ledger und übrige Writer liefen weiter. Dies wurde nicht als Produktfix in den Meilenstein aufgenommen.
+- Bereits bekannte Regime-Coverage-, `SPCX`-, Storage- und Sandbox-Netzwerkgrenzen bleiben unverändert.
+
+### Getroffene Architekturentscheidungen
+
+- Verification-Erfassung und Abbau sind explizit getrennte Prozessmodi. DRAIN darf keine neuen Fälle anlegen.
+- Exklusives Ledger-Eigentum ist Voraussetzung vor Rekonstruktion und EventBus-Subscriptions; Konflikte sind fail-closed.
+- Append und Materialized-View-Apply bleiben innerhalb derselben Adapter-Sperre; historische Ledgerzeilen werden niemals korrigierend umgeschrieben.
+- Der allgemeine Outcome-Zustand nutzt den bestehenden gemeinsamen Atomic-JSON-Pfad; Brain-Manifest und andere Writer bleiben außerhalb dieses Meilensteins.
+- Keine Änderung an Decision Core, Confidence, Gate, Telegram, Orders, Market Regime, Stimpy, Shitzo oder Research View.
+
+### Nicht abgeschlossene Punkte
+
+- Der Veröffentlichungsnachtrag dieser Übergabe wird als letzter reiner Dokumentations-Commit auf denselben Branch gepusht; Draft-PR #25 bleibt ungemergt und `main` bleibt bei `e7718c81613957d480653e89a2f82db686958b0d`.
+- 1.660 Verification-Fälle bleiben `PENDING`; DRAIN wurde nach der kurzen erfolgreichen Invariantenprüfung bewusst wieder gestoppt.
+- Keine kanonisch deduplizierte fachliche Auswertung, Kalibrierung oder Research View begonnen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+Draft-PR #25 prüfen und ausdrücklich nicht mergen. Danach nur nach ausdrücklicher Freigabe DRAIN erneut starten, um die verbleibenden 1.660 Pending-Fälle weiter abzubauen; erst nach ausreichendem Abschlussbestand eine deduplizierte rein deskriptive Auswertung planen.
+
+## Aktuelle Aufgabe: vollständiges Desktop-Backup `pandorickbacktooback.zip`
+
+### Datum und Uhrzeit
+
+14. August 2026, 12:45 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Ein vollständiges, geprüftes Backup des lokalen PandorickKi-Projekts unter dem ausdrücklich gewünschten Namen `pandorickbacktooback.zip` auf dem Desktop erstellen. `.git`, Quellcode, Dokumentation, Tests und vorhandene Projektdaten mussten enthalten bleiben; `.venv`, Caches, Build-Artefakte und vorhandene ZIP-Dateien sollten ausgeschlossen werden.
+
+### Durchgeführte Arbeiten
+
+- Projekt- und Desktoppfad aufgelöst und geprüft, dass kein gleichnamiges Backup überschrieben wird.
+- Festgestellt, dass 7-Zip nicht installiert ist; deshalb kontrollierte Staging-Kopie per `robocopy` erstellt.
+- Den ersten durch ein zu kurzes Befehlszeitlimit verwaisten Kopierprozess eindeutig identifiziert, ausschließlich diesen Prozess beendet und nur dessen unvollständiges heutiges Staging entfernt. Ein älteres fremdes Temp-Staging blieb unangetastet.
+- Vollständige neue Staging-Kopie mit 1.266 Dateien und 11.142.793.930 Byte erstellt; `.git`, `docs`, `tests` und `AGENTS.md` waren vorhanden.
+- Ersten `Compress-Archive`-Versuch als ungültig erkannt, weil das versteckte `.git` fehlte. Das ausschließlich von dieser Aufgabe erzeugte ungültige ZIP mit 1.533.419.967 Byte wurde dokumentiert und gelöscht, um Platz für den gültigen Ersatz zu schaffen.
+- Endgültiges ZIP mit `.NET ZipFile.CreateFromDirectory` inklusive versteckter Dateien erzeugt.
+- Archiv über `.NET OpenRead`, Pflichtinhalte, vollständiges Lesen aller Datei-Streams und gezielte Testextraktion geprüft.
+- Nach erfolgreicher Prüfung ausschließlich das heutige Staging und das Testextraktionsverzeichnis entfernt.
+- PandorickKi während der Arbeiten nicht gestoppt oder konfiguriert; Health blieb `OK`.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Außerhalb des Repositorys: `C:\Users\Admin\Desktop\pandorickbacktooback.zip`
+
+### Ausgeführte Befehle
+
+- Pfad-, Git-, 7-Zip- und Pflichtstrukturprüfung mit PowerShell
+- kontrollierte `robocopy`-Staging-Kopie mit Ausschlüssen für `.venv`, Caches, Build-Verzeichnisse und `*.zip`
+- `Compress-Archive` als geprüfter, aber verworfener erster Archivierungsversuch
+- `.NET ZipFile.CreateFromDirectory` für das endgültige Archiv
+- `.NET ZipFile.OpenRead`, vollständiger Stream-Lesetest und gezielte `ExtractToFile`-Testextraktion
+- kontrollierte Bereinigung ausschließlich der eindeutig benannten heutigen Temp-Verzeichnisse
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Endgültige ZIP-Größe: 1.538.424.058 Byte.
+- Archiveinträge: 1.267 einschließlich Verzeichniseintrag; 1.266 Datei-Streams.
+- Vollständiger Stream-Test: 1.266/1.266 Dateien und 11.142.793.930 unkomprimierte Byte ohne Lesefehler.
+- Pflichtinhalte vorhanden: `.git/HEAD`, `AGENTS.md`, `docs/`, `tests/` und `main.py`.
+- Testextraktion bestanden für `.git/HEAD`, `AGENTS.md`, `main.py`, `docs/CURRENT_SYSTEM_STATE.md` und `tests/test_market_regime_contract.py`; extrahierte Dateigrößen stimmten mit den ZIP-Einträgen überein.
+- Staging- und Testextraktionsverzeichnis nach erfolgreicher Prüfung vollständig entfernt.
+
+### Bekannte Fehler
+
+- KP-028 neu dokumentiert: Windows PowerShell `Compress-Archive` ließ das versteckte `.git` trotz korrekter Staging-Kopie aus. Für vollständige Repository-Backups ist deshalb die geprüfte .NET-ZIP-Methode erforderlich, wenn 7-Zip fehlt.
+- Das Backup wurde während des laufenden observer-only Betriebs aus einer kontrollierten Staging-Kopie erstellt. Stark veränderliche Runtime-Dateien entsprechen ihrem jeweiligen Kopierzeitpunkt; Quellcode, `.git`, Dokumentation und Tests sind konsistent enthalten.
+
+### Getroffene Architekturentscheidungen
+
+- Keine Produkt- oder Laufzeitarchitektur geändert.
+- Keine Runtime-, History-, Lern-, Token- oder Konfigurationsdatei gelöscht oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Die drei verpflichtenden Handover-Dokumentänderungen dieser Backup-Aufgabe entstanden nach der Staging-Kopie und sind deshalb nicht Bestandteil dieses ZIP-Zeitpunkts; der zuvor dokumentierte Entwicklungsstand ist enthalten.
+- Backup ist lokal auf dem Desktop und wurde nicht zu GitHub oder einem externen Speicher übertragen.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PandorickKi unverändert weiterlaufen lassen. Das geprüfte Desktop-Backup als lokalen Wiederherstellungspunkt behalten; am 17. August 2026 den siebentägigen Stock-Verification-Lauf kontrolliert und rein deskriptiv auswerten.
+
+## Aktuelle Aufgabe: PR #24 mergen und Market Regime v1 kontrolliert produktiv verifizieren
+
+### Datum und Uhrzeit
+
+14. August 2026, 11:25 Uhr, Europe/Berlin (`+02:00`)
+
+### Ziel der Aufgabe
+
+Nach ausdrücklicher Benutzerfreigabe den vollständig geprüften Market-Regime-PR #24 nach `main` mergen, PandorickKi kontrolliert auf dem neuen `main` neu starten und den observer-only Regimepfad über mehrere vollständige Livezyklen prüfen. Stock-Verification-Vertrag, Telegram-Sperre und Order-Sperre mussten unverändert bleiben.
+
+### Durchgeführte Arbeiten
+
+- PR #24 unmittelbar vor dem Merge nochmals auf erwarteten Head, Basis, Konfliktfreiheit und Scope geprüft.
+- PR #24 aus Draft genommen und per normalem Merge-Commit nach `main` gemergt; kein Rebase, kein Force-Push und kein Branch-Löschen.
+- GitHub-Merge als PR #24, Status `MERGED`, Mergezeit `2026-08-14T09:00:39Z` und Merge-Commit `e7718c81613957d480653e89a2f82db686958b0d` verifiziert.
+- Alten Produktionsprozess über `POST /api/control/stop` kontrolliert beendet und Portfreigabe geprüft.
+- Lokalen Branch `main` per Fast-Forward auf `origin/main`/`e7718c8` aktualisiert.
+- Runtime-Preflight mit der Projekt-`.venv` erfolgreich ausgeführt.
+- Ersten Neustartversuch innerhalb der eingeschränkten Codex-Umgebung nach eindeutigem `WinError 10013` für Binance/Bitget kontrolliert beendet. Keine Produktkonfiguration wurde geändert.
+- PandorickKi anschließend mit normalem Netzwerkzugriff und unveränderten 60/60-Gate-, Stock-Verification-, Telegram- und Order-Sicherheitswerten neu gestartet; zusätzlich ausschließlich `PANDORICKKI_MARKET_REGIME_OBSERVER_ENABLED=1` aktiviert.
+- Vier vollständige Crypto- und Stockzyklen live beobachtet und Regime-API, öffentliche Payloads, Control-Center-Markierung, Queue, Health, STALE, Fehler, Telegram, Orders und Verification-Fingerprint geprüft.
+
+### Veränderte Dateien
+
+- `docs/SESSION_HANDOVER.md`
+- `docs/KNOWN_PROBLEMS.md`
+- `docs/NEXT_STEPS.md`
+
+### Neue Dateien
+
+- Keine.
+
+### Ausgeführte Befehle
+
+- `gh pr ready 24`, `gh pr merge 24 --merge --match-head-commit ...`, `gh pr view 24 --json ...`
+- `git status`, `git switch main`, `git merge --ff-only origin/main`, `git rev-parse`, `git rev-list`
+- `.venv\Scripts\python.exe scripts\runtime_preflight.py`
+- `POST /api/control/stop` sowie wiederholte GET-Prüfungen von `/api/health`, `/api/status`, `/api/config/public`, `/api/v1/regime/current` und `/api/v1/regime/statistics`
+- Verbotene-Felder-Prüfung der öffentlichen Regime-Payload und statische Prüfung der ausgelieferten Control-Center-Seite auf den Market-Regime-Bereich
+
+### Ausgeführte Tests und tatsächliche Testergebnisse
+
+- Bereits vor dem Merge auf exakt dem gemergten Head: unmittelbare vollständige Wiederholung 318/318 bestanden; JavaScript-Syntax, Python-Kompilierung, Diff-, Scope-, Secret- und Merge-Simulation bestanden.
+- Runtime-Preflight nach Merge: bestanden mit Python 3.12.13 und erkanntem Legacy-Crypto-Pfad.
+- Kontrollierter Produktivlauf: vier vollständige Crypto- und vier vollständige Stockzyklen; am Ende Plattform und alle Services `OK`, Sitzungsfehler 0, STALE 0.
+- Crypto: 3/3 Live-Symbole pro Zyklus, aktuelle Binance-Preise, `last_error=null`.
+- Stock: 5 Ergebnisse je Zyklus; im zweiten dokumentierten Zyklus 3 `READY`, 2 `BLOCKED`, 4 Candle-Erfolge und 1 erwarteter `SPCX`-Fehler.
+- Market Regime: Observer `OK`, Worker aktiv, Queue 0/512, 13 Batches nach vier Zyklen, acht aktuelle Symbole und 21 append-only History-Snapshots.
+- Aktuelle Crypto-Regimes: BTCUSDT und ETHUSDT `STRONG_DOWN + HIGH + WEAKENING`, XRPUSDT `STRONG_DOWN + MEDIUM + WEAKENING`, jeweils Quality `OK`, Timeframe `15m`.
+- Aktuelle Stock-Regimes: MSFT `UP + HIGH + WEAKENING`, NVDA `UP + LOW + WEAKENING`, TSLA `DOWN + LOW + REVERSAL`, AAPL sicher teilweise `UNKNOWN`, SPCX vollständig `UNKNOWN`/`REJECTED`, jeweils nur echte `1d`-Daten.
+- Öffentliche Regime-Payload: keine Candles, Features, `raw_result`, Stock-Shadow-/Audit-/Candle-Felder oder Secrets; alle acht Snapshots `OBSERVER_ONLY`, `affects_active_decision=false`, `ready_for_telegram=false`, `order_execution_allowed=false`.
+- Telegram: `enabled=false`, `dry_run=true`, `messages_sent=0`. Stock-Verification: weiterhin aktiv, observer-only und Fingerprint unverändert `3d23f923d6b9d9dc3019457afcb078591b5d8c8b4d1f4f4db55911724fa71747`.
+
+### Bekannte Fehler
+
+- KP-026 bleibt offen: 21 kurze Live-Snapshots sind keine fachliche Schwellenvalidierung und decken noch keine unabhängigen Marktphasen ab.
+- KP-020 wurde beim ersten eingeschränkten Start erneut bestätigt: Sandbox-Prozesse dürfen öffentliche Marktdaten-Sockets nicht öffnen. Der kontrollierte Neustart mit Netzwerkfreigabe läuft seitdem fehlerfrei.
+- KP-019 bleibt als sporadischer Windows-Test-Cleanupfehler dokumentiert; in dieser Aufgabe wurde kein neuer Unit-Testlauf benötigt, weil exakt der zuvor vollständig geprüfte Head gemergt wurde.
+
+### Getroffene Architekturentscheidungen
+
+- Market Regime v1 ist nun Bestandteil von `main`, bleibt aber strikt observer-only und ohne Kante zu Decision Core, Shadow Gate, Outcomes, Telegram oder Orders.
+- Der sieben Tage laufende Stock-Verification-Vertrag wurde über den Neustart hinweg unverändert erhalten.
+- Keine Runtime-, History-, Lern-, Ledger- oder Konfigurationsdaten wurden gelöscht oder umgeschrieben.
+
+### Nicht abgeschlossene Punkte
+
+- Die längere unabhängige Regime-Coverage und spätere Outcome-Auswertung fehlen weiterhin.
+- Keine Regime-Schwelle wurde kalibriert; keine automatische Regime-zu-Decision-Regel wurde eingeführt.
+- Der freigegebene Stock-Verification-Lauf soll erst nach mindestens sieben Tagen am 17. August 2026 deskriptiv ausgewertet werden.
+
+### Exakter nächster sinnvoller Arbeitsschritt
+
+PandorickKi auf `main` unverändert observer-only weiterlaufen lassen. Am 17. August 2026 zuerst den sieben Tage umfassenden Stock-Verification-Zeitraum kontrolliert beenden und dedupliziert/deskriptiv auswerten; parallel darf Regime-Coverage nur gesammelt, aber weder automatisch gefittet noch mit Decision Core, Telegram oder Orders gekoppelt werden.
+
 ## Aktuelle Aufgabe: PR #23 mergen und PR #24 auf main umstellen
 
 ### Datum und Uhrzeit

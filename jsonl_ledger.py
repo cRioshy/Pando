@@ -6,8 +6,91 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import RLock
+from threading import Lock, RLock
 from typing import Any
+
+
+_PROCESS_LEDGER_LOCKS: set[str] = set()
+_PROCESS_LEDGER_LOCKS_GUARD = Lock()
+
+
+class LedgerLockUnavailableError(RuntimeError):
+    """Raised when another adapter or process owns an exclusive ledger lock."""
+
+
+class ExclusiveFileLock:
+    """Hold a non-blocking process and OS lock for one ledger lifetime."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self._key = os.path.normcase(str(self.path.resolve(strict=False)))
+        self._handle: Any | None = None
+
+    @property
+    def acquired(self) -> bool:
+        return self._handle is not None
+
+    def acquire(self) -> None:
+        if self._handle is not None:
+            return
+        with _PROCESS_LEDGER_LOCKS_GUARD:
+            if self._key in _PROCESS_LEDGER_LOCKS:
+                raise LedgerLockUnavailableError(f"ledger lock already held: {self.path}")
+            _PROCESS_LEDGER_LOCKS.add(self._key)
+
+        handle: Any | None = None
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            handle = self.path.open("a+b")
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+                os.fsync(handle.fileno())
+            handle.seek(0)
+            _lock_file_handle(handle)
+            self._handle = handle
+        except BaseException:
+            if handle is not None:
+                handle.close()
+            with _PROCESS_LEDGER_LOCKS_GUARD:
+                _PROCESS_LEDGER_LOCKS.discard(self._key)
+            raise
+
+    def release(self) -> None:
+        handle = self._handle
+        if handle is None:
+            return
+        self._handle = None
+        try:
+            handle.seek(0)
+            _unlock_file_handle(handle)
+        finally:
+            handle.close()
+            with _PROCESS_LEDGER_LOCKS_GUARD:
+                _PROCESS_LEDGER_LOCKS.discard(self._key)
+
+
+def _lock_file_handle(handle: Any) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        return
+    import fcntl
+
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_file_handle(handle: Any) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+    import fcntl
+
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 class RotatingJsonlLedger:
