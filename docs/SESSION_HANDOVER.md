@@ -4,7 +4,7 @@
 
 ### Datum und Uhrzeit
 
-17. August 2026, 19:58 Uhr, Europe/Berlin (`+02:00`)
+17. August 2026, 20:06 Uhr, Europe/Berlin (`+02:00`)
 
 ### Ziel der Aufgabe
 
@@ -25,6 +25,8 @@ Den freigegebenen siebentägigen Stock-Verification-Erfassungslauf mit einem fin
 - Geprüftes AFTER-Backup aus gestoppter Runtime erstellt. Die erste Pflichtprüfung verwendete fälschlich Slash-Namen, während .NET unter Windows Backslashes lieferte; das bereits vollständig gestreamte Archiv wurde nicht ungeprüft akzeptiert. Separator-normalisierte Prüfung und Testextraktion bestätigten danach den vollständigen Inhalt. Staging und Testextraktion wurden erst anschließend entfernt.
 - Genau eine neue Instanz mit Verification `DRAIN`, Telegram aus/Dry-Run und sicheren Observerwerten gestartet. `VERIFICATION_CREATED` und kanonische Fallzahl blieben exakt 19.164; 32 bestehende Fälle wurden abgeschlossen, `COMPLETED` 13.615 → 13.647 und `PENDING` 1.692 → 1.660. Historische Zusatz-Completions blieben 194, JSON-Fehler null.
 - DRAIN-Prozess kontrolliert gestoppt: Portfreigabe nach 1,961 Sekunden, Prozess vollständig beendet, Ledger quieszent.
+- Abschlussdokumentation separat als Commit `e2ae21f Document verification stabilization handover` gesichert.
+- Branch `agent/verification-stabilization` ausschließlich auf `origin` (`https://github.com/cRioshy/Pando.git`) gepusht und Draft-PR #25 gegen `main` erstellt: `https://github.com/cRioshy/Pando/pull/25`. GitHub bestätigt `OPEN`, `isDraft=true`, Basis `main` und Head `agent/verification-stabilization`; es wurde nichts gemergt.
 
 ### Veränderte Dateien
 
@@ -91,13 +93,13 @@ Den freigegebenen siebentägigen Stock-Verification-Erfassungslauf mit einem fin
 
 ### Nicht abgeschlossene Punkte
 
-- Abschlussdokumentations-Commit, Push und Draft-PR werden unmittelbar nach dieser Übergabe erstellt; `main` bleibt unverändert und der PR darf nicht gemergt werden.
+- Der Veröffentlichungsnachtrag dieser Übergabe wird als letzter reiner Dokumentations-Commit auf denselben Branch gepusht; Draft-PR #25 bleibt ungemergt und `main` bleibt bei `e7718c81613957d480653e89a2f82db686958b0d`.
 - 1.660 Verification-Fälle bleiben `PENDING`; DRAIN wurde nach der kurzen erfolgreichen Invariantenprüfung bewusst wieder gestoppt.
 - Keine kanonisch deduplizierte fachliche Auswertung, Kalibrierung oder Research View begonnen.
 
 ### Exakter nächster sinnvoller Arbeitsschritt
 
-Branch und Commit-Scope nochmals prüfen, diese Abschlussdokumentation separat committen, `agent/verification-stabilization` auf den korrekten Remote `https://github.com/cRioshy/Pando.git` pushen und einen Draft-PR gegen `main` erstellen. Nicht mergen. Danach nur nach ausdrücklicher Freigabe DRAIN erneut starten, um die verbleibenden 1.660 Pending-Fälle weiter abzubauen; erst nach ausreichendem Abschlussbestand eine deduplizierte rein deskriptive Auswertung planen.
+Draft-PR #25 prüfen und ausdrücklich nicht mergen. Danach nur nach ausdrücklicher Freigabe DRAIN erneut starten, um die verbleibenden 1.660 Pending-Fälle weiter abzubauen; erst nach ausreichendem Abschlussbestand eine deduplizierte rein deskriptive Auswertung planen.
 
 ## Aktuelle Aufgabe: vollständiges Desktop-Backup `pandorickbacktooback.zip`
 

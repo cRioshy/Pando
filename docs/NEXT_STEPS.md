@@ -11,7 +11,7 @@ Stand: 17. August 2026
 - **Tests:** 47/47 gezielte und 325/325 vollständige Tests bestanden; Python-Kompilierung, JavaScript-Syntax und Diffprüfung bestanden.
 - **AFTER-Backup bestanden:** `C:\Users\Admin\Desktop\PandorickBackUp_2026-08-17_19-29-44_AFTER.zip`, 1.587.549.058 Byte, 1.313 Einträge, SHA-256 `E9378D017F235219FA78B84ACEA9DBB0EF738E7EFEADFBEBB9454A21B17B5CAD`; vollständiger Stream-Test und zentrale Testextraktion bestanden.
 - **DRAIN-Smoke bestanden:** Fall-/Creation-Zähler konstant 19.164; 32 bestehende Fälle abgeschlossen, `COMPLETED` 13.615 → 13.647, `PENDING` 1.692 → 1.660, historische Zusatz-Completions konstant 194, JSON-Fehler 0. Telegram aus/Dry-Run/0 Sendungen, Orders gesperrt. Stop gab Port in 1,961 Sekunden frei.
-- **Jetzt:** Abschlussdokumentation separat committen, Branch pushen und Draft-PR gegen `main` erstellen; nicht mergen.
+- **Veröffentlicht:** Branch `agent/verification-stabilization`, Head zunächst `e2ae21f`, wurde auf `origin` gepusht; Draft-PR #25 (`https://github.com/cRioshy/Pando/pull/25`) ist `OPEN` und `isDraft=true` gegen `main`. Nicht mergen.
 - **Nächster fachlicher Schritt:** DRAIN nur nach ausdrücklicher Freigabe erneut starten und den verbleibenden Pending-Bestand kontrolliert abbauen. Erst danach eine kanonisch deduplizierte, rein deskriptive Verification-Auswertung planen; noch keine Kalibrierung, Research View, Gate-, Telegram- oder Orderkopplung beginnen.
 
 ## Lokaler Wiederherstellungspunkt
